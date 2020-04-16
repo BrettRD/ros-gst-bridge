@@ -12100,11 +12100,13 @@ if test -n "$GST_CFLAGS"; then
   gstreamer-1.0 >= \$GST_REQUIRED
   gstreamer-base-1.0 >= \$GST_REQUIRED
   gstreamer-controller-1.0 >= \$GST_REQUIRED
+  gstreamer-audio-1.0 >= \$GST_REQUIRED
 \""; } >&5
   ($PKG_CONFIG --exists --print-errors "
   gstreamer-1.0 >= $GST_REQUIRED
   gstreamer-base-1.0 >= $GST_REQUIRED
   gstreamer-controller-1.0 >= $GST_REQUIRED
+  gstreamer-audio-1.0 >= $GST_REQUIRED
 ") 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
@@ -12113,6 +12115,7 @@ if test -n "$GST_CFLAGS"; then
   gstreamer-1.0 >= $GST_REQUIRED
   gstreamer-base-1.0 >= $GST_REQUIRED
   gstreamer-controller-1.0 >= $GST_REQUIRED
+  gstreamer-audio-1.0 >= $GST_REQUIRED
 " 2>/dev/null`
 		      test "x$?" != "x0" && pkg_failed=yes
 else
@@ -12129,11 +12132,13 @@ if test -n "$GST_LIBS"; then
   gstreamer-1.0 >= \$GST_REQUIRED
   gstreamer-base-1.0 >= \$GST_REQUIRED
   gstreamer-controller-1.0 >= \$GST_REQUIRED
+  gstreamer-audio-1.0 >= \$GST_REQUIRED
 \""; } >&5
   ($PKG_CONFIG --exists --print-errors "
   gstreamer-1.0 >= $GST_REQUIRED
   gstreamer-base-1.0 >= $GST_REQUIRED
   gstreamer-controller-1.0 >= $GST_REQUIRED
+  gstreamer-audio-1.0 >= $GST_REQUIRED
 ") 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
@@ -12142,6 +12147,7 @@ if test -n "$GST_LIBS"; then
   gstreamer-1.0 >= $GST_REQUIRED
   gstreamer-base-1.0 >= $GST_REQUIRED
   gstreamer-controller-1.0 >= $GST_REQUIRED
+  gstreamer-audio-1.0 >= $GST_REQUIRED
 " 2>/dev/null`
 		      test "x$?" != "x0" && pkg_failed=yes
 else
@@ -12167,12 +12173,14 @@ fi
   gstreamer-1.0 >= $GST_REQUIRED
   gstreamer-base-1.0 >= $GST_REQUIRED
   gstreamer-controller-1.0 >= $GST_REQUIRED
+  gstreamer-audio-1.0 >= $GST_REQUIRED
 " 2>&1`
         else
 	        GST_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "
   gstreamer-1.0 >= $GST_REQUIRED
   gstreamer-base-1.0 >= $GST_REQUIRED
   gstreamer-controller-1.0 >= $GST_REQUIRED
+  gstreamer-audio-1.0 >= $GST_REQUIRED
 " 2>&1`
         fi
 	# Put the nasty error message in config.log where it belongs
