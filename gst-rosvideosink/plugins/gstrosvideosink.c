@@ -39,6 +39,10 @@
 #include <gst/video/gstvideosink.h>
 #include "gstrosvideosink.h"
 
+//#include "ros/ros.h"
+//#include "std_msgs/String.h"
+
+
 GST_DEBUG_CATEGORY_STATIC (gst_rosvideosink_debug_category);
 #define GST_CAT_DEFAULT gst_rosvideosink_debug_category
 
