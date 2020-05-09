@@ -1,5 +1,0 @@
-{ global:
-gst_plugin_rosaudiosink_get_desc;
-gst_plugin_rosaudiosink_register;
-gst_rosaudiosink_get_type;
-local: *; };

@@ -12,31 +12,6 @@ find_package(catkin REQUIRED)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
-
-
-
-
-include(ExternalProject)
-set(ROSAUDIOSINK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/gst-rosaudiosink)
-#set(ROSAUDIOSINK_BIN ${CMAKE_CURRENT_BINARY_DIR}/gst-rosaudiosink)
-ExternalProject_Add(
-    SOURCE_DIR ${ROSAUDIOSINK_DIR}
-    gst-rosaudiosink
-    BUILD_COMMAND make
-)
-#    #CONFIGURE_COMMAND ${ROSAUDIOSINK_DIR}/configure --srcdir=${ROSAUDIOSINK_DIR} --prefix=${ROSAUDIOSINK_BIN} --enable-static=yes --disable-shared
-#    INSTALL_COMMAND make install
-
-
-#add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/gst-rosaudiosink/plugins/gstrosaudiosink.so
-#                   COMMAND make run
-#                   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gst-rosaudiosink
-#)
-
-
-
-
-
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
@@ -169,6 +144,9 @@ include_directories(
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
+
+## GStreamer Plugin
+#add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/gst-rosaudiosink)
 
 #############
 ## Install ##
