@@ -1,10 +1,9 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.10)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 project(rosaudiosink)
 
 find_package(GStreamer 1.0)
-find_package(GStreamerPluginsBase)
 find_package(GLIB2)
 find_package(GObject)
 
