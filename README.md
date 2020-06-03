@@ -14,5 +14,21 @@ ROS should be at least capable of handling data from one gstreamer pipeline into
 * a flexible intermediate node needs to exist to hold the pipeline and handle pipeline events.
 
 ## Issues:
-* Invoking autotools from cmake
 * Pulling dependencies (message .h files) from ROS into gstreamer
+
+
+## Planned use cases:
+### Teleoperation through a NAT
+### Sharing of topics between multiple robots on multiple networks
+
+
+## Architecture:
+### Pipeline node
+mapping between the ROS node and the gstreamer pipeline.
+This node handles some whole-pipeline diagnostics and holds some of the boilerplate of the pipeline itself
+### Webrtc client (pipeline generators)
+This module creates the webrtc gstreamer element and links it to the pipeline, creating new elements as needed.
+### Signalling client
+This is a subset of the webrtc event handlers, the events that facilitate peer discovery and establishment of STUN/TURN session
+### Topic bridges
+logic that maps between gstreamer events and ROS messages/services
