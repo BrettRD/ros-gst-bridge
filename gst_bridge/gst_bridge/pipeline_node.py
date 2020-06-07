@@ -62,12 +62,13 @@ def main(args=None):
 
   server = 'wss://webrtc.nirbheek.in:8443'
   node_id = 5032
-  peer_id = 4286
+  peer_id = 3717
 
 
   # transport for webrtc signalling
   node.get_logger().info("Creating transport")
   webrtc_transport = webrtc_transport_ws(node, node_id, peer_id, server)
+  # connect to the server before trying to negotiate links
   loop.run_until_complete(webrtc_transport.connect())
 
   # signalling logic for webrtc bin
@@ -81,23 +82,26 @@ def main(args=None):
   pipe_node.add_section(webrtc_segment)
   pipe_node.start_pipeline()
 
-
   # XXX surely each object can assign async tasks internally
-  #loop.create_task(pipe_node.async_task)  # diagnostics
-  loop.create_task(pipe_node.async_task())  # diagnostics
+  loop.create_task(webrtc_transport.loop())
   
-  loop.run_until_complete(webrtc_transport.loop())
+  
+  # basic test case for a pipeline
+  #  simple_segment = Simplebin(node, 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink', 'test_bin_thing')
+  #  pipe_node.add_section(simple_segment)
+  #  pipe_node.start_pipeline()
+  #  loop.run_until_complete(pipe_node.async_task())  # diagnostics
 
-  #loop.create_task(webrtc_transport.async_task) # websockets
-  #  res = loop.run_until_complete(c.loop())
 
-  #loop = GLib.MainLoop()
+  loop.run_until_complete(pipe_node.async_task())  # diagnostics
+
+  
+  
+    #loop = GLib.MainLoop()
   #GLib.timeout_add(100, rosspin)
   #loop.run()
 
   node.get_logger().warn('fell off the bottom')
-  #rospy.spin()
-  #while not rospy.is_shutdown():
-
+  
 if __name__ == '__main__':
   main()

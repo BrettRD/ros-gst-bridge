@@ -23,7 +23,7 @@ video_src_bin_descr = ' videotestsrc is-live=true pattern=ball ! videoconvert ! 
 webrtc_descr = 'webrtcbin name=' + webrtc_name + ' bundle-policy=max-bundle stun-server=' + stun_server + ' '
 webrtc_descr = webrtc_descr + '\n ' + video_src_bin_descr + '\n ' + audio_src_bin_descr
 
-video_sink_bin_descr = ' queue ! videoconvert ! autovideosink'
+video_sink_bin_descr = ' queue ! videoconvert ! ximagesink'
 audio_sink_bin_descr = ' queue ! audioconvert ! audioresample ! autoaudiosink'
 
 
