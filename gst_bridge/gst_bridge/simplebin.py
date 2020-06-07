@@ -2,18 +2,20 @@ import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib, GObject
 
-import roslib
-roslib.load_manifest('diagnostic_updater')
-import rospy
+import rclpy
+from rclpy.node import Node
+
+import std_msgs
 import diagnostic_updater
 import diagnostic_msgs
-import std_msgs
+
 
 
 
 class Simplebin:
-  def __init__(self, bin_description, _name):
-    self.name = _name
+  def __init__(self, node_, bin_description, name_):
+    self.node = node_
+    self.name = name_
     self.bin = Gst.parse_bin_from_description(bin_description, False)
     self.bin.name = self.name
     self.diagnostics = diagnostic_updater.FunctionDiagnosticTask(self.name + ' Status', self.diagnostic_task)
