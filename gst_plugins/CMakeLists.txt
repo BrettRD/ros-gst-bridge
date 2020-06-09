@@ -77,11 +77,13 @@ target_link_libraries(gstrosaudiosink PUBLIC
 install(TARGETS gstrosaudiosink
   DESTINATION lib/${PROJECT_NAME}
 )
-# LIBRARY DESTINATION "~/.local/share/gstreamer-1.0"
+# DESTINATION "~/.local/share/gstreamer-1.0"
 # you may have to set
 # GST_PLUGIN_SYSTEM_PATH="$HOME/.local/share/gstreamer-1.0"
-# check that your gstreamer can find it with gst-inspect-1.0 gstrosaudiosink
-
+# check that your gstreamer can find it with 
+#     gst-inspect-1.0 gstrosaudiosink
+# currently exists in colcon default install location so from the workspace:
+#   gst-inspect-1.0 install/gst_plugins/lib/gst_plugins/libgstrosaudiosink.so
 
 ament_package(
   CONFIG_EXTRAS

@@ -26,15 +26,14 @@ from gst_bridge.webrtc_transport_ws import webrtc_transport_ws
 #import webrtc_transport_ws
 
 
-
 import asyncio
 import asyncio_glib
 
 
-def check_plugins():
+def check_plugins(registry):
   needed = ["opus", "vpx", "nice", "webrtc", "dtls", "srtp", "rtp",
-    "rtpmanager", "videotestsrc", "audiotestsrc"]
-  missing = list(filter(lambda p: Gst.Registry.get().find_plugin(p) is None, needed))
+    "rtpmanager", "videotestsrc", "audiotestsrc", "rosaudiosink"]
+  missing = list(filter(lambda p: registry.get().find_plugin(p) is None, needed))
   if len(missing):
     print('Missing gstreamer plugins:', missing)
     return False
@@ -43,16 +42,39 @@ def check_plugins():
   return True
 
 
+
+
+def plugin_added(registry, plugin):
+  print('plugin added')
+  print(plugin.get_name())
+  print(plugin.get_filename())
+  print(plugin.get_description())
+  if None == plugin.load():
+    print('load error')
+
+
+
+
 def main(args=None):
   rclpy.init()
   GObject.threads_init()
   Gst.init(None)
 
+  registry = Gst.Registry()
+  registry.connect('plugin-added', plugin_added)
+
+
+  if registry.scan_path('install/gst_plugins/lib/gst_plugins'):
+    print('registry changed')
+  else:
+    print('nothing found?')
+
+
   #asyncio.set_event_loop_policy(asyncio_glib.GLibEventLoopPolicy())
   # asyncio-glib get_event_loop() returns a GLib event loop 
   loop = asyncio.get_event_loop()
 
-  if not check_plugins():
+  if not check_plugins(registry):
     exit(1)
 
 
