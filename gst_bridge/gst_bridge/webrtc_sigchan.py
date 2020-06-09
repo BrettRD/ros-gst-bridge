@@ -17,40 +17,6 @@ import diagnostic_msgs
 
 
 
-# XXX at least try to make case consistent
-
-# missing string conversions from GstWebRTC
-# XXX double check that these functions really don't exist in GstWebRTC
-def WebRTCSignalingState_to_str(state):
-  if state == GstWebRTC.WebRTCSignalingState.STABLE:
-    state_str = "STABLE"
-  elif state == GstWebRTC.WebRTCSignalingState.CLOSED:
-    state_str = "CLOSED"
-  elif state == GstWebRTC.WebRTCSignalingState.HAVE_LOCAL_OFFER:
-    state_str = "HAVE_LOCAL_OFFER"
-  elif state == GstWebRTC.WebRTCSignalingState.HAVE_REMOTE_OFFER:
-    state_str = "HAVE_REMOTE_OFFER"
-  elif state == GstWebRTC.WebRTCSignalingState.HAVE_LOCAL_PRANSWER:
-    state_str = "HAVE_LOCAL_PRANSWER"
-  elif state == GstWebRTC.WebRTCSignalingState.HAVE_REMOTE_PRANSWER:
-    state_str = "HAVE_REMOTE_PRANSWER"
-  else:
-    state_str = "UNKNOWN"
-  return state_str
-
-def parse_WebRTCSDPType(sdp_type_str):
-  if sdp_type_str == GstWebRTC.WebRTCSDPType.to_string(GstWebRTC.WebRTCSDPType.OFFER):
-    sdp_type = GstWebRTC.WebRTCSDPType.OFFER
-  elif sdp_type_str == GstWebRTC.WebRTCSDPType.to_string(GstWebRTC.WebRTCSDPType.PRANSWER):
-    sdp_type = GstWebRTC.WebRTCSDPType.PRANSWER
-  elif sdp_type_str == GstWebRTC.WebRTCSDPType.to_string(GstWebRTC.WebRTCSDPType.ANSWER):
-    sdp_type = GstWebRTC.WebRTCSDPType.ANSWER
-  elif sdp_type_str == GstWebRTC.WebRTCSDPType.to_string(GstWebRTC.WebRTCSDPType.ROLLBACK):
-    sdp_type = GstWebRTC.WebRTCSDPType.ROLLBACK
-  else:  #sdp_type_str == "unknown"
-    sdp_type = None
-  return sdp_type
-
 
 class webrtc_sigchan:
   
@@ -64,7 +30,7 @@ class webrtc_sigchan:
 
 
   def diagnostic_task(self, stat):
-    stat.summary(diagnostic_msgs.msg.DiagnosticStatus.OK, 'eh?')
+    stat.summary(diagnostic_msgs.msg.DiagnosticStatus.OK, 'sig_logic')
     stat.add('webrtc element exists', str(self.webrtc != None))
     sig_state = "Nope"
     if self.webrtc != None:
@@ -175,3 +141,40 @@ class webrtc_sigchan:
     self.node.get_logger().info('ice candidate added')
 
 
+
+
+# XXX at least try to make case consistent
+
+# missing string conversions from GstWebRTC
+# XXX double check that these functions really don't exist in GstWebRTC
+def WebRTCSignalingState_to_str(state):
+  if state == GstWebRTC.WebRTCSignalingState.STABLE:
+    state_str = 'stable'
+  elif state == GstWebRTC.WebRTCSignalingState.CLOSED:
+    state_str = 'closed'
+  elif state == GstWebRTC.WebRTCSignalingState.HAVE_LOCAL_OFFER:
+    state_str = 'have local offer'
+  elif state == GstWebRTC.WebRTCSignalingState.HAVE_REMOTE_OFFER:
+    state_str = 'have remote offer'
+  elif state == GstWebRTC.WebRTCSignalingState.HAVE_LOCAL_PRANSWER:
+    state_str = 'have local pranswer'
+  elif state == GstWebRTC.WebRTCSignalingState.HAVE_REMOTE_PRANSWER:
+    state_str = 'have remote pranswer'
+  else:
+    state_str = 'unknown'
+  return state_str
+
+
+# XXX excessively brittle?
+def parse_WebRTCSDPType(sdp_type_str):
+  if sdp_type_str == GstWebRTC.WebRTCSDPType.to_string(GstWebRTC.WebRTCSDPType.OFFER):
+    sdp_type = GstWebRTC.WebRTCSDPType.OFFER
+  elif sdp_type_str == GstWebRTC.WebRTCSDPType.to_string(GstWebRTC.WebRTCSDPType.PRANSWER):
+    sdp_type = GstWebRTC.WebRTCSDPType.PRANSWER
+  elif sdp_type_str == GstWebRTC.WebRTCSDPType.to_string(GstWebRTC.WebRTCSDPType.ANSWER):
+    sdp_type = GstWebRTC.WebRTCSDPType.ANSWER
+  elif sdp_type_str == GstWebRTC.WebRTCSDPType.to_string(GstWebRTC.WebRTCSDPType.ROLLBACK):
+    sdp_type = GstWebRTC.WebRTCSDPType.ROLLBACK
+  else:  #sdp_type_str == "unknown"
+    sdp_type = None
+  return sdp_type

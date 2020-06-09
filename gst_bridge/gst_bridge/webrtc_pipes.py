@@ -18,13 +18,13 @@ import diagnostic_msgs
 #XXX collect some of these from ros parameter server
 webrtc_name = 'sendrecv'
 stun_server = 'stun://stun.l.google.com:19302'
-audio_src_bin_descr = ' audiotestsrc is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay ! application/x-rtp,media=audio,encoding-name=OPUS,payload=96 ! queue ! ' + webrtc_name + '. '
+audio_src_bin_descr = ' audiotestsrc volume=0.3 is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay ! application/x-rtp,media=audio,encoding-name=OPUS,payload=96 ! queue ! ' + webrtc_name + '. '
 video_src_bin_descr = ' videotestsrc is-live=true pattern=ball ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay ! application/x-rtp,media=video,encoding-name=VP8,payload=97 ! queue ! ' + webrtc_name + '. '
 webrtc_descr = 'webrtcbin name=' + webrtc_name + ' bundle-policy=max-bundle stun-server=' + stun_server + ' '
 webrtc_descr = webrtc_descr + '\n ' + video_src_bin_descr + '\n ' + audio_src_bin_descr
 
-video_sink_bin_descr = ' queue ! videoconvert ! ximagesink'
-audio_sink_bin_descr = ' queue ! audioconvert ! audioresample ! autoaudiosink'
+video_sink_bin_descr = ' queue ! ximagesink'
+audio_sink_bin_descr = ' queue ! alsasink'
 
 
 class webrtc_pipes:
@@ -59,34 +59,32 @@ class webrtc_pipes:
     
     #audio_src_bin =  Gst.parse_bin_from_description(audio_src_bin_descr, False)
     #audio_src_bin.link(webrtc_bin)
-    #self.audio_src_built = True
     #video_src_bin =  Gst.parse_bin_from_description(video_src_bin_descr, False)
     #video_src_bin.link(webrtc_bin)
-    #self.video_src_built = True
 
+    self.audio_src_built = True
+    self.video_src_built = True
     self.node.get_logger().info("initial webrtc pipes built")
 
     return webrtc_bin
 
 
 
-
   def connect_callbacks(self, webrtc):
     webrtc.connect('pad-added', self.on_incoming_stream)
+    try:
+      webrtc.connect('on-data-channel', self.on_data_channel)
+    except(TypeError):
+      self.node.get_logger().error('data channels are not supported')
     self.chan.connect_callbacks(webrtc)
 
 
-
-
   def diagnostic_task(self, stat):
-    stat.summary(diagnostic_msgs.msg.DiagnosticStatus.OK, 'eh?')
+    stat.summary(diagnostic_msgs.msg.DiagnosticStatus.OK, 'pipes')
     stat.add('audio src built',  str(self.audio_src_built))
     stat.add('video src built',  str(self.video_src_built))
     stat.add('audio sink built', str(self.audio_sink_built))
     stat.add('video sink built', str(self.video_sink_built))
-
-    # attach diagnostic on 'signaling-state' type: Web-rtcsignaling-state 
-    # sig_state = self.webrtc.get_property('signaling-state')
     return stat
 
 
@@ -142,10 +140,35 @@ class webrtc_pipes:
     decodebin = Gst.ElementFactory.make('decodebin')
     decodebin.connect('pad-added', self.on_incoming_decodebin_stream)
     self.bin.add(decodebin)
-    decodebin.sync_state_with_parent()
     element.link(decodebin)
+    # XXX pipeline downstream seems to not start playing at this link
+    decodebin.sync_state_with_parent()
 
 
+
+  def on_data_channel (self, element, data_channel):
+    self.node.get_logger().info("new data channel")
+    data_channel.connect("on-error", self.data_channel_on_error)
+    data_channel.connect("on-open", self.data_channel_on_open)
+    data_channel.connect("on-close", self.data_channel_on_close)
+    data_channel.connect("on-message-string", self.data_channel_on_message_string)
+
+
+
+
+
+  def data_channel_on_error(self, dc):
+    self.node.get_logger().error("data channel error?")
+
+  def data_channel_on_open(self, dc):
+    self.node.get_logger().info('data channel openned, label is "' + dc.label + '"')
+    dc.emit('send-string', "Hi! from GStreamer and ROS")
+
+  def data_channel_on_close(self, dc):
+    self.node.get_logger().info("data channel closed")
+
+  def data_channel_on_message_string(self, dc, msg):
+    self.node.get_logger().info('data channel ' + dc.label + ' says "' + msg + '"')
 
 
 

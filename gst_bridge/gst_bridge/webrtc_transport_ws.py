@@ -18,20 +18,50 @@ import std_msgs
 import diagnostic_updater
 import diagnostic_msgs
 
+from rcl_interfaces.msg import ParameterDescriptor, ParameterType
+
 
 from gst_bridge.webrtc_sigchan import parse_WebRTCSDPType
 
+node_id_param = 'node_id'
+peer_id_param = 'peer_id'
+server_param = 'server'
+
+
 class webrtc_transport_ws:
   
-  def __init__(self, node_, id_, peer_id, server):
-    self.node = node_
-    self.server = server
-    self.id_ = id_
-    self.peer_id = peer_id
+  def __init__(self, node, node_id=None, peer_id=None, server=None):
+    self.node = node
     self.conn = None
     self.diagnostics = diagnostic_updater.FunctionDiagnosticTask('Transport', self.diagnostic_task)
     self.remote_sends_ice_cb = None
     self.remote_sends_sdp_cb = None
+    
+    self.node_id = node_id
+    self.peer_id = peer_id
+    self.server = server
+
+    if self.node_id == None:
+      self.node_id = self.node.declare_parameter(node_id_param).value
+    if self.node_id == None:
+      self.node.get_logger().error('parameter '+ node_id_param + ' not found')
+    
+    if self.peer_id == None:
+      self.peer_id = self.node.declare_parameter(peer_id_param).value
+    if self.peer_id == None:
+      self.node.get_logger().error('parameter '+ peer_id_param + ' not found')
+
+    if self.server == None:
+      self.server = self.node.declare_parameter(server_param).value
+    if self.server == None:
+      self.server = 'wss://webrtc.nirbheek.in:8443'
+
+    self.node.get_logger().info('using node_id "' + str(self.node_id) + '"')
+    self.node.get_logger().info('using peer_id "' + str(self.peer_id) + '"')
+    self.node.get_logger().info('using server "' + self.server + '"')
+
+
+
 
 
   def connect_callbacks(self, _remote_sends_ice_cb, _remote_sends_sdp_cb):
@@ -42,14 +72,10 @@ class webrtc_transport_ws:
 
 
   def diagnostic_task(self, stat):
-    stat.summary(diagnostic_msgs.msg.DiagnosticStatus.OK, 'eh?')
+    stat.summary(diagnostic_msgs.msg.DiagnosticStatus.OK, 'sig_transport')
     stat.add('server connected', str(self.conn != None))
     stat.add('peer found',       str(self.conn != None))
     return stat
-
-
-#  async def async_task(self):
-#      await asyncio.sleep(0.1)
 
 
   async def loop(self):
@@ -82,7 +108,7 @@ class webrtc_transport_ws:
     sslctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
     self.conn = await websockets.connect(self.server, ssl=sslctx)
     self.node.get_logger().info('saying HELLO to remote')
-    await self.conn.send('HELLO %d' % self.id_)
+    await self.conn.send('HELLO %d' % self.node_id)
     async for message in self.conn:
       self.node.get_logger().info('remote says "' + message + '"')
       if message == 'HELLO':

@@ -22,5 +22,5 @@ class Simplebin:
 
   def diagnostic_task(self, stat):
     stat.summary(diagnostic_msgs.msg.DiagnosticStatus.OK, self.name + ' ok')
-    stat.add(self.name + ' State', 'eh?')
+    stat.add(self.name + ' State', 'yes?')
     return stat

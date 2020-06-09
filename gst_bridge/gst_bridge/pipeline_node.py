@@ -55,29 +55,26 @@ def main(args=None):
   if not check_plugins():
     exit(1)
 
-  node = rclpy.create_node('pipeline_node')
 
-  pipe_node = Pipeline(node)
+  pipe_node = Pipeline('pipeline_node')
 
 
-  server = 'wss://webrtc.nirbheek.in:8443'
-  node_id = 5032
-  peer_id = 3717
+
 
 
   # transport for webrtc signalling
-  node.get_logger().info("Creating transport")
-  webrtc_transport = webrtc_transport_ws(node, node_id, peer_id, server)
+  pipe_node.get_logger().info("Creating transport")
+  webrtc_transport = webrtc_transport_ws(pipe_node)
   # connect to the server before trying to negotiate links
   loop.run_until_complete(webrtc_transport.connect())
 
   # signalling logic for webrtc bin
-  node.get_logger().info("Creating signalling")
-  webrtc_channel = webrtc_sigchan(node, webrtc_transport)
+  pipe_node.get_logger().info("Creating signalling")
+  webrtc_channel = webrtc_sigchan(pipe_node, webrtc_transport)
   
   # pipeline bin autoplugger
-  node.get_logger().info("Creating webrtc pipes")
-  webrtc_segment = webrtc_pipes(node, webrtc_channel, "webrtc_thingo")
+  pipe_node.get_logger().info("Creating webrtc pipes")
+  webrtc_segment = webrtc_pipes(pipe_node, webrtc_channel, "webrtc_thingo")
 
   pipe_node.add_section(webrtc_segment)
   pipe_node.start_pipeline()
@@ -101,7 +98,7 @@ def main(args=None):
   #GLib.timeout_add(100, rosspin)
   #loop.run()
 
-  node.get_logger().warn('fell off the bottom')
+  pipe_node.get_logger().warn('fell off the bottom')
   
 if __name__ == '__main__':
   main()
