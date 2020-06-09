@@ -1,0 +1,99 @@
+cmake_minimum_required(VERSION 3.5)
+project(gst_plugins)
+
+
+# Default to C99
+if(NOT CMAKE_C_STANDARD)
+  set(CMAKE_C_STANDARD 99)
+endif()
+
+# Default to C++14
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+
+# find dependencies
+find_package(ament_cmake REQUIRED)
+
+
+
+# find gstreamer
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+find_package(GStreamer 1.0)
+find_package(GLIB2)
+find_package(GObject)
+
+
+
+## Include messages
+#find_package(Sensormsgs/Image REQUIRED)
+#find_package(gst_bridge_msgs/Audio REQUIRED)
+#find_package(gst_bridge_msgs/Image REQUIRED)
+
+
+
+
+## Generate added messages and services with any dependencies listed here
+# rosidl_generate_interfaces(${PROJECT_NAME}
+#   ${msg_files}
+#   DEPENDENCIES std_msgs
+# )
+
+
+###########
+## Build ##
+###########
+
+
+
+
+# This is a gstreamer plugin, not a ros node
+# the install location needs to be found by gst-inspect
+
+add_library(gstrosaudiosink SHARED include/gstrosaudiosink.h src/gstrosaudiosink.c src/gstrosaudiosinkplugin.c)
+
+target_include_directories(gstrosaudiosink PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${GSTREAMER_INCLUDE_DIRS}
+  ${GLIB2_INCLUDE_DIR}
+  ${GOBJECT_INCLUDE_DIR}
+  )
+
+target_link_libraries(gstrosaudiosink PUBLIC
+  ${GSTREAMER_LIBRARY}
+  ${GLIB2_LIBRARIES}
+  ${GOBJECT_LIBRARIES}
+  gstcontroller-1.0
+  gstaudio-1.0
+  gstbase-1.0
+  )
+# note the nonstandard install location for the gst plugin
+install(TARGETS gstrosaudiosink
+  DESTINATION lib/${PROJECT_NAME}
+)
+# LIBRARY DESTINATION "~/.local/share/gstreamer-1.0"
+# you may have to set
+# GST_PLUGIN_SYSTEM_PATH="$HOME/.local/share/gstreamer-1.0"
+# check that your gstreamer can find it with gst-inspect-1.0 gstrosaudiosink
+
+
+ament_package(
+  CONFIG_EXTRAS
+)
+
+
+
+## Add gtest based cpp test target and link libraries
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_gst_bridge.cpp)
+# if(TARGET ${PROJECT_NAME}-test)
+#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+# endif()
+
+## Add folders to be run by python nosetests
+# catkin_add_nosetests(test)
