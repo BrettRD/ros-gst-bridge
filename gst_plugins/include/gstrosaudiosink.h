@@ -21,25 +21,29 @@
 #define _GST_ROSAUDIOSINK_H_
 
 #include <gst/audio/gstaudiosink.h>
+#include "rclcpp/rclcpp.hpp"
+
 
 G_BEGIN_DECLS
 
 #define GST_TYPE_ROSAUDIOSINK   (gst_rosaudiosink_get_type())
-#define GST_ROSAUDIOSINK(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROSAUDIOSINK,GstRosaudiosink))
-#define GST_ROSAUDIOSINK_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_ROSAUDIOSINK,GstRosaudiosinkClass))
+#define GST_ROSAUDIOSINK(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROSAUDIOSINK,Rosaudiosink))
+#define GST_ROSAUDIOSINK_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_ROSAUDIOSINK,RosaudiosinkClass))
 #define GST_IS_ROSAUDIOSINK(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_ROSAUDIOSINK))
 #define GST_IS_ROSAUDIOSINK_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_ROSAUDIOSINK))
 
-typedef struct _GstRosaudiosink GstRosaudiosink;
-typedef struct _GstRosaudiosinkClass GstRosaudiosinkClass;
+typedef struct _Rosaudiosink Rosaudiosink;
+typedef struct _RosaudiosinkClass RosaudiosinkClass;
 
-struct _GstRosaudiosink
+struct _Rosaudiosink
 {
   GstAudioSink base_rosaudiosink;
+  gchar* node_name;
+  gchar* pub_topic;
 
 };
 
-struct _GstRosaudiosinkClass
+struct _RosaudiosinkClass
 {
   GstAudioSinkClass base_rosaudiosink_class;
 };

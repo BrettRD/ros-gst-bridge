@@ -19,22 +19,19 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-
+find_package(rclcpp REQUIRED)
 
 
 # find gstreamer
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-find_package(GStreamer 1.0)
+find_package(GStreamer)
 find_package(GLIB2)
 find_package(GObject)
 
 
-
 ## Include messages
-#find_package(Sensormsgs/Image REQUIRED)
-#find_package(gst_bridge_msgs/Audio REQUIRED)
-#find_package(gst_bridge_msgs/Image REQUIRED)
-
+#find_package(Sensormsgs REQUIRED)
+#find_package(gst_bridge_msgs REQUIRED)
 
 
 
@@ -55,7 +52,14 @@ find_package(GObject)
 # This is a gstreamer plugin, not a ros node
 # the install location needs to be found by gst-inspect
 
-add_library(gstrosaudiosink SHARED include/gstrosaudiosink.h src/gstrosaudiosink.c src/gstrosaudiosinkplugin.c)
+add_library(gstrosaudiosink SHARED include/gstrosaudiosink.h src/gstrosaudiosink.cpp src/gstrosaudiosinkplugin.cpp)
+
+ament_target_dependencies(gstrosaudiosink
+  rclcpp
+  GLIB2
+  GObject
+  GStreamer
+)
 
 target_include_directories(gstrosaudiosink PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -63,16 +67,22 @@ target_include_directories(gstrosaudiosink PRIVATE
   ${GSTREAMER_INCLUDE_DIRS}
   ${GLIB2_INCLUDE_DIR}
   ${GOBJECT_INCLUDE_DIR}
+  rclcpp
+  # gst_bridge_msgs
   )
 
-target_link_libraries(gstrosaudiosink PUBLIC
-  ${GSTREAMER_LIBRARY}
-  ${GLIB2_LIBRARIES}
-  ${GOBJECT_LIBRARIES}
-  gstcontroller-1.0
-  gstaudio-1.0
-  gstbase-1.0
-  )
+# target_link_libraries(gstrosaudiosink PUBLIC
+#   ${GSTREAMER_LIBRARY}
+#   ${GLIB2_LIBRARIES}
+#   ${GOBJECT_LIBRARIES}
+#   gstcontroller-1.0
+#   gstaudio-1.0
+#   gstbase-1.0
+#   rclcpp
+#   )
+
+
+
 # note the nonstandard install location for the gst plugin
 install(TARGETS gstrosaudiosink
   DESTINATION lib/${PROJECT_NAME}

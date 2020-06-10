@@ -61,7 +61,7 @@ plugin_init (GstPlugin * plugin)
 
 
 #ifndef VERSION
-#define VERSION "0.0.FIXME"
+#define VERSION "0.0.0"
 #endif
 #ifndef PACKAGE
 #define PACKAGE "FIXME_package"
@@ -76,6 +76,6 @@ plugin_init (GstPlugin * plugin)
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
     rosaudiosink,
-    "FIXME plugin description",
+    "ROS audio publisher",
     plugin_init, VERSION, "LGPL", PACKAGE_NAME, GST_PACKAGE_ORIGIN)
 
