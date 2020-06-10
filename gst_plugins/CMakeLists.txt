@@ -54,32 +54,28 @@ find_package(GObject)
 
 add_library(gstrosaudiosink SHARED include/gstrosaudiosink.h src/gstrosaudiosink.cpp src/gstrosaudiosinkplugin.cpp)
 
-ament_target_dependencies(gstrosaudiosink
-  rclcpp
-  GLIB2
-  GObject
-  GStreamer
-)
 
+# ament has a habit of pruning unused linked functions required by gstreamer
+# symptom of this is 'undefined symbol: gst_audio_sink_get_type' on gst-inspect
 target_include_directories(gstrosaudiosink PRIVATE
+  ${rclcpp_INCLUDE_DIRS}
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
   ${GSTREAMER_INCLUDE_DIRS}
   ${GLIB2_INCLUDE_DIR}
   ${GOBJECT_INCLUDE_DIR}
-  rclcpp
   # gst_bridge_msgs
   )
 
-# target_link_libraries(gstrosaudiosink PUBLIC
-#   ${GSTREAMER_LIBRARY}
-#   ${GLIB2_LIBRARIES}
-#   ${GOBJECT_LIBRARIES}
-#   gstcontroller-1.0
-#   gstaudio-1.0
-#   gstbase-1.0
-#   rclcpp
-#   )
+target_link_libraries(gstrosaudiosink PUBLIC
+  ${rclcpp_LIBRARIES}
+  ${GSTREAMER_LIBRARY}
+  ${GLIB2_LIBRARIES}
+  ${GOBJECT_LIBRARIES}
+  gstcontroller-1.0
+  gstaudio-1.0
+  gstbase-1.0
+  )
 
 
 

@@ -26,7 +26,7 @@
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_ROSAUDIOSINK   (gst_rosaudiosink_get_type())
+#define GST_TYPE_ROSAUDIOSINK   (rosaudiosink_get_type())
 #define GST_ROSAUDIOSINK(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROSAUDIOSINK,Rosaudiosink))
 #define GST_ROSAUDIOSINK_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_ROSAUDIOSINK,RosaudiosinkClass))
 #define GST_IS_ROSAUDIOSINK(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_ROSAUDIOSINK))
@@ -48,7 +48,7 @@ struct _RosaudiosinkClass
   GstAudioSinkClass base_rosaudiosink_class;
 };
 
-GType gst_rosaudiosink_get_type (void);
+GType rosaudiosink_get_type (void);
 
 G_END_DECLS
 
