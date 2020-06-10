@@ -19,11 +19,6 @@ from gst_bridge.webrtc_pipes import webrtc_pipes
 from gst_bridge.webrtc_sigchan import webrtc_sigchan
 from gst_bridge.webrtc_transport_ws import webrtc_transport_ws
 
-#import Pipeline
-#import Simplebin
-#import webrtc_pipes
-#import webrtc_sigchan
-#import webrtc_transport_ws
 
 
 import asyncio
@@ -45,12 +40,12 @@ def check_plugins(registry):
 
 
 def plugin_added(registry, plugin):
-  print('plugin added')
-  print(plugin.get_name())
-  print(plugin.get_filename())
-  print(plugin.get_description())
+  print('gstreamer plugin added')
+  print('plugin name: "' + plugin.get_name() + '"')
+  print('plugin filename: "' + plugin.get_filename() + '"')
+  print('plugin description: "' + plugin.get_description() + '"')
   if None == plugin.load():
-    print('load error')
+    print('plugin load error')
 
 
 

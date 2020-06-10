@@ -30,9 +30,8 @@ find_package(GObject)
 
 
 ## Include messages
-#find_package(Sensormsgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 #find_package(gst_bridge_msgs REQUIRED)
-
 
 
 ## Generate added messages and services with any dependencies listed here
@@ -59,6 +58,7 @@ add_library(gstrosaudiosink SHARED include/gstrosaudiosink.h src/gstrosaudiosink
 # symptom of this is 'undefined symbol: gst_audio_sink_get_type' on gst-inspect
 target_include_directories(gstrosaudiosink PRIVATE
   ${rclcpp_INCLUDE_DIRS}
+  ${sensor_msgs_INCLUDE_DIRS}
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
   ${GSTREAMER_INCLUDE_DIRS}
@@ -69,6 +69,7 @@ target_include_directories(gstrosaudiosink PRIVATE
 
 target_link_libraries(gstrosaudiosink PUBLIC
   ${rclcpp_LIBRARIES}
+  ${sensor_msgs_LIBRARIES}
   ${GSTREAMER_LIBRARY}
   ${GLIB2_LIBRARIES}
   ${GOBJECT_LIBRARIES}

@@ -67,6 +67,7 @@ enum
   PROP_0,
   PROP_ROS_NAME,
   PROP_ROS_TOPIC,
+  PROP_ROS_ENCODING
 };
 
 
@@ -86,7 +87,7 @@ GST_STATIC_PAD_TEMPLATE ("sink",
 
 G_DEFINE_TYPE_WITH_CODE (Rosaudiosink, rosaudiosink, GST_TYPE_AUDIO_SINK,
     GST_DEBUG_CATEGORY_INIT (rosaudiosink_debug_category, "rosaudiosink", 0,
-        "debug category for rosaudiosink element"));
+        "debug category for rosaudiosink element"))
 
 static void
 rosaudiosink_class_init (RosaudiosinkClass * klass)
@@ -120,10 +121,12 @@ rosaudiosink_class_init (RosaudiosinkClass * klass)
 static void
 rosaudiosink_init (Rosaudiosink * rosaudiosink)
 {
-  //Don't register the node or the publisher just yet, wait for rosaudiosink_open()
-  rosaudiosink->node_name = NULL;
-  rosaudiosink->pub_topic = NULL;
-
+  // Don't register the node or the publisher just yet,
+  // wait for rosaudiosink_open()
+  rosaudiosink->node_name = g_strdup("gst_audio_sink_node");
+  rosaudiosink->pub_topic = g_strdup("gst_audio_pub");
+  rosaudiosink->encoding = g_strdup("16SC1");
+  
 }
 
 void
@@ -136,14 +139,32 @@ rosaudiosink_set_property (GObject * object, guint property_id,
 
   switch (property_id) {
     case PROP_ROS_NAME:
-      g_free(rosaudiosink->node_name);
-      rosaudiosink->node_name = g_value_dup_string(value);
+      if(rosaudiosink->node)
+      {
+        RCLCPP_ERROR(rosaudiosink->logger, "can't change node name once openned");
+      }
+      else
+      {
+        g_free(rosaudiosink->node_name);
+        rosaudiosink->node_name = g_value_dup_string(value);
+      }
       break;
 
     case PROP_ROS_TOPIC:
-      g_free(rosaudiosink->pub_topic);
-      rosaudiosink->pub_topic = g_value_dup_string(value);
+      if(rosaudiosink->node)
+      {
+        RCLCPP_ERROR(rosaudiosink->logger, "can't change topic name once openned");
+      }
+      else
+      {
+        g_free(rosaudiosink->pub_topic);
+        rosaudiosink->pub_topic = g_value_dup_string(value);
+      }
       break;
+    case PROP_ROS_ENCODING:
+      rosaudiosink->encoding = g_value_dup_string(value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -164,6 +185,10 @@ rosaudiosink_get_property (GObject * object, guint property_id,
 
     case PROP_ROS_TOPIC:
       g_value_set_string(value, rosaudiosink->pub_topic);
+      break;
+
+    case PROP_ROS_ENCODING:
+      g_value_set_string(value, rosaudiosink->encoding);
       break;
 
     default:
@@ -204,6 +229,9 @@ rosaudiosink_open (GstAudioSink * sink)
 
   GST_DEBUG_OBJECT (rosaudiosink, "open");
 
+  rosaudiosink->node = std::make_shared<rclcpp::Node>(rosaudiosink->node_name);
+  rosaudiosink->pub = rosaudiosink->node->create_publisher<sensor_msgs::msg::Image>(rosaudiosink->pub_topic, 1);
+  rosaudiosink->logger = rosaudiosink->node->get_logger();
   return TRUE;
 }
 
@@ -215,8 +243,14 @@ rosaudiosink_prepare (GstAudioSink * sink, GstAudioRingBufferSpec * spec)
 
   GST_DEBUG_OBJECT (rosaudiosink, "prepare");
 
-  // borrow a message pointer
+  if(rosaudiosink->node)
+      RCLCPP_INFO(rosaudiosink->logger, "preparing audio with caps '%s', format '%s'",
+          gst_caps_to_string(spec->caps), gst_audio_format_to_string(spec->info.finfo->format));
 
+  //collect a bunch of parameters to shoehorn into a message format
+  rosaudiosink->channels = spec->info.channels;  //int number of channels
+  rosaudiosink->stride = spec->info.bpf;
+  rosaudiosink->endianness = spec->info.finfo->endianness;
 
   return TRUE;
 }
@@ -250,6 +284,20 @@ rosaudiosink_write (GstAudioSink * sink, gpointer data, guint length)
   Rosaudiosink *rosaudiosink = GST_ROSAUDIOSINK (sink);
 
   GST_DEBUG_OBJECT (rosaudiosink, "write");
+
+  //create a message (this loan should be extended upstream)
+  auto msg = rosaudiosink->pub->borrow_loaned_message();
+  //fill the blanks
+  // XXX this is an awful hack and audio needs a better message format
+  msg.get().is_bigendian = (rosaudiosink->endianness == G_BIG_ENDIAN);
+  msg.get().step = rosaudiosink->stride;
+  msg.get().width = rosaudiosink->channels; //image stride matches channel stride
+  msg.get().height = length/rosaudiosink->stride; //same total size
+  
+  //put the data in (ROS expects arrays to be std::vectors)
+  msg.get().data = std::vector<uint8_t>((uint8_t*)data, &((uint8_t*)data)[length]);
+  //publish
+  rosaudiosink->pub->publish(std::move(msg));
 
   return 0;
 }

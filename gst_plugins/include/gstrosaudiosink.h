@@ -21,7 +21,10 @@
 #define _GST_ROSAUDIOSINK_H_
 
 #include <gst/audio/gstaudiosink.h>
+
+
 #include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/image.hpp"
 
 
 G_BEGIN_DECLS
@@ -40,6 +43,15 @@ struct _Rosaudiosink
   GstAudioSink base_rosaudiosink;
   gchar* node_name;
   gchar* pub_topic;
+  gchar* encoding; //image topic encoding string
+
+  std::shared_ptr<rclcpp::Node> node;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub;
+  rclcpp::Logger logger;
+
+  int channels; //abuse height to contain this
+  size_t stride;  //bytes per frame
+  int endianness; //left broken
 
 };
 
