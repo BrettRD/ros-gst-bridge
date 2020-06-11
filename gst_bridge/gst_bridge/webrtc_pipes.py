@@ -14,6 +14,8 @@ import std_msgs
 import diagnostic_updater
 import diagnostic_msgs
 
+from gst_bridge.webrtc_sigchan import webrtc_sigchan
+
 
 #XXX collect some of these from ros parameter server
 webrtc_name = 'sendrecv'
@@ -28,9 +30,9 @@ audio_sink_bin_descr = ' queue ! alsasink'
 
 
 class webrtc_pipes:
-  def __init__(self, node_, chan_,  name_):
+  def __init__(self, node_, transport,  name_):
     self.node = node_
-    self.chan = chan_
+    self.chan = webrtc_sigchan(node_, transport)
     self.name = name_
     self.bin = self.build_initial_pipe()
     self.webrtc = self.bin.get_by_name(webrtc_name)

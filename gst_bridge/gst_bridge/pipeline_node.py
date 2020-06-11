@@ -16,13 +16,13 @@ import diagnostic_msgs
 from gst_bridge.pipeline import Pipeline
 from gst_bridge.simplebin import Simplebin
 from gst_bridge.webrtc_pipes import webrtc_pipes
-from gst_bridge.webrtc_sigchan import webrtc_sigchan
 from gst_bridge.webrtc_transport_ws import webrtc_transport_ws
 
 
 
 import asyncio
 import asyncio_glib
+
 
 
 def check_plugins(registry):
@@ -51,24 +51,23 @@ def plugin_added(registry, plugin):
 
 
 def main(args=None):
+  asyncio.set_event_loop_policy(asyncio_glib.GLibEventLoopPolicy())
+  loop = asyncio.get_event_loop()
+
   rclpy.init()
   GObject.threads_init()
   Gst.init(None)
 
+
   registry = Gst.Registry()
   registry.connect('plugin-added', plugin_added)
-
 
   if registry.scan_path('install/gst_plugins/lib/gst_plugins'):
     print('registry changed')
   else:
     print('nothing found?')
 
-
-  #asyncio.set_event_loop_policy(asyncio_glib.GLibEventLoopPolicy())
-  # asyncio-glib get_event_loop() returns a GLib event loop 
-  loop = asyncio.get_event_loop()
-
+  
   if not check_plugins(registry):
     exit(1)
 
@@ -76,39 +75,26 @@ def main(args=None):
   pipe_node = Pipeline('pipeline_node')
 
 
-
-
-  ## transport for webrtc signalling
-  #pipe_node.get_logger().info("Creating transport")
-  #webrtc_transport = webrtc_transport_ws(pipe_node)
-  ## connect to the server before trying to negotiate links
-  #loop.run_until_complete(webrtc_transport.connect())
-
-  ## signalling logic for webrtc bin
-  #pipe_node.get_logger().info("Creating signalling")
-  #webrtc_channel = webrtc_sigchan(pipe_node, webrtc_transport)
   
-  ## pipeline bin autoplugger
-  #pipe_node.get_logger().info("Creating webrtc pipes")
-  #webrtc_segment = webrtc_pipes(pipe_node, webrtc_channel, "webrtc_thingo")
-
-  #pipe_node.add_section(webrtc_segment)
-
+  ## connect to the signalling server before trying to negotiate links
+  webrtc_transport = webrtc_transport_ws(pipe_node, loop)
+  loop.run_until_complete(webrtc_transport.connect())
+  webrtc_segment = webrtc_pipes(pipe_node, webrtc_transport, "webrtc_thingo")
+  pipe_node.add_section(webrtc_segment)
+  loop.create_task(webrtc_transport.async_task())
   # XXX surely each object can assign async tasks internally
-  #loop.create_task(webrtc_transport.loop())
 
 
 
   # basic test case for a pipeline
-  #  simple_segment = Simplebin(pipe_node, 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink', 'test_bin_thing')
-  #  pipe_node.add_section(simple_segment)
+  #simple_segment = Simplebin(pipe_node, 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink', 'test_bin_thing')
+  #pipe_node.add_section(simple_segment)
 
 
 
   # basic test case for a ros topic bridge
-  simple_segment = Simplebin(pipe_node, 'audiotestsrc is-live=true wave=red-noise ! rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2" ', 'bridge_test_thing')
-  pipe_node.add_section(simple_segment)
-
+  #simple_segment = Simplebin(pipe_node, 'audiotestsrc is-live=true wave=red-noise ! rosaudiosink provide-clock=False ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2" ', 'bridge_test_thing')
+  #pipe_node.add_section(simple_segment)
 
 
   pipe_node.start_pipeline()
@@ -116,9 +102,9 @@ def main(args=None):
   loop.run_until_complete(pipe_node.async_task())  # diagnostics
 
   
-  
-    #loop = GLib.MainLoop()
   #GLib.timeout_add(100, rosspin)
+  
+  #loop = GLib.MainLoop()
   #loop.run()
 
   pipe_node.get_logger().warn('fell off the bottom')

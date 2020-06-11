@@ -30,13 +30,14 @@ server_param = 'server'
 
 class webrtc_transport_ws:
   
-  def __init__(self, node, node_id=None, peer_id=None, server=None):
+  def __init__(self, node, loop, node_id=None, peer_id=None, server=None, offer=True):
     self.node = node
+    self.loop = loop
     self.conn = None
     self.diagnostics = diagnostic_updater.FunctionDiagnosticTask('Transport', self.diagnostic_task)
     self.remote_sends_ice_cb = None
     self.remote_sends_sdp_cb = None
-    
+    self.offer = offer
     self.node_id = node_id
     self.peer_id = peer_id
     self.server = server
@@ -78,15 +79,17 @@ class webrtc_transport_ws:
     return stat
 
 
-  async def loop(self):
+  async def async_task(self):
     assert self.conn
     async for message in self.conn:
-      self.node.get_logger().info('remote says "' + message + '"')
+      self.node.get_logger().debug('remote says "' + message + '"')
       if message == 'HELLO':
         await self.setup_call()
       elif message == 'SESSION_OK':
-        #we're making the offer
-        #await self.conn.send('OFFER_REQUEST {}'.format(self.peer_id))
+        #if offer is False, The peer will create the offer on request
+        # XXX call this when the pipeline is ready
+        if not self.offer:
+          await self.conn.send('OFFER_REQUEST {}'.format(self.peer_id))
         
         #self.start_pipeline()
         self.node.get_logger().info('session ok')
@@ -107,10 +110,10 @@ class webrtc_transport_ws:
   async def connect(self):
     sslctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
     self.conn = await websockets.connect(self.server, ssl=sslctx)
-    self.node.get_logger().info('saying HELLO to remote')
+    self.node.get_logger().debug('saying HELLO to remote')
     await self.conn.send('HELLO %d' % self.node_id)
     async for message in self.conn:
-      self.node.get_logger().info('remote says "' + message + '"')
+      self.node.get_logger().debug('remote says "' + message + '"')
       if message == 'HELLO':
         await self.setup_call()
       elif message == 'SESSION_OK':
@@ -133,11 +136,8 @@ class webrtc_transport_ws:
 
     #self.node.get_logger().info('Sending ' + type_str + '\n%s' % text)
     msg = json.dumps({'sdp': {'type': type_str, 'sdp': text}})
-    self.node.get_logger().info('Sending ' + msg)
-    #self.conn.send(msg)
-    loop = asyncio.new_event_loop()
-    loop.run_until_complete(self.conn.send(msg))
-    loop.close()
+    self.node.get_logger().debug('Sending ' + msg)
+    self.loop.create_task(self.conn.send(msg))
 
   def send_sdp_offer(self, offer):
     self.send_sdp(offer)
@@ -150,11 +150,9 @@ class webrtc_transport_ws:
 
   def send_ice_candidate(self, element, mlineindex, candidate):
     icemsg = json.dumps({'ice': {'candidate': candidate, 'sdpMLineIndex': mlineindex}})
-    self.node.get_logger().info('sending ice candidate: ' + icemsg)
-    #self.conn.send(icemsg)
-    loop = asyncio.new_event_loop()
-    loop.run_until_complete(self.conn.send(icemsg))
-    loop.close()
+    self.node.get_logger().debug('sending ice candidate: ' + icemsg)
+
+    self.loop.create_task(self.conn.send(icemsg))
 
 
   def handle_sdp(self, message):

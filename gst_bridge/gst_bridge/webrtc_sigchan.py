@@ -56,11 +56,12 @@ class webrtc_sigchan:
 
 
   def on_negotiation_needed(self, element):
-    # XXX should we offer or wait?
     self.node.get_logger().info('on-negotiation-needed')
-    promise = Gst.Promise.new_with_change_func(self.on_offer_created, element)
-    # XXX we offer.
-    element.emit('create-offer', None, promise)
+    # If we're to offer, now is the earliest we can do it
+    # XXX split this to another function
+    if self.transport.offer:
+      promise = Gst.Promise.new_with_change_func(self.on_offer_created, element)
+      element.emit('create-offer', None, promise)
 
 
   # XXX mush offer and answer handlers together, the duplication is gross
@@ -76,7 +77,6 @@ class webrtc_sigchan:
     promise = Gst.Promise.new_with_change_func(self.local_description_set, element)
     element.emit('set-local-description', offer, promise)
     self.transport.send_sdp_offer(offer)
-    self.node.get_logger().info('sent offer')
 
   
   def on_answer_created(self, promise, element):
@@ -90,7 +90,6 @@ class webrtc_sigchan:
     promise = Gst.Promise.new_with_change_func(self.local_description_set, element)
     element.emit('set-local-description', answer, promise)
     self.transport.send_sdp_answer(answer)
-    self.node.get_logger().info('sent answer')
 
 
   def on_offer_set(self, promise, element):
@@ -138,7 +137,7 @@ class webrtc_sigchan:
     # XXX sanity check that we're in the right part of the process
     self.webrtc.emit('add-ice-candidate', mlineindex, candidate)
     self.ice_added = True
-    self.node.get_logger().info('ice candidate added')
+    self.node.get_logger().debug('ice candidate added')
 
 
 

@@ -25,8 +25,8 @@ class Pipeline(Node):
     self.bus.connect('message::state-changed', self.on_status_changed)
     self.bus.connect('message::eos', self.on_eos)
     self.bus.connect('message::info', self.on_info)
-    self.get_logger().info('startup')
     self.updater.force_update()
+
 
 
   async def async_task(self):
@@ -43,7 +43,7 @@ class Pipeline(Node):
     logmsg += ' to ' + Gst.Element.state_get_name(newstate)
     if pending != Gst.State.VOID_PENDING:
       logmsg += ' targetting ' + Gst.Element.state_get_name(pending)
-    self.get_logger().info(logmsg)
+    self.get_logger().debug(logmsg)
 
 
   def on_eos(self, bus, message):
@@ -57,11 +57,10 @@ class Pipeline(Node):
 
   def on_error(self, bus, message):
     logmsg = str(message.timestamp) + ' error message from ' + message.src.name
-    logmsg += ' ' + str(message.parse_error_details())
-    self.get_logger().info(logmsg)
+    logmsg += ' ' + str(message.parse_error())
+    self.get_logger().error(logmsg)
 
   def start_pipeline(self):
-    self.get_logger().info('Current state of my pipeline is '+ Gst.Element.state_get_name(self.pipe.current_state))
     self.get_logger().info('setting pipeline to PLAYING')
     self.pipe.set_state(Gst.State.PLAYING)
 
@@ -89,7 +88,6 @@ class Pipeline(Node):
     user_data = {'bin_dir' : 'pipeline', 'stat' : stat}
     iterator = self.pipe.iterate_elements()
     iterator.foreach(self.foreach_element_diagnostics, user_data)
-    self.get_logger().info('log')
     return stat
 
 
