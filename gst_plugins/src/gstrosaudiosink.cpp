@@ -139,9 +139,6 @@ rosaudiosink_class_init (RosaudiosinkClass * klass)
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
-
-
-
 }
 
 static void
@@ -149,10 +146,11 @@ rosaudiosink_init (Rosaudiosink * rosaudiosink)
 {
   // Don't register the node or the publisher just yet,
   // wait for rosaudiosink_open()
-  rosaudiosink->node_name = NULL;
-  rosaudiosink->pub_topic = NULL;
-  rosaudiosink->encoding = NULL;
-  
+  // XXX set defaults elsewhere to keep gst-inspect consistent
+  rosaudiosink->node_name = g_strdup("gst_audio_sink_node");
+  rosaudiosink->pub_topic = g_strdup("gst_audio_pub");
+  rosaudiosink->encoding = g_strdup("16SC1");
+
 }
 
 void
@@ -255,6 +253,7 @@ rosaudiosink_open (GstAudioSink * sink)
 
   GST_DEBUG_OBJECT (rosaudiosink, "open");
 
+  rclcpp::init(0, NULL);
   rosaudiosink->node = std::make_shared<rclcpp::Node>(rosaudiosink->node_name);
   rosaudiosink->pub = rosaudiosink->node->create_publisher<sensor_msgs::msg::Image>(rosaudiosink->pub_topic, 1);
   rosaudiosink->logger = rosaudiosink->node->get_logger();
@@ -299,7 +298,7 @@ rosaudiosink_close (GstAudioSink * sink)
   Rosaudiosink *rosaudiosink = GST_ROSAUDIOSINK (sink);
 
   GST_DEBUG_OBJECT (rosaudiosink, "close");
-
+  rclcpp::shutdown();
   return TRUE;
 }
 
@@ -319,6 +318,7 @@ rosaudiosink_write (GstAudioSink * sink, gpointer data, guint length)
   msg.get().step = rosaudiosink->stride;
   msg.get().width = rosaudiosink->channels; //image stride matches channel stride
   msg.get().height = length/rosaudiosink->stride; //same total size
+  msg.get().encoding = rosaudiosink->encoding; //pass the encoding string
   
   //put the data in (ROS expects arrays to be std::vectors)
   msg.get().data = std::vector<uint8_t>((uint8_t*)data, &((uint8_t*)data)[length]);
