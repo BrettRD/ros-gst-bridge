@@ -78,34 +78,40 @@ def main(args=None):
 
 
 
+  ## transport for webrtc signalling
+  #pipe_node.get_logger().info("Creating transport")
+  #webrtc_transport = webrtc_transport_ws(pipe_node)
+  ## connect to the server before trying to negotiate links
+  #loop.run_until_complete(webrtc_transport.connect())
 
-  # transport for webrtc signalling
-  pipe_node.get_logger().info("Creating transport")
-  webrtc_transport = webrtc_transport_ws(pipe_node)
-  # connect to the server before trying to negotiate links
-  loop.run_until_complete(webrtc_transport.connect())
-
-  # signalling logic for webrtc bin
-  pipe_node.get_logger().info("Creating signalling")
-  webrtc_channel = webrtc_sigchan(pipe_node, webrtc_transport)
+  ## signalling logic for webrtc bin
+  #pipe_node.get_logger().info("Creating signalling")
+  #webrtc_channel = webrtc_sigchan(pipe_node, webrtc_transport)
   
-  # pipeline bin autoplugger
-  pipe_node.get_logger().info("Creating webrtc pipes")
-  webrtc_segment = webrtc_pipes(pipe_node, webrtc_channel, "webrtc_thingo")
+  ## pipeline bin autoplugger
+  #pipe_node.get_logger().info("Creating webrtc pipes")
+  #webrtc_segment = webrtc_pipes(pipe_node, webrtc_channel, "webrtc_thingo")
 
-  pipe_node.add_section(webrtc_segment)
-  pipe_node.start_pipeline()
+  #pipe_node.add_section(webrtc_segment)
 
   # XXX surely each object can assign async tasks internally
-  loop.create_task(webrtc_transport.loop())
-  
-  
-  # basic test case for a pipeline
-  #  simple_segment = Simplebin(node, 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink', 'test_bin_thing')
-  #  pipe_node.add_section(simple_segment)
-  #  pipe_node.start_pipeline()
-  #  loop.run_until_complete(pipe_node.async_task())  # diagnostics
+  #loop.create_task(webrtc_transport.loop())
 
+
+
+  # basic test case for a pipeline
+  #  simple_segment = Simplebin(pipe_node, 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink', 'test_bin_thing')
+  #  pipe_node.add_section(simple_segment)
+
+
+
+  # basic test case for a ros topic bridge
+  simple_segment = Simplebin(pipe_node, 'audiotestsrc is-live=true wave=red-noise ! rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2" ', 'bridge_test_thing')
+  pipe_node.add_section(simple_segment)
+
+
+
+  pipe_node.start_pipeline()
 
   loop.run_until_complete(pipe_node.async_task())  # diagnostics
 

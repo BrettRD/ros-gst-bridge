@@ -92,22 +92,26 @@ G_DEFINE_TYPE_WITH_CODE (Rosaudiosink, rosaudiosink, GST_TYPE_AUDIO_SINK,
 static void
 rosaudiosink_class_init (RosaudiosinkClass * klass)
 {
-  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
+  GstElementClass *element_class = GST_ELEMENT_CLASS (klass);
   GstAudioSinkClass *audio_sink_class = GST_AUDIO_SINK_CLASS (klass);
 
   /* Setting up pads and setting metadata should be moved to
      base_class_init if you intend to subclass this class. */
-  gst_element_class_add_static_pad_template (GST_ELEMENT_CLASS (klass),
+  gst_element_class_add_static_pad_template (element_class,
       &rosaudiosink_sink_template);
 
-  gst_element_class_set_static_metadata (GST_ELEMENT_CLASS (klass),
-      "FIXME Long name", "Generic", "FIXME Description",
-      "FIXME <fixme@example.com>");
 
-  gobject_class->set_property = rosaudiosink_set_property;
-  gobject_class->get_property = rosaudiosink_get_property;
-  gobject_class->dispose = rosaudiosink_dispose;
-  gobject_class->finalize = rosaudiosink_finalize;
+  gst_element_class_set_static_metadata (element_class,
+      "rosaudiosink",
+      "Sink",
+      "a gstreamer sink that publishes audiodata into ROS",
+      "BrettRD <brettrd@brettrd.com>");
+
+  object_class->set_property = rosaudiosink_set_property;
+  object_class->get_property = rosaudiosink_get_property;
+  object_class->dispose = rosaudiosink_dispose;
+  object_class->finalize = rosaudiosink_finalize;
   audio_sink_class->open = GST_DEBUG_FUNCPTR (rosaudiosink_open);
   audio_sink_class->prepare = GST_DEBUG_FUNCPTR (rosaudiosink_prepare);
   audio_sink_class->unprepare = GST_DEBUG_FUNCPTR (rosaudiosink_unprepare);
@@ -116,6 +120,28 @@ rosaudiosink_class_init (RosaudiosinkClass * klass)
   audio_sink_class->delay = GST_DEBUG_FUNCPTR (rosaudiosink_delay);
   audio_sink_class->reset = GST_DEBUG_FUNCPTR (rosaudiosink_reset);
 
+  //declaration of properties needs to happen *after* object_class->set_property
+  g_object_class_install_property (object_class, PROP_ROS_NAME,
+      g_param_spec_string ("ros-name", "node-name", "Name of the ROS node",
+      "gst_audio_sink_node",
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
+
+  g_object_class_install_property (object_class, PROP_ROS_TOPIC,
+      g_param_spec_string ("ros-topic", "pub-topic", "ROS topic to be published on",
+      "gst_audio_pub",
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
+
+  g_object_class_install_property (object_class, PROP_ROS_ENCODING,
+      g_param_spec_string ("ros-encoding", "encoding-string", "A dirty hack to flexibly set the image encode string",
+      "16SC1",
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
+
+
+
+
 }
 
 static void
@@ -123,9 +149,9 @@ rosaudiosink_init (Rosaudiosink * rosaudiosink)
 {
   // Don't register the node or the publisher just yet,
   // wait for rosaudiosink_open()
-  rosaudiosink->node_name = g_strdup("gst_audio_sink_node");
-  rosaudiosink->pub_topic = g_strdup("gst_audio_pub");
-  rosaudiosink->encoding = g_strdup("16SC1");
+  rosaudiosink->node_name = NULL;
+  rosaudiosink->pub_topic = NULL;
+  rosaudiosink->encoding = NULL;
   
 }
 
