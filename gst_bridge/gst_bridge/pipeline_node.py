@@ -21,8 +21,8 @@ from gst_bridge.webrtc_transport_ws import webrtc_transport_ws
 
 
 import asyncio
-import asyncio_glib
-
+#import asyncio_glib
+import gbulb
 
 
 def check_plugins(registry):
@@ -51,7 +51,9 @@ def plugin_added(registry, plugin):
 
 
 def main(args=None):
-  asyncio.set_event_loop_policy(asyncio_glib.GLibEventLoopPolicy())
+  #asyncio.set_event_loop_policy(asyncio_glib.GLibEventLoopPolicy())
+  gbulb.install()
+
   loop = asyncio.get_event_loop()
 
   rclpy.init()
