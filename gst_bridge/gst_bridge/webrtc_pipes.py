@@ -25,7 +25,7 @@ video_src_bin_descr = ' videotestsrc is-live=true pattern=ball ! videoconvert ! 
 webrtc_descr = 'webrtcbin name=' + webrtc_name + ' bundle-policy=max-bundle stun-server=' + stun_server + ' '
 webrtc_descr = webrtc_descr + '\n ' + video_src_bin_descr + '\n ' + audio_src_bin_descr
 
-video_sink_bin_descr = ' queue ! ximagesink'
+video_sink_bin_descr = ' queue ! videoconvert ! ximagesink'
 audio_sink_bin_descr = ' queue ! alsasink'
 
 
@@ -53,8 +53,8 @@ class webrtc_pipes:
 
 
   def build_initial_pipe(self):
-    self.node.get_logger().info("building initial webrtc pipes")
-    self.node.get_logger().info(webrtc_descr)
+    self.node.get_logger().debug("building initial webrtc pipes")
+    self.node.get_logger().debug(webrtc_descr)
 
     webrtc_bin = Gst.parse_bin_from_description(webrtc_descr, True)
     webrtc_bin.name = self.name
@@ -66,7 +66,7 @@ class webrtc_pipes:
 
     self.audio_src_built = True
     self.video_src_built = True
-    self.node.get_logger().info("initial webrtc pipes built")
+    self.node.get_logger().debug("initial webrtc pipes built")
 
     return webrtc_bin
 
@@ -92,7 +92,7 @@ class webrtc_pipes:
 
 
   def on_incoming_decodebin_stream(self, element, pad):
-    self.node.get_logger().info("incoming decodebin pad")
+    self.node.get_logger().debug("incoming decodebin pad")
     if not pad.has_current_caps():
       print (pad, 'has no caps, ignoring')
       return
@@ -101,55 +101,48 @@ class webrtc_pipes:
     if caps.is_empty():
       self.node.get_logger().error('caps is empty')
     elif caps.is_fixed():
-      self.node.get_logger().info('incoming decodebin caps has only one format')
-      self.node.get_logger().info('format string: ' + caps.to_string())
-      
-
-
+      self.node.get_logger().debug('incoming decodebin caps has only one format')
+      self.node.get_logger().debug('format string: ' + caps.to_string())
     assert (not caps.is_empty())
 
-
     name = caps.to_string()
-
     if name.startswith('video'):
       sink_bin_descr = video_sink_bin_descr
-      self.node.get_logger().info("incoming video stream")
+      self.node.get_logger().debug('incoming video stream')
     elif name.startswith('audio'):
       sink_bin_descr = audio_sink_bin_descr
-      self.node.get_logger().info("incoming audio stream")
+      self.node.get_logger().debug('incoming audio stream')
 
-    sink_bin = Gst.parse_bin_from_description(sink_bin_descr, False)
+    sink_bin = Gst.parse_bin_from_description(sink_bin_descr, True)
     self.bin.add(sink_bin)
-    #sink_pad = sink_bin.find_unlinked_pad(Gst.PadDirection.SINK)
-    #pad.link(sink_pad)
     element.link(sink_bin)
+    sink_bin.sync_state_with_parent()
 
     if not sink_bin.sync_state_with_parent():
-      self.node.get_logger().info("could not synchonise new sink")
+      self.node.get_logger().error('could not synchonise new sink')
     else:
       if name.startswith('video'):
-        self.node.get_logger().info("synchonised new video sink")
+        self.node.get_logger().debug('synchonised new video sink')
         self.video_sink_built = True
       elif name.startswith('audio'):
-        self.node.get_logger().info("synchonised new audio sink")
+        self.node.get_logger().debug('synchonised new audio sink')
         self.audio_sink_built = True
 
 
   def on_incoming_stream(self, element, pad):
-    self.node.get_logger().info("incoming webrtc pad")
+    self.node.get_logger().debug('incoming webrtc pad')
     if pad.direction != Gst.PadDirection.SRC:
       return
     decodebin = Gst.ElementFactory.make('decodebin')
     decodebin.connect('pad-added', self.on_incoming_decodebin_stream)
     self.bin.add(decodebin)
     element.link(decodebin)
-    # XXX pipeline downstream seems to not start playing at this link
     decodebin.sync_state_with_parent()
 
 
 
   def on_data_channel (self, element, data_channel):
-    self.node.get_logger().info("new data channel")
+    self.node.get_logger().debug("new data channel")
     data_channel.connect("on-error", self.data_channel_on_error)
     data_channel.connect("on-open", self.data_channel_on_open)
     data_channel.connect("on-close", self.data_channel_on_close)

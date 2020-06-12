@@ -1,34 +1,75 @@
 # ros-gst-bridge
-an attempt at a transparent, bidirectional, ros to gstreamer bridge
+An attempt at a transparent, bidirectional, ros to gstreamer bridge
 
-ROS audio-common is only able to shuffle mp3 data from a robot to a laptop.\
-audio-common's architecture precludes any useful robotics application for audio data.\
-ROS is not the best platform for handling audio and video, but it allows exquisitely weird processes.\
-Ideally, gstreamer should handle most of the heavy lifting for multimedia streams, especially across networks.\
-ROS should be at least capable of handling data from one gstreamer pipeline into another without loss of information.
+ROS is great for running exquisitely weird processes on video streams.\
+Gstreamer is great for running complex pipelines with conversions between common formats.
+
+It should be easy to pass data between gstreamer and ROS without loss of information.
+
+## Notable prior work
+### gscam
+implements a single-ended gstreamer pipeline running into an appsink API within the node. This is limited to publishing image messages to a single topic.
+
+### audio-common
+uses the appsrc and appsink APIs within ROS nodes to interact with gstreamer audio pipelines.  audio-common is limited to a single ROS src or sink per pipeline, and one pipeline per node. audio-common-msgs are not typed and contain no metadata.
+
+### ros-webrtc
+https://github.com/MayfieldRoboticsPublic/ros-webrtc
+ros-webrtc is not maintained, and the dependencies are no longer available on any platform. (even the dependencies' build tools no longer work)
+This package seems to provide a ROS API for Google's implementation of webrtc.  It features an audio message format that is more complete than that of audio-common, but still lacks flexibility of number types (see sensor_msgs/Image). This code appears to be incomplete, and does not actually publish audio data onto the ROS topic it creates.
+
 
 ## Requirements:
 * ROS Messages and Gstreamer caps should not lose metadata like timestamps.
-* At least Audio caps need to be handled, these will need a new message definition.
-* bridge nodes should be gstreamer bins, not ROS nodes running appsink.
-* a flexible intermediate node needs to exist to hold the pipeline and handle pipeline events.
-
-## Issues:
-* Pulling dependencies (message .h files) from ROS into gstreamer
-
-
-## Planned use cases:
-### Teleoperation through a NAT
-### Sharing of topics between multiple robots on multiple networks
+* ROS sim-time and pipeline clocks must be translatable. (accelerated simulations should allow accelerated pipelines)
+* A new message format for Audio messages permitting accurate time stamps, flexible number formats, multiple channels, and flexible sample packing.
+* bridge nodes should be gstreamer bins, not ROS nodes running appsink. (this reduces code complexity, improves pipeline efficiency, and allows ROS2 borrowed messages to be passed through the pipeline to facilitate zero-copy publishing)
+* a flexible, ros param driven, intermediate node needs to exist to hold the pipeline and handle pipeline events.
+* pipeline events should be able to trigger events in ROS
+* the pipeline node should be manageable from ROS launch syntax
 
 
 ## Architecture:
+Gstreamer is able to run multiple streams in parallel and has an effective threading system. 
+Managing pipeline events is not a resource intensive process, and can be comfortably handled by a Python script without significant loss of performance or generality. This pipeline manager could also be written in C, but the GLib C and ROS C++ conventions make it difficult to avoid memory leaks.
+A gstreamer pipeline can comfortably manage multiple unconnected streams, so only one pipeline node should be required on any given host.
+
+The sources and sinks should be implemented as gstreamer elements for a couple of reasons.\
+Gstreamer elements are intended to be compact and versatile, this encourages reduction of code complexity.
+Ros elements would allow any Gstreamer capable application to interact directly with ROS.  `gst-launch 'rosimagesrc topic="image_raw" ! gamma gamma=2.0 ! rosimagesink topic="image_gamma_corrected'` executed from the command line would apply a gamma correction to an image topic.
+Gstreamer is able to pre-allocate memory from down-stream elements and pass it upstream, enabling sink elements to benefit from the ROS zero-copy API.
+
+It is possible to build this using the gstreamer appsrc/appsink API. Gstreamer documentation discourages the use of this API.\
+It would involve a packages installing modules to be included in a final pipeline node. It would require installation and inclusion of default appsrc and appsink wrappers, a pipeline handler, and all third-party pipeline event handlers.
+audio-common has good examples of the gstreamer app API.  
+The final pipeline node would have to be built by the end user, and it discourages the re-use of parameter conventions for common playbins.
+
+
 ### Pipeline node
-mapping between the ROS node and the gstreamer pipeline.
-This node handles some whole-pipeline diagnostics and holds some of the boilerplate of the pipeline itself
-### Webrtc client (pipeline generators)
-This module creates the webrtc gstreamer element and links it to the pipeline, creating new elements as needed.
-### Signalling client
-This is a subset of the webrtc event handlers, the events that facilitate peer discovery and establishment of STUN/TURN session
-### Topic bridges
-logic that maps between gstreamer events and ROS messages/services
+The `Pipeline` module creates the Gstreamer pipeline and a ROS node, importing parameters from the parameter server.
+This node publishes some whole-pipeline diagnostics, and holds some of the boilerplate of the pipeline itself.
+Gstreamer playbins are generated by other modules and added to the pipeline, and its diagnostics stream.
+
+### Playbin generators
+these modules create gstreamer bins for inclusion into the pipeline, and connect other ROS events to the pipeline
+
+#### Simplebin
+This module uses a gst-launch style syntax for pipelines that don't require complex management.
+This fits the use cases of packages like gscam and audio-common
+
+#### Webrtc client (pipeline generators)
+This module creates the webrtc gstreamer element and links it to the pipeline, creating new sink elements as incoming streams appear.
+This module provides the webrtc element event handlers that facilitate peer discovery and establishment of STUN/TURN session
+The webrtc module is broken into multiple classes, allowing the signalling-server protocol and transport to be replaced easily.
+
+### src and sink elements
+These gstreamer elements register themselves to ROS as independent nodes, and publish or subscribe on the configured topic.
+These elements are built by ament, so they can be easily updated to integrate with new ROS message formats.
+
+
+## Missing components
+* The python node needs to call `Gst.Registry().scan_path(install/<package_name>/lib/<package_name>)` to import the elements, ideally this path should be derived from a call to ROS tools.
+* The audiosink template class does not make it obvious how to pass borrowed buffers upstream, probably needs to roll-back to a parent class.
+* pipeline elements should optionally provide a clock source to Gstreamer, to allow the use of ROS sim-time.
+* pipeline elements should optionally provide a clock source to ROS, to allow the use of pipeline time generated from an external hardware clock.
+

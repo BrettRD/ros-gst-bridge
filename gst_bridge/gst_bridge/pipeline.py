@@ -18,6 +18,10 @@ class Pipeline(Node):
     self.updater = diagnostic_updater.Updater(self)
     self.updater.setHardwareID("Gst1.0")
     self.updater.add("Pipe Status", self.diagnostic_task)
+
+    self.registry = Gst.Registry()
+    self.registry.connect('plugin-added', self.plugin_added)
+
     self.pipe = Gst.Pipeline.new("rospipe")
     self.bus = self.pipe.get_bus()
     self.bus.add_signal_watch()
@@ -85,6 +89,7 @@ class Pipeline(Node):
     stat.add('clock is synced',       str(clock.is_synced()))
     base_time = self.pipe.get_base_time()
     stat.add('pipeline base_time ', str(base_time))
+    # iteratively report on all bins in this pipeline
     user_data = {'bin_dir' : 'pipeline', 'stat' : stat}
     iterator = self.pipe.iterate_elements()
     iterator.foreach(self.foreach_element_diagnostics, user_data)
@@ -94,19 +99,48 @@ class Pipeline(Node):
   def foreach_element_diagnostics(self, item, user_data):
     stat = user_data['stat']
     bin_dir = user_data['bin_dir'] + '/' + item.name
-
-
     (last_ret, state, pending) = item.get_state(0)
+    # gst element states return if they succeeded in their last transition,
+    #    their current state, and (optionally) their next state
     state_string = Gst.Element.state_change_return_get_name(last_ret)
     state_string += ', ' + Gst.Element.state_get_name(state)
     if pending != Gst.State.VOID_PENDING:
       state_string += ', ' + Gst.Element.state_get_name(pending)
-
-    stat.add(bin_dir + ' state',     state_string)
-
+    # report on the state of the bin
+    stat.add(bin_dir + ' state', state_string)
+    #recursively inspect all bins until all child elements are found
     if type(item) == Gst.Bin:
-
       user_data = {'bin_dir' : bin_dir , 'stat' : stat}
       iterator = item.iterate_elements()
       iterator.foreach(self.foreach_element_diagnostics, user_data)
 
+
+  def check_plugins(self, needed):
+    missing = list(filter(lambda p: self.registry.get().find_plugin(p) is None, needed))
+    if len(missing):
+      self.get_logger().warn('Missing gstreamer plugins:', missing)
+      return False
+    else:
+      self.get_logger().debug('all plugins accounted for')
+    return True
+
+
+
+  def add_plugin_paths(self, gst_plugin_paths):
+    for path in gst_plugin_paths:
+      self.get_logger().debug('scanning path "' + path + '"')
+      if self.registry.scan_path(path):
+        self.get_logger().debug('registry changed')
+      else:
+        self.get_logger().warn('no plugins found in path "' + path + '"')
+
+
+
+  def plugin_added(self, registry, plugin):
+    self.get_logger().debug('plugin "' + plugin.get_name() + '" added')
+    self.get_logger().debug('plugin filename: "' + plugin.get_filename() + '"')
+    self.get_logger().debug('plugin description: "' + plugin.get_description() + '"')
+    if None == plugin.load():
+      self.get_logger().error('plugin load error')
+    else:
+      self.get_logger().debug('plugin loaded')

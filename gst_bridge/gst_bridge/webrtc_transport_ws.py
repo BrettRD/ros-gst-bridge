@@ -68,8 +68,7 @@ class webrtc_transport_ws:
   def connect_callbacks(self, _remote_sends_ice_cb, _remote_sends_sdp_cb):
     self.remote_sends_ice_cb = _remote_sends_ice_cb
     self.remote_sends_sdp_cb = _remote_sends_sdp_cb
-    # XXX probably also use webrtc.get_property('signaling-state') to sanity check input from remote
-    self.node.get_logger().info('transport connected callbacks')
+    self.node.get_logger().debug('transport connected callbacks')
 
 
   def diagnostic_task(self, stat):
@@ -92,7 +91,7 @@ class webrtc_transport_ws:
           await self.conn.send('OFFER_REQUEST {}'.format(self.peer_id))
         
         #self.start_pipeline()
-        self.node.get_logger().info('session ok')
+        self.node.get_logger().debug('session ok')
       elif message.startswith('ERROR'):
         self.node.get_logger().error('remote says "' + message + '"')
         #return 1
@@ -106,7 +105,8 @@ class webrtc_transport_ws:
       await self.conn.close()
     self.conn = None
 
-
+  # XXX establish and maintain a link to the server, but don't initiate the call
+  #     add a async_task() to the global mainloop
   async def connect(self):
     sslctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
     self.conn = await websockets.connect(self.server, ssl=sslctx)
@@ -117,7 +117,7 @@ class webrtc_transport_ws:
       if message == 'HELLO':
         await self.setup_call()
       elif message == 'SESSION_OK':
-        self.node.get_logger().info('session ok')
+        self.node.get_logger().debug('session ok')
         return
 
 
@@ -134,18 +134,17 @@ class webrtc_transport_ws:
     type_str = GstWebRTC.WebRTCSDPType.to_string(local_sdp.type)
     # XXX translate the type string for remote (case sensitive remote)
 
-    #self.node.get_logger().info('Sending ' + type_str + '\n%s' % text)
     msg = json.dumps({'sdp': {'type': type_str, 'sdp': text}})
     self.node.get_logger().debug('Sending ' + msg)
     self.loop.create_task(self.conn.send(msg))
 
   def send_sdp_offer(self, offer):
     self.send_sdp(offer)
-    self.node.get_logger().info('sent offer')
+    self.node.get_logger().debug('sent offer')
 
   def send_sdp_answer(self, answer):
     self.send_sdp(answer)
-    self.node.get_logger().info('sent answer')
+    self.node.get_logger().debug('sent answer')
 
 
   def send_ice_candidate(self, element, mlineindex, candidate):
@@ -162,7 +161,6 @@ class webrtc_transport_ws:
 
       sdp_type_str = sdp['type']
       sdp_msg_str = sdp['sdp']
-      #self.node.get_logger().info('Received ' + sdp_type_str + ':\n%s' % sdp_msg_str)
 
       #parse sdp['sdp'] back to a GstSdp.SDPMessage
       _res, sdp_msg = GstSdp.SDPMessage.new()

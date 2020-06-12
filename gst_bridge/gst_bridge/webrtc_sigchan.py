@@ -56,12 +56,16 @@ class webrtc_sigchan:
 
 
   def on_negotiation_needed(self, element):
-    self.node.get_logger().info('on-negotiation-needed')
+    self.node.get_logger().debug('on-negotiation-needed')
     # If we're to offer, now is the earliest we can do it
-    # XXX split this to another function
+    # XXX split this to another function, simply announce readiness
     if self.transport.offer:
-      promise = Gst.Promise.new_with_change_func(self.on_offer_created, element)
-      element.emit('create-offer', None, promise)
+      self.create_offer()
+
+
+  def create_offer(self):
+    promise = Gst.Promise.new_with_change_func(self.on_offer_created, self.webrtc)
+    self.webrtc.emit('create-offer', None, promise)
 
 
   # XXX mush offer and answer handlers together, the duplication is gross
@@ -70,7 +74,7 @@ class webrtc_sigchan:
     #           and    type : GstWebRTC.WebRTCSDPType
 
   def on_offer_created(self, promise, element):
-    self.node.get_logger().info('offer was created')
+    self.node.get_logger().debug('offer was created')
     promise.wait()
     reply = promise.get_reply()
     offer = reply.get_value('offer')
@@ -80,7 +84,7 @@ class webrtc_sigchan:
 
   
   def on_answer_created(self, promise, element):
-    self.node.get_logger().info('answer was created')
+    self.node.get_logger().debug('answer was created')
     promise.wait()
     reply = promise.get_reply()
     answer = reply.get_value('answer')
@@ -93,13 +97,13 @@ class webrtc_sigchan:
 
 
   def on_offer_set(self, promise, element):
-    self.node.get_logger().info('remote description was set')
+    self.node.get_logger().debug('remote description was set')
     promise = Gst.Promise.new_with_change_func(self.on_answer_created, element)
     element.emit("create-answer", None, promise)
 
 
   def on_answer_set(self, promise, element):
-    self.node.get_logger().info('remote description was set')
+    self.node.get_logger().debug('remote description was set')
 
 
   # send ice candidate
@@ -108,7 +112,7 @@ class webrtc_sigchan:
 
 
   def local_description_set(self, promise, element):
-    self.node.get_logger().info('local description was set')
+    self.node.get_logger().debug('local description was set')
 
 
   def remote_sends_sdp(self, remote_sdp):
@@ -120,10 +124,10 @@ class webrtc_sigchan:
     element = self.webrtc
     if remote_sdp.type == GstWebRTC.WebRTCSDPType.OFFER:
       promise = Gst.Promise.new_with_change_func(self.on_offer_set, element)
-      self.node.get_logger().info('received offer from remote')
+      self.node.get_logger().debug('received offer from remote')
     elif remote_sdp.type == GstWebRTC.WebRTCSDPType.ANSWER:
       promise = Gst.Promise.new_with_change_func(self.on_answer_set, element)
-      self.node.get_logger().info('received answer from remote')
+      self.node.get_logger().debug('received answer from remote')
     else:
       self.node.get_logger().error('remote sent a thing? ' + GstWebRTC.WebRTCSDPType.to_string(remote_sdp.type))
 
