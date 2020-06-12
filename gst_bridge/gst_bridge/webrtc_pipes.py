@@ -113,6 +113,7 @@ class webrtc_pipes:
       sink_bin_descr = audio_sink_bin_descr
       self.node.get_logger().debug('incoming audio stream')
 
+    # XXX using Ghost Pads has a small performace penalty, can we link the pads directly?
     sink_bin = Gst.parse_bin_from_description(sink_bin_descr, True)
     self.bin.add(sink_bin)
     element.link(sink_bin)
@@ -139,7 +140,8 @@ class webrtc_pipes:
     element.link(decodebin)
     decodebin.sync_state_with_parent()
 
-
+  def create_offer(self):
+    self.chan.create_offer()
 
   def on_data_channel (self, element, data_channel):
     self.node.get_logger().debug("new data channel")

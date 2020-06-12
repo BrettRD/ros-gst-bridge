@@ -49,9 +49,7 @@ class webrtc_sigchan:
     element.connect('on-ice-candidate', self.on_ice_candidate)
     self.webrtc = element
     # further sets transport variables (XXX also gross)
-    self.transport.connect_callbacks(self.remote_sends_ice, self.remote_sends_sdp)
-
-
+    self.transport.connect_callbacks(self.remote_sends_ice, self.remote_sends_sdp, self.create_offer)
 
 
 
@@ -59,13 +57,18 @@ class webrtc_sigchan:
     self.node.get_logger().debug('on-negotiation-needed')
     # If we're to offer, now is the earliest we can do it
     # XXX split this to another function, simply announce readiness
-    if self.transport.offer:
-      self.create_offer()
+    self.transport.pipeline_ready()
+    
 
 
   def create_offer(self):
-    promise = Gst.Promise.new_with_change_func(self.on_offer_created, self.webrtc)
-    self.webrtc.emit('create-offer', None, promise)
+    if self.transport.session_ready:
+      promise = Gst.Promise.new_with_change_func(self.on_offer_created, self.webrtc)
+      self.webrtc.emit('create-offer', None, promise)
+      return True
+    else:
+      self.node.get_logger().error('webrtc signalling not ready')
+      return False
 
 
   # XXX mush offer and answer handlers together, the duplication is gross
@@ -116,8 +119,6 @@ class webrtc_sigchan:
 
 
   def remote_sends_sdp(self, remote_sdp):
-    # XXX sanity check with the signal channel whether we should receive an offer or answer
-    # XXX sanity check that we're in the right part of the process
     if self.webrtc == None:
       return
     promise = None
@@ -137,19 +138,12 @@ class webrtc_sigchan:
 
   # remote sent ice candidate
   def remote_sends_ice(self, mlineindex, candidate):
-    # XXX sanity check with the signal channel whether we should receive an offer or answer
-    # XXX sanity check that we're in the right part of the process
     self.webrtc.emit('add-ice-candidate', mlineindex, candidate)
     self.ice_added = True
     self.node.get_logger().debug('ice candidate added')
 
 
 
-
-# XXX at least try to make case consistent
-
-# missing string conversions from GstWebRTC
-# XXX double check that these functions really don't exist in GstWebRTC
 def WebRTCSignalingState_to_str(state):
   if state == GstWebRTC.WebRTCSignalingState.STABLE:
     state_str = 'stable'
@@ -168,7 +162,6 @@ def WebRTCSignalingState_to_str(state):
   return state_str
 
 
-# XXX excessively brittle?
 def parse_WebRTCSDPType(sdp_type_str):
   if sdp_type_str == GstWebRTC.WebRTCSDPType.to_string(GstWebRTC.WebRTCSDPType.OFFER):
     sdp_type = GstWebRTC.WebRTCSDPType.OFFER

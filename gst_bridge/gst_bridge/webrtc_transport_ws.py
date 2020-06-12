@@ -20,7 +20,6 @@ import diagnostic_msgs
 
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 
-
 from gst_bridge.webrtc_sigchan import parse_WebRTCSDPType
 
 node_id_param = 'node_id'
@@ -30,17 +29,21 @@ server_param = 'server'
 
 class webrtc_transport_ws:
   
-  def __init__(self, node, loop, node_id=None, peer_id=None, server=None, offer=True):
+  def __init__(self, node, loop, node_id=None, peer_id=None, server=None, offer=True, autodial=True):
     self.node = node
     self.loop = loop
     self.conn = None
     self.diagnostics = diagnostic_updater.FunctionDiagnosticTask('Transport', self.diagnostic_task)
     self.remote_sends_ice_cb = None
     self.remote_sends_sdp_cb = None
+    self.create_offer_cb = None
     self.offer = offer
+    self.autodial = autodial
     self.node_id = node_id
     self.peer_id = peer_id
     self.server = server
+    self.webrtc_ready = False
+    self.session_ready = False
 
     if self.node_id == None:
       self.node_id = self.node.declare_parameter(node_id_param).value
@@ -65,76 +68,83 @@ class webrtc_transport_ws:
 
 
 
-  def connect_callbacks(self, _remote_sends_ice_cb, _remote_sends_sdp_cb):
+  def connect_callbacks(self, _remote_sends_ice_cb, _remote_sends_sdp_cb, _create_offer_cb=None):
     self.remote_sends_ice_cb = _remote_sends_ice_cb
     self.remote_sends_sdp_cb = _remote_sends_sdp_cb
+    self.create_offer_cb = _create_offer_cb #used for autodialling
     self.node.get_logger().debug('transport connected callbacks')
 
 
   def diagnostic_task(self, stat):
     stat.summary(diagnostic_msgs.msg.DiagnosticStatus.OK, 'sig_transport')
     stat.add('server connected', str(self.conn != None))
-    stat.add('peer found',       str(self.conn != None))
     return stat
 
 
+  def connect(self):
+    self.loop.create_task(self.async_task())
+
   async def async_task(self):
+    sslctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+    self.conn = await websockets.connect(self.server, ssl=sslctx)
     assert self.conn
+    self.node.get_logger().debug('registering with server')
+    await self.conn.send('HELLO {}'.format(self.node_id))
     async for message in self.conn:
       self.node.get_logger().debug('remote says "' + message + '"')
       if message == 'HELLO':
-        await self.setup_call()
+        await self.find_peer()
       elif message == 'SESSION_OK':
-        #if offer is False, The peer will create the offer on request
-        # XXX call this when the pipeline is ready
-        if not self.offer:
-          await self.conn.send('OFFER_REQUEST {}'.format(self.peer_id))
-        
-        #self.start_pipeline()
         self.node.get_logger().debug('session ok')
+        self.session_ready = True
+        self.start_call()
       elif message.startswith('ERROR'):
         self.node.get_logger().error('remote says "' + message + '"')
-        #return 1
       else:
         self.handle_sdp(message)
-    self.node.get_logger().error('transport closed socket?')
-    #return 0
+        self.session_ready = False
+    self.node.get_logger().error('transport closed socket')
+
+
+  async def find_peer(self):
+    if self.peer_id != None:
+      self.node.get_logger().debug('locating peer')
+      await self.conn.send('SESSION {}'.format(self.peer_id))
+
+
+  def pipeline_ready(self, ready=True):
+    self.webrtc_ready = ready
+    self.start_call()
+
+
+  def start_call(self):
+    if self.autodial and self.webrtc_ready and self.session_ready:
+      if self.offer:
+        if self.create_offer_cb:
+          self.create_offer_cb()
+      else:
+        self.request_offer()
+
+
+  def request_offer(self):
+    if self.peer_id != None:
+      self.loop.create_task(self.conn.send('OFFER_REQUEST {}'.format(self.peer_id)))
+
 
   async def stop(self):
     if self.conn:
       await self.conn.close()
     self.conn = None
 
-  # XXX establish and maintain a link to the server, but don't initiate the call
-  #     add a async_task() to the global mainloop
-  async def connect(self):
-    sslctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
-    self.conn = await websockets.connect(self.server, ssl=sslctx)
-    self.node.get_logger().debug('saying HELLO to remote')
-    await self.conn.send('HELLO %d' % self.node_id)
-    async for message in self.conn:
-      self.node.get_logger().debug('remote says "' + message + '"')
-      if message == 'HELLO':
-        await self.setup_call()
-      elif message == 'SESSION_OK':
-        self.node.get_logger().debug('session ok')
-        return
 
 
-  async def setup_call(self):
-    self.node.get_logger().info('identifying with server')
-    await self.conn.send('SESSION {}'.format(self.peer_id))
 
 
-  # XXX mush offer and answer handlers together, the duplication is gross
-  
   def send_sdp(self, local_sdp):
-    # XXX local_sdp.sdp.as_text() strips the local_sdp.type (offer/answer enum)
-    text = local_sdp.sdp.as_text()
-    type_str = GstWebRTC.WebRTCSDPType.to_string(local_sdp.type)
-    # XXX translate the type string for remote (case sensitive remote)
+    sdp_msg_str = local_sdp.sdp.as_text()
+    sdp_type_str = GstWebRTC.WebRTCSDPType.to_string(local_sdp.type)
 
-    msg = json.dumps({'sdp': {'type': type_str, 'sdp': text}})
+    msg = json.dumps({'sdp': {'type': sdp_type_str, 'sdp': sdp_msg_str}})
     self.node.get_logger().debug('Sending ' + msg)
     self.loop.create_task(self.conn.send(msg))
 
@@ -165,7 +175,6 @@ class webrtc_transport_ws:
       #parse sdp['sdp'] back to a GstSdp.SDPMessage
       _res, sdp_msg = GstSdp.SDPMessage.new()
       GstSdp.sdp_message_parse_buffer(bytes(sdp_msg_str.encode()), sdp_msg)
-      # XXX check success
 
       #parse sdp['type'] back to a GstWebRTC.WebRTCSDPType
       sdp_type = parse_WebRTCSDPType(sdp_type_str)

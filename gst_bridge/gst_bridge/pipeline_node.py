@@ -3,9 +3,6 @@ import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib, GObject
 
-
-
-
 import rclpy
 from rclpy.node import Node
 
@@ -25,9 +22,10 @@ import asyncio
 import gbulb
 
 
+# locate gstreamer plugins from other ROS packages
 def ros_path(package):
   return 'install/' + package + '/lib/' + package
-  
+
 gst_plugin_paths = [ros_path('gst_plugins')]
 gst_required_plugins = ["opus", "vpx", "nice", "webrtc", "dtls", "srtp", "rtp",
     "rtpmanager", "videotestsrc", "audiotestsrc", "rosaudiosink"]
@@ -38,9 +36,11 @@ def main(args=None):
 
   #integrate the GLib Mainloop with the asyncio event loop
   # XXX gbulb is deprecated for windows, asyncio_glib has issues with HUP and INT signals
+
   #asyncio.set_event_loop_policy(asyncio_glib.GLibEventLoopPolicy())
   gbulb.install()
 
+  #init ROS, GObject mainloop, and Gstreamer
   rclpy.init()
   GObject.threads_init()
   Gst.init(None)
@@ -59,11 +59,9 @@ def main(args=None):
 
   ## connect to the signalling server before trying to negotiate links
   webrtc_transport = webrtc_transport_ws(pipe_node, loop)
-  loop.run_until_complete(webrtc_transport.connect())
   webrtc_segment = webrtc_pipes(pipe_node, webrtc_transport, "webrtc_example_bin")
+  webrtc_transport.connect()
   pipe_node.add_section(webrtc_segment)
-  loop.create_task(webrtc_transport.async_task())
-  # XXX surely each object can assign async tasks internally
 
 
 
