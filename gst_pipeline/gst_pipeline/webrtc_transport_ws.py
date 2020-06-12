@@ -20,7 +20,7 @@ import diagnostic_msgs
 
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 
-from gst_bridge.webrtc_sigchan import parse_WebRTCSDPType
+from gst_pipeline.webrtc_sigchan import parse_WebRTCSDPType
 
 node_id_param = 'node_id'
 peer_id_param = 'peer_id'

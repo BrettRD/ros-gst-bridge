@@ -3,18 +3,22 @@
 <package format="3">
   <name>gst_bridge</name>
   <version>0.0.0</version>
-  <description>Bridge GStreamer to ROS</description>
+  <description>Run ROS nodes in a gstreamer pipeline</description>
   <maintainer email="brettrd@brettrd.com">brettrd</maintainer>
-  <license>TODO: License declaration</license>
+  <license>LGPL</license>
 
-  <buildtool_depend>ament_python</buildtool_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
 
-  <test_depend>ament_copyright</test_depend>
-  <test_depend>ament_flake8</test_depend>
-  <test_depend>ament_pep257</test_depend>
-  <test_depend>python3-pytest</test_depend>
+  <build_depend>rosidl_default_generators</build_depend>
+  <build_depend>std_msgs</build_depend>
 
+  <exec_depend>rosidl_default_runtime</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
+  
   <export>
-    <build_type>ament_python</build_type>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>

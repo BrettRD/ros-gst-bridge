@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'gst_bridge'
+package_name = 'gst_pipeline'
 
 setup(
     name=package_name,
@@ -15,12 +15,12 @@ setup(
     zip_safe=True,
     maintainer='brettrd',
     maintainer_email='brettrd@brettrd.com',
-    description='Bridge GStreamer to ROS',
+    description='Run GStreamer pipelines in ROS',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'pipeline_node = gst_bridge.pipeline_node:main'
+            'pipeline_node = gst_pipeline.pipeline_node:main'
         ],
     },
 )

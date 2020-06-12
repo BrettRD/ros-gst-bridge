@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(gst_plugins)
+project(gst_bridge)
 
 
 # Default to C99
@@ -30,15 +30,20 @@ find_package(GObject)
 
 
 ## Include messages
+find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 #find_package(gst_bridge_msgs REQUIRED)
 
+set(msg_files
+  "msg/Audio.msg"
+)
 
 ## Generate added messages and services with any dependencies listed here
-# rosidl_generate_interfaces(${PROJECT_NAME}
-#   ${msg_files}
-#   DEPENDENCIES std_msgs
-# )
+rosidl_generate_interfaces(${PROJECT_NAME}
+  ${msg_files}
+  DEPENDENCIES builtin_interfaces std_msgs
+)
 
 
 ###########
@@ -90,7 +95,7 @@ install(TARGETS rosgstbridge
 # check that your gstreamer can find it with 
 #     gst-inspect-1.0 rosgstbridge
 # currently exists in colcon default install location so from the workspace:
-#   gst-inspect-1.0 install/gst_plugins/lib/gst_plugins/librosgstbridge.so
+#   gst-inspect-1.0 install/gst_bridge/lib/gst_bridge/librosgstbridge.so
 
 ament_package(
   CONFIG_EXTRAS

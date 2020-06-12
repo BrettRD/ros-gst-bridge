@@ -10,10 +10,10 @@ import std_msgs
 import diagnostic_updater
 import diagnostic_msgs
 
-from gst_bridge.pipeline import Pipeline
-from gst_bridge.simplebin import Simplebin
-from gst_bridge.webrtc_pipes import webrtc_pipes
-from gst_bridge.webrtc_transport_ws import webrtc_transport_ws
+from gst_pipeline.pipeline import Pipeline
+from gst_pipeline.simplebin import Simplebin
+from gst_pipeline.webrtc_pipes import webrtc_pipes
+from gst_pipeline.webrtc_transport_ws import webrtc_transport_ws
 
 
 
@@ -26,7 +26,7 @@ import gbulb
 def ros_path(package):
   return 'install/' + package + '/lib/' + package
 
-gst_plugin_paths = [ros_path('gst_plugins')]
+gst_plugin_paths = [ros_path('gst_bridge')]
 gst_required_plugins = ["opus", "vpx", "nice", "webrtc", "dtls", "srtp", "rtp",
     "rtpmanager", "videotestsrc", "audiotestsrc", "rosgstbridge"]
 

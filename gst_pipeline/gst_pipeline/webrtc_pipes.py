@@ -14,7 +14,7 @@ import std_msgs
 import diagnostic_updater
 import diagnostic_msgs
 
-from gst_bridge.webrtc_sigchan import webrtc_sigchan
+from gst_pipeline.webrtc_sigchan import webrtc_sigchan
 
 
 #XXX collect some of these from ros parameter server
