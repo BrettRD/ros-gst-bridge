@@ -31,9 +31,9 @@ find_package(GObject)
 
 ## Include messages
 find_package(std_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
+#find_package(sensor_msgs REQUIRED)
+find_package(gst_bridge REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
-#find_package(gst_bridge_msgs REQUIRED)
 
 set(msg_files
   "msg/Audio.msg"
@@ -58,23 +58,26 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 
 add_library(rosgstbridge SHARED src/rosgstbridgeplugin.cpp include/rosaudiosink.h src/rosaudiosink.cpp)
 
+#rosidl_target_interfaces(rosgstbridge
+#  ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 # ament has a habit of pruning unused linked functions required by gstreamer
 # symptom of this is 'undefined symbol: gst_audio_sink_get_type' on gst-inspect
 target_include_directories(rosgstbridge PRIVATE
   ${rclcpp_INCLUDE_DIRS}
-  ${sensor_msgs_INCLUDE_DIRS}
+  #${sensor_msgs_INCLUDE_DIRS}
+  ${gst_bridge_INCLUDE_DIRS}
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
   ${GSTREAMER_INCLUDE_DIRS}
   ${GLIB2_INCLUDE_DIR}
   ${GOBJECT_INCLUDE_DIR}
-  # gst_bridge_msgs
   )
 
 target_link_libraries(rosgstbridge PUBLIC
   ${rclcpp_LIBRARIES}
-  ${sensor_msgs_LIBRARIES}
+  #${sensor_msgs_LIBRARIES}
+  ${gst_bridge_LIBRARIES}
   ${GSTREAMER_LIBRARY}
   ${GLIB2_LIBRARIES}
   ${GOBJECT_LIBRARIES}

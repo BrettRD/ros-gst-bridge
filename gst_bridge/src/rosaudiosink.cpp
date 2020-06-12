@@ -134,7 +134,7 @@ rosaudiosink_class_init (RosaudiosinkClass * klass)
   );
 
   g_object_class_install_property (object_class, PROP_ROS_ENCODING,
-      g_param_spec_string ("ros-encoding", "encoding-string", "A dirty hack to flexibly set the image encode string",
+      g_param_spec_string ("ros-encoding", "encoding-string", "A hack to flexibly set the encoding string",
       "16SC1",
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
@@ -255,8 +255,11 @@ rosaudiosink_open (GstAudioSink * sink)
 
   rclcpp::init(0, NULL);
   rosaudiosink->node = std::make_shared<rclcpp::Node>(rosaudiosink->node_name);
-  rosaudiosink->pub = rosaudiosink->node->create_publisher<sensor_msgs::msg::Image>(rosaudiosink->pub_topic, 1);
+  rosaudiosink->pub = rosaudiosink->node->create_publisher<gst_bridge::msg::Audio>(rosaudiosink->pub_topic, 1);
   rosaudiosink->logger = rosaudiosink->node->get_logger();
+  rosaudiosink->clock = rosaudiosink->node->get_clock();
+
+
   return TRUE;
 }
 
@@ -276,7 +279,8 @@ rosaudiosink_prepare (GstAudioSink * sink, GstAudioRingBufferSpec * spec)
   rosaudiosink->channels = spec->info.channels;  //int number of channels
   rosaudiosink->stride = spec->info.bpf;
   rosaudiosink->endianness = spec->info.finfo->endianness;
-
+  rosaudiosink->sample_rate = spec->info.rate;
+  rosaudiosink->layout = spec->info.layout;
   return TRUE;
 }
 
@@ -312,20 +316,30 @@ rosaudiosink_write (GstAudioSink * sink, gpointer data, guint length)
 
   //create a message (this loan should be extended upstream)
   auto msg = rosaudiosink->pub->borrow_loaned_message();
+
   //fill the blanks
-  // XXX this is an awful hack and audio needs a better message format
+  msg.get().frames = length/rosaudiosink->stride;
+  msg.get().channels = rosaudiosink->channels;    
+  msg.get().sample_rate = rosaudiosink->sample_rate;
+  msg.get().encoding = rosaudiosink->encoding;
   msg.get().is_bigendian = (rosaudiosink->endianness == G_BIG_ENDIAN);
+  msg.get().layout = rosaudiosink->layout;
   msg.get().step = rosaudiosink->stride;
-  msg.get().width = rosaudiosink->channels; //image stride matches channel stride
-  msg.get().height = length/rosaudiosink->stride; //same total size
-  msg.get().encoding = rosaudiosink->encoding; //pass the encoding string
   
-  //put the data in (ROS expects arrays to be std::vectors)
-  msg.get().data = std::vector<uint8_t>((uint8_t*)data, &((uint8_t*)data)[length]);
+  //msg.get().header.seq = rosaudiosink->seq++;
+  msg.get().header.stamp = rosaudiosink->clock->now();
+  msg.get().header.frame_id = "";
+
+  // need to use fixed data length message to benefit from zero-copy
+  
+  msg.get().data = std::vector<uint8_t>(length);
+  memcpy(msg.get().data.data(), data, length);
+  //msg.get().data = std::vector<uint8_t>((uint8_t*)data, &((uint8_t*)data)[length]);
+
   //publish
   rosaudiosink->pub->publish(std::move(msg));
 
-  return 0;
+  return length;
 }
 
 /* get number of samples queued in the device */

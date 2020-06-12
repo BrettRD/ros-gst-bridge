@@ -14,7 +14,10 @@ string encoding         # Encoding of samples, channel meaning, ordering, etc
                         # this field should be extended
 
 uint8 is_bigendian      # is this data bigendian?
-uint8 is_interleaved    # audio frames are interleaved in time order
+uint8 layout            # are audio samples interleaved into frames?
+
+uint8 LAYOUT_INTERLEAVED = 0
+uint8 LAYOUT_NON_INTERLEAVED = 1
 
 uint32 step             # audio frame size in bytes
 uint8[] data            # actual matrix data, size is (step * frames)

@@ -58,22 +58,24 @@ def main(args=None):
 
 
   ## connect to the signalling server before trying to negotiate links
-  webrtc_transport = webrtc_transport_ws(pipe_node, loop)
-  webrtc_segment = webrtc_pipes(pipe_node, webrtc_transport, "webrtc_example_bin")
-  webrtc_transport.connect()
-  pipe_node.add_section(webrtc_segment)
+  #webrtc_transport = webrtc_transport_ws(pipe_node, loop)
+  #webrtc_segment = webrtc_pipes(pipe_node, webrtc_transport, "webrtc_example_bin")
+  #webrtc_transport.connect()
+  #pipe_node.add_section(webrtc_segment)
 
 
 
-  # basic test case for a pipeline
-  #simple_segment = Simplebin(pipe_node, 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink', 'simple_test_bin')
-  #pipe_node.add_section(simple_segment)
 
 
-
-  # basic test case for a ros topic bridge
-  #simple_segment = Simplebin(pipe_node, 'audiotestsrc is-live=true wave=red-noise ! rosaudiosink provide-clock=False ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2" ', 'simple_bridge_test_bin')
-  #pipe_node.add_section(simple_segment)
+  # basic pipelines
+  # descr = 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! tee name=t ! queue ! rosaudiosink provide-clock=False ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2" t. ! queue ! audioconvert ! alsasink'
+  # descr = 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink'
+  # descr = 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! queue ! audioconvert ! alsasink'
+  descr = 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! tee name=t ! queue ! audioconvert ! alsasink \
+      t. ! queue !  rosaudiosink provide-clock=False ros-name="audio_node" ros-topic="audio" ros-encoding="S16C1"'
+  
+  simple_segment = Simplebin(pipe_node, descr, 'simple_bridge_test_bin')
+  pipe_node.add_section(simple_segment)
 
 
   pipe_node.start_pipeline()
