@@ -69,7 +69,7 @@ These elements are built by ament, so they can be easily updated to integrate wi
 
 ## Missing components
 * The python node needs to call `Gst.Registry().scan_path(install/<package_name>/lib/<package_name>)` to import the elements, ideally this path should be derived from a call to ROS tools.
-* The audiosink template class does not make it obvious how to pass borrowed buffers upstream, probably needs to roll-back to a parent class.
+* The audiosink derived class hides preroll and clocking. ROS audio bridge should instead derive from GstAudioBasesink.
 * pipeline elements should optionally provide a clock source to Gstreamer, to allow the use of ROS sim-time.
 * pipeline elements should optionally provide a clock source to ROS, to allow the use of pipeline time generated from an external hardware clock.
 

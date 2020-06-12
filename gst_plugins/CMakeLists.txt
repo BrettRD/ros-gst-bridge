@@ -51,12 +51,12 @@ find_package(sensor_msgs REQUIRED)
 # This is a gstreamer plugin, not a ros node
 # the install location needs to be found by gst-inspect
 
-add_library(gstrosaudiosink SHARED include/gstrosaudiosink.h src/gstrosaudiosink.cpp src/gstrosaudiosinkplugin.cpp)
+add_library(rosgstbridge SHARED src/rosgstbridgeplugin.cpp include/rosaudiosink.h src/rosaudiosink.cpp)
 
 
 # ament has a habit of pruning unused linked functions required by gstreamer
 # symptom of this is 'undefined symbol: gst_audio_sink_get_type' on gst-inspect
-target_include_directories(gstrosaudiosink PRIVATE
+target_include_directories(rosgstbridge PRIVATE
   ${rclcpp_INCLUDE_DIRS}
   ${sensor_msgs_INCLUDE_DIRS}
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -67,7 +67,7 @@ target_include_directories(gstrosaudiosink PRIVATE
   # gst_bridge_msgs
   )
 
-target_link_libraries(gstrosaudiosink PUBLIC
+target_link_libraries(rosgstbridge PUBLIC
   ${rclcpp_LIBRARIES}
   ${sensor_msgs_LIBRARIES}
   ${GSTREAMER_LIBRARY}
@@ -81,16 +81,16 @@ target_link_libraries(gstrosaudiosink PUBLIC
 
 
 # note the nonstandard install location for the gst plugin
-install(TARGETS gstrosaudiosink
+install(TARGETS rosgstbridge
   DESTINATION lib/${PROJECT_NAME}
 )
 # DESTINATION "~/.local/share/gstreamer-1.0"
 # you may have to set
 # GST_PLUGIN_SYSTEM_PATH="$HOME/.local/share/gstreamer-1.0"
 # check that your gstreamer can find it with 
-#     gst-inspect-1.0 gstrosaudiosink
+#     gst-inspect-1.0 rosgstbridge
 # currently exists in colcon default install location so from the workspace:
-#   gst-inspect-1.0 install/gst_plugins/lib/gst_plugins/libgstrosaudiosink.so
+#   gst-inspect-1.0 install/gst_plugins/lib/gst_plugins/librosgstbridge.so
 
 ament_package(
   CONFIG_EXTRAS

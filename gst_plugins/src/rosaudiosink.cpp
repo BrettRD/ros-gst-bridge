@@ -36,7 +36,7 @@
 
 #include <gst/gst.h>
 #include <gst/audio/gstaudiosink.h>
-#include "gstrosaudiosink.h"
+#include "rosaudiosink.h"
 
 
 GST_DEBUG_CATEGORY_STATIC (rosaudiosink_debug_category);

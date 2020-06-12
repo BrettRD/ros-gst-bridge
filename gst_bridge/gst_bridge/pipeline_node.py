@@ -28,7 +28,7 @@ def ros_path(package):
 
 gst_plugin_paths = [ros_path('gst_plugins')]
 gst_required_plugins = ["opus", "vpx", "nice", "webrtc", "dtls", "srtp", "rtp",
-    "rtpmanager", "videotestsrc", "audiotestsrc", "rosaudiosink"]
+    "rtpmanager", "videotestsrc", "audiotestsrc", "rosgstbridge"]
 
 
 

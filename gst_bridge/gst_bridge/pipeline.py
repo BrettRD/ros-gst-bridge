@@ -118,7 +118,7 @@ class Pipeline(Node):
   def check_plugins(self, needed):
     missing = list(filter(lambda p: self.registry.get().find_plugin(p) is None, needed))
     if len(missing):
-      self.get_logger().warn('Missing gstreamer plugins:', missing)
+      self.get_logger().warn('Missing gstreamer plugins: ' + str(missing))
       return False
     else:
       self.get_logger().debug('all plugins accounted for')
@@ -137,7 +137,7 @@ class Pipeline(Node):
 
 
   def plugin_added(self, registry, plugin):
-    self.get_logger().debug('plugin "' + plugin.get_name() + '" added')
+    self.get_logger().info('plugin "' + plugin.get_name() + '" added')
     self.get_logger().debug('plugin filename: "' + plugin.get_filename() + '"')
     self.get_logger().debug('plugin description: "' + plugin.get_description() + '"')
     if None == plugin.load():

@@ -46,7 +46,7 @@
 #endif
 
 #include <gst/gst.h>
-#include "gstrosaudiosink.h"
+#include "rosaudiosink.h"
 
 
 static gboolean
@@ -64,18 +64,18 @@ plugin_init (GstPlugin * plugin)
 #define VERSION "0.0.0"
 #endif
 #ifndef PACKAGE
-#define PACKAGE "FIXME_package"
+#define PACKAGE "ros_gst_bridge"
 #endif
 #ifndef PACKAGE_NAME
-#define PACKAGE_NAME "FIXME_package_name"
+#define PACKAGE_NAME "ros_gst_bridge"
 #endif
 #ifndef GST_PACKAGE_ORIGIN
-#define GST_PACKAGE_ORIGIN "http://FIXME.org/"
+#define GST_PACKAGE_ORIGIN "https://github.com/BrettRD/ros-gst-bridge"
 #endif
 
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
-    rosaudiosink,
-    "ROS audio publisher",
+    rosgstbridge,
+    "ROS topic bridge elements",
     plugin_init, VERSION, "LGPL", PACKAGE_NAME, GST_PACKAGE_ORIGIN)
 
