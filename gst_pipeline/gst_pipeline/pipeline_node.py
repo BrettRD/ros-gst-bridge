@@ -72,7 +72,7 @@ def main(args=None):
   # descr = 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink'
   # descr = 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! queue ! audioconvert ! alsasink'
   descr = 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! tee name=t ! queue ! audioconvert ! alsasink \
-      t. ! queue !  rosaudiosink provide-clock=False ros-name="audio_node" ros-topic="audio" ros-encoding="S16C1"'
+      t. ! queue !  rosaudiosink can-activate-pull=False provide-clock=False ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
   
   simple_segment = Simplebin(pipe_node, descr, 'simple_bridge_test_bin')
   pipe_node.add_section(simple_segment)

@@ -24,7 +24,7 @@
 
 
 #include "rclcpp/rclcpp.hpp"
-#include "gst_bridge/msg/audio.hpp"
+#include "audio_msgs/msg/audio.hpp"
 
 
 G_BEGIN_DECLS
@@ -43,10 +43,11 @@ struct _Rosaudiosink
   GstAudioSink base_rosaudiosink;
   gchar* node_name;
   gchar* pub_topic;
+  gchar* frame_id;
   gchar* encoding; //image topic encoding string
 
-  std::shared_ptr<rclcpp::Node> node;
-  rclcpp::Publisher<gst_bridge::msg::Audio>::SharedPtr pub;
+  rclcpp::Node::SharedPtr node;
+  rclcpp::Publisher<audio_msgs::msg::Audio>::SharedPtr pub;
   rclcpp::Logger logger;
   rclcpp::Clock::SharedPtr clock;
 

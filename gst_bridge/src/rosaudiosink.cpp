@@ -67,6 +67,7 @@ enum
   PROP_0,
   PROP_ROS_NAME,
   PROP_ROS_TOPIC,
+  PROP_ROS_FRAME_ID,
   PROP_ROS_ENCODING
 };
 
@@ -149,6 +150,7 @@ rosaudiosink_init (Rosaudiosink * rosaudiosink)
   // XXX set defaults elsewhere to keep gst-inspect consistent
   rosaudiosink->node_name = g_strdup("gst_audio_sink_node");
   rosaudiosink->pub_topic = g_strdup("gst_audio_pub");
+  rosaudiosink->frame_id = g_strdup("audio_frame");
   rosaudiosink->encoding = g_strdup("16SC1");
 
 }
@@ -185,7 +187,14 @@ rosaudiosink_set_property (GObject * object, guint property_id,
         rosaudiosink->pub_topic = g_value_dup_string(value);
       }
       break;
+
+    case PROP_ROS_FRAME_ID:
+      g_free(rosaudiosink->frame_id);
+      rosaudiosink->frame_id = g_value_dup_string(value);
+      break;
+
     case PROP_ROS_ENCODING:
+      g_free(rosaudiosink->encoding);
       rosaudiosink->encoding = g_value_dup_string(value);
       break;
 
@@ -209,6 +218,10 @@ rosaudiosink_get_property (GObject * object, guint property_id,
 
     case PROP_ROS_TOPIC:
       g_value_set_string(value, rosaudiosink->pub_topic);
+      break;
+
+    case PROP_ROS_FRAME_ID:
+      g_value_set_string(value, rosaudiosink->frame_id);
       break;
 
     case PROP_ROS_ENCODING:
@@ -255,7 +268,7 @@ rosaudiosink_open (GstAudioSink * sink)
 
   rclcpp::init(0, NULL);
   rosaudiosink->node = std::make_shared<rclcpp::Node>(rosaudiosink->node_name);
-  rosaudiosink->pub = rosaudiosink->node->create_publisher<gst_bridge::msg::Audio>(rosaudiosink->pub_topic, 1);
+  rosaudiosink->pub = rosaudiosink->node->create_publisher<audio_msgs::msg::Audio>(rosaudiosink->pub_topic, 1);
   rosaudiosink->logger = rosaudiosink->node->get_logger();
   rosaudiosink->clock = rosaudiosink->node->get_clock();
 
@@ -302,6 +315,10 @@ rosaudiosink_close (GstAudioSink * sink)
   Rosaudiosink *rosaudiosink = GST_ROSAUDIOSINK (sink);
 
   GST_DEBUG_OBJECT (rosaudiosink, "close");
+
+  rosaudiosink->clock.reset();
+  rosaudiosink->pub.reset();
+  rosaudiosink->node.reset();
   rclcpp::shutdown();
   return TRUE;
 }
@@ -314,30 +331,65 @@ rosaudiosink_write (GstAudioSink * sink, gpointer data, guint length)
 
   GST_DEBUG_OBJECT (rosaudiosink, "write");
 
+  /*
+  bool all_zero = true;
+  bool all_same = true;
+  for(guint i=0; i<length; i++)
+  {
+    if(((uint8_t*)data)[i] != 0)
+    {
+      all_zero = false;
+    }
+    if(((uint8_t*)data)[i] != ((uint8_t*)data)[0])
+    {
+      all_same = false;
+    }
+  }
+
+  if(all_zero)
+  {
+    RCLCPP_INFO(rosaudiosink->logger, "data is all zero");
+  }
+  else
+  {
+    RCLCPP_INFO(rosaudiosink->logger, "data is non zero");
+  }
+  if(all_same)
+  {
+    RCLCPP_INFO(rosaudiosink->logger, "data is all same");
+  }
+  else
+  {
+    RCLCPP_INFO(rosaudiosink->logger, "data differs");
+  }
+  */
+
+
   //create a message (this loan should be extended upstream)
-  auto msg = rosaudiosink->pub->borrow_loaned_message();
-
-  //fill the blanks
-  msg.get().frames = length/rosaudiosink->stride;
-  msg.get().channels = rosaudiosink->channels;    
-  msg.get().sample_rate = rosaudiosink->sample_rate;
-  msg.get().encoding = rosaudiosink->encoding;
-  msg.get().is_bigendian = (rosaudiosink->endianness == G_BIG_ENDIAN);
-  msg.get().layout = rosaudiosink->layout;
-  msg.get().step = rosaudiosink->stride;
-  
-  //msg.get().header.seq = rosaudiosink->seq++;
-  msg.get().header.stamp = rosaudiosink->clock->now();
-  msg.get().header.frame_id = "";
-
   // need to use fixed data length message to benefit from zero-copy
   
-  msg.get().data = std::vector<uint8_t>(length);
-  memcpy(msg.get().data.data(), data, length);
+  //auto msg = rosaudiosink->pub->borrow_loaned_message();
+  auto msg = audio_msgs::msg::Audio();
+
+  //fill the blanks
+  msg.frames = length/rosaudiosink->stride;
+  msg.channels = rosaudiosink->channels;    
+  msg.sample_rate = rosaudiosink->sample_rate;
+  msg.encoding = rosaudiosink->encoding;
+  msg.is_bigendian = (rosaudiosink->endianness == G_BIG_ENDIAN);
+  msg.layout = rosaudiosink->layout;
+  msg.step = rosaudiosink->stride;
+  msg.header.stamp = rosaudiosink->clock->now();
+  msg.header.frame_id = rosaudiosink->frame_id;
+  msg.data.resize(length);
+  memcpy(msg.data.data(), data, length);
+
+
+  //msg.get().data = std::vector<uint8_t>(length);
   //msg.get().data = std::vector<uint8_t>((uint8_t*)data, &((uint8_t*)data)[length]);
 
   //publish
-  rosaudiosink->pub->publish(std::move(msg));
+  rosaudiosink->pub->publish(msg);
 
   return length;
 }

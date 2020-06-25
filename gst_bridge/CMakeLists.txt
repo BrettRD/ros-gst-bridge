@@ -28,22 +28,23 @@ find_package(GStreamer)
 find_package(GLIB2)
 find_package(GObject)
 
-
 ## Include messages
 find_package(std_msgs REQUIRED)
-#find_package(sensor_msgs REQUIRED)
-find_package(gst_bridge REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
+find_package(audio_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+# find_package(builtin_interfaces REQUIRED)
+# find_package(rosidl_default_generators REQUIRED)
 
-set(msg_files
-  "msg/Audio.msg"
-)
+# set(msg_files
+#   "msg/Audio.msg"
+# )
 
 ## Generate added messages and services with any dependencies listed here
-rosidl_generate_interfaces(${PROJECT_NAME}
-  ${msg_files}
-  DEPENDENCIES builtin_interfaces std_msgs
-)
+# rosidl_generate_interfaces(${PROJECT_NAME}
+#   ${msg_files}
+#   DEPENDENCIES builtin_interfaces std_msgs
+# )
+
 
 
 ###########
@@ -65,8 +66,8 @@ add_library(rosgstbridge SHARED src/rosgstbridgeplugin.cpp include/rosaudiosink.
 # symptom of this is 'undefined symbol: gst_audio_sink_get_type' on gst-inspect
 target_include_directories(rosgstbridge PRIVATE
   ${rclcpp_INCLUDE_DIRS}
-  #${sensor_msgs_INCLUDE_DIRS}
-  ${gst_bridge_INCLUDE_DIRS}
+  ${sensor_msgs_INCLUDE_DIRS}
+  ${audio_msgs_INCLUDE_DIRS}
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
   ${GSTREAMER_INCLUDE_DIRS}
@@ -76,8 +77,8 @@ target_include_directories(rosgstbridge PRIVATE
 
 target_link_libraries(rosgstbridge PUBLIC
   ${rclcpp_LIBRARIES}
-  #${sensor_msgs_LIBRARIES}
-  ${gst_bridge_LIBRARIES}
+  ${sensor_msgs_LIBRARIES}
+  ${audio_msgs_LIBRARIES}
   ${GSTREAMER_LIBRARY}
   ${GLIB2_LIBRARIES}
   ${GOBJECT_LIBRARIES}
