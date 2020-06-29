@@ -22,11 +22,14 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 
 
-# find gstreamer
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-find_package(GStreamer)
-find_package(GLIB2)
-find_package(GObject)
+# find gstreamer
+
+set(gstreamer_components app pbutils audio fft net)
+find_package(GStreamer 1.8.3 REQUIRED COMPONENTS ${gstreamer_components})
+# find glib
+set(glib_components gio gio-unix gobject gthread gmodule)
+find_package(GLIB 2.36 REQUIRED COMPONENTS ${glib_components})
 
 ## Include messages
 find_package(std_msgs REQUIRED)
@@ -57,7 +60,16 @@ find_package(sensor_msgs REQUIRED)
 # This is a gstreamer plugin, not a ros node
 # the install location needs to be found by gst-inspect
 
-add_library(rosgstbridge SHARED src/rosgstbridgeplugin.cpp include/rosaudiosink.h src/rosaudiosink.cpp)
+add_library(rosgstbridge SHARED
+  src/rosgstbridgeplugin.cpp 
+  src/rosaudiosink.cpp
+  include/rosaudiosink.h
+  src/gstmultiudpsink.c
+  include/gstmultiudpsink.h
+  src/gstudpnetutils.c
+  include/gstudpnetutils.h
+  include/glib-compat-private.h
+)
 
 #rosidl_target_interfaces(rosgstbridge
 #  ${PROJECT_NAME} "rosidl_typesupport_cpp")
@@ -71,21 +83,24 @@ target_include_directories(rosgstbridge PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
   ${GSTREAMER_INCLUDE_DIRS}
-  ${GLIB2_INCLUDE_DIR}
+  #${GSTREAMER_BASE_INCLUDE_DIRS}
+  ${GLIB_INCLUDE_DIRS}
   ${GOBJECT_INCLUDE_DIR}
-  )
+)
 
 target_link_libraries(rosgstbridge PUBLIC
   ${rclcpp_LIBRARIES}
   ${sensor_msgs_LIBRARIES}
   ${audio_msgs_LIBRARIES}
-  ${GSTREAMER_LIBRARY}
-  ${GLIB2_LIBRARIES}
-  ${GOBJECT_LIBRARIES}
+  ${GSTREAMER_LIBRARIES}
+  #${GSTREAMER_BASE_LIBRARIES}
+  ${GLIB_LIBRARIES}
+  ${GLIB_GIO_LIBRARIES}
   gstcontroller-1.0
   gstaudio-1.0
   gstbase-1.0
-  )
+  gstnet-1.0
+)
 
 
 
