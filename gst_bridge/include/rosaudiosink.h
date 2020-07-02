@@ -21,8 +21,9 @@
 #define _GST_ROSAUDIOSINK_H_
 
 #include <gst/audio/gstaudiosink.h>
+#include <gst/base/gstbasesink.h>
 
-
+//include ROS and ROS message formats
 #include "rclcpp/rclcpp.hpp"
 #include "audio_msgs/msg/audio.hpp"
 
@@ -40,7 +41,7 @@ typedef struct _RosaudiosinkClass RosaudiosinkClass;
 
 struct _Rosaudiosink
 {
-  GstAudioSink base_rosaudiosink;
+  GstBaseSink parent;
   gchar* node_name;
   gchar* pub_topic;
   gchar* frame_id;
@@ -55,13 +56,15 @@ struct _Rosaudiosink
   int sample_rate; //sample rate in Hz
   size_t stride;   //bytes per frame
   gint endianness;  
-  GstAudioLayout layout;
-
+  uint8_t layout;
 };
 
 struct _RosaudiosinkClass
 {
-  GstAudioSinkClass base_rosaudiosink_class;
+  GstBaseSinkClass parent_class;
+
+  // stick member function pointers here
+  // along with member function pointers for signal handlers
 };
 
 GType rosaudiosink_get_type (void);

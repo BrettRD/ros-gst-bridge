@@ -37,6 +37,7 @@ class Pipeline(Node):
     while True:
       self.updater.update()
       await asyncio.sleep(0.5)
+      #self.get_logger().info("diagnostics update")
 
 
 

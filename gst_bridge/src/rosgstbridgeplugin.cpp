@@ -47,7 +47,6 @@
 
 #include <gst/gst.h>
 #include "rosaudiosink.h"
-#include "gstmultiudpsink.h"
 
 static gboolean
 plugin_init (GstPlugin * plugin)
@@ -55,9 +54,6 @@ plugin_init (GstPlugin * plugin)
 
   /* FIXME Remember to set the rank if it's an element that is meant
      to be autoplugged by decodebin. */
-
-  gst_element_register (plugin, "rosmultiudpsink", GST_RANK_NONE,
-      GST_TYPE_MULTIUDPSINK);
 
   gst_element_register (plugin, "rosaudiosink", GST_RANK_NONE,
       GST_TYPE_ROSAUDIOSINK);

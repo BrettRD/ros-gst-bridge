@@ -64,11 +64,6 @@ add_library(rosgstbridge SHARED
   src/rosgstbridgeplugin.cpp 
   src/rosaudiosink.cpp
   include/rosaudiosink.h
-  src/gstmultiudpsink.c
-  include/gstmultiudpsink.h
-  src/gstudpnetutils.c
-  include/gstudpnetutils.h
-  include/glib-compat-private.h
 )
 
 #rosidl_target_interfaces(rosgstbridge
