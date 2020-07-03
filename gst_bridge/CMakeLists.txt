@@ -64,6 +64,8 @@ add_library(rosgstbridge SHARED
   src/rosgstbridgeplugin.cpp 
   src/rosaudiosink.cpp
   include/rosaudiosink.h
+  src/rosimagesink.cpp
+  include/rosimagesink.h
 )
 
 #rosidl_target_interfaces(rosgstbridge
@@ -93,6 +95,7 @@ target_link_libraries(rosgstbridge PUBLIC
   ${GLIB_GIO_LIBRARIES}
   gstcontroller-1.0
   gstaudio-1.0
+  gstvideo-1.0
   gstbase-1.0
   gstnet-1.0
 )

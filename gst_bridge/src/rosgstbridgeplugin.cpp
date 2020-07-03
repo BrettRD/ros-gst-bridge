@@ -47,6 +47,7 @@
 
 #include <gst/gst.h>
 #include "rosaudiosink.h"
+#include "rosimagesink.h"
 
 static gboolean
 plugin_init (GstPlugin * plugin)
@@ -58,6 +59,8 @@ plugin_init (GstPlugin * plugin)
   gst_element_register (plugin, "rosaudiosink", GST_RANK_NONE,
       GST_TYPE_ROSAUDIOSINK);
 
+  gst_element_register (plugin, "rosimagesink", GST_RANK_NONE,
+      GST_TYPE_ROSIMAGESINK);
   return true;
 }
 

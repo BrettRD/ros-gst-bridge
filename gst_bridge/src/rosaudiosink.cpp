@@ -19,7 +19,7 @@
 /**
  * SECTION:element-gstrosaudiosink
  *
- * The rosaudiosink element audio data into ROS2.
+ * The rosaudiosink element, pipe audio data into ROS2.
  *
  * <refsect2>
  * <title>Example launch line</title>
@@ -57,7 +57,6 @@ static gboolean rosaudiosink_setcaps (GstBaseSink * sink, GstCaps * caps);
 static GstCaps * rosaudiosink_fixate (GstBaseSink * bsink, GstCaps * caps);
 
 static GstFlowReturn rosaudiosink_render (GstBaseSink * sink, GstBuffer * buffer);
-//static GstFlowReturn rosaudiosink_render_list (GstBaseSink * bsink, GstBufferList * buffer_list);
 
 static gboolean rosaudiosink_open (Rosaudiosink * sink);
 static gboolean rosaudiosink_close (Rosaudiosink * sink);
@@ -447,40 +446,6 @@ static GstFlowReturn rosaudiosink_render (GstBaseSink * sink, GstBuffer * buf)
   memcpy(msg.data.data(), data, length);
   gst_buffer_unmap (buf, &info);
   data = NULL;
-
-  /*
-  bool all_zero = true;
-  bool all_same = true;
-  for(guint i=0; i<length; i++)
-  {
-    if(((uint8_t*)data)[i] != 0)
-    {
-      all_zero = false;
-    }
-    if(((uint8_t*)data)[i] != ((uint8_t*)data)[0])
-    {
-      all_same = false;
-    }
-  }
-
-  if(all_zero)
-  {
-    RCLCPP_INFO(rosaudiosink->logger, "data is all zero");
-  }
-  else
-  {
-    RCLCPP_INFO(rosaudiosink->logger, "data is non zero");
-  }
-  if(all_same)
-  {
-    RCLCPP_INFO(rosaudiosink->logger, "data is all same");
-  }
-  else
-  {
-    RCLCPP_INFO(rosaudiosink->logger, "data differs");
-  }
-  */
-
 
   //create a message (this loan should be extended upstream)
   // need to use fixed data length message to benefit from zero-copy
