@@ -61,10 +61,8 @@ static GstFlowReturn rosaudiosink_render (GstBaseSink * sink, GstBuffer * buffer
 static gboolean rosaudiosink_open (Rosaudiosink * sink);
 static gboolean rosaudiosink_close (Rosaudiosink * sink);
 
-// create a member function that sends a ROS message, call it from render
-
 /*
-  provide a mechanism for ROS to provide a clock
+  XXX provide a mechanism for ROS to provide a clock
 */
 
 
@@ -129,6 +127,12 @@ static void rosaudiosink_class_init (RosaudiosinkClass * klass)
   g_object_class_install_property (object_class, PROP_ROS_TOPIC,
       g_param_spec_string ("ros-topic", "pub-topic", "ROS topic to be published on",
       "gst_audio_pub",
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
+
+  g_object_class_install_property (object_class, PROP_ROS_FRAME_ID,
+      g_param_spec_string ("ros-frame-id", "frame-id", "frame_id of the image message",
+      "",
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
