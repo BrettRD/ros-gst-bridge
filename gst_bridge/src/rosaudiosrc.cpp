@@ -30,9 +30,9 @@
  * </refsect2>
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+//#ifdef HAVE_CONFIG_H
+//#include "config.h"
+//#endif
 
 #include <gst/gst.h>
 #include "rosaudiosrc.h"
@@ -55,9 +55,9 @@ static GstStateChangeReturn rosaudiosrc_change_state (GstElement * element, GstS
 
 static void rosaudiosrc_init (Rosaudiosrc * src);
 static GstCaps * rosaudiosrc_fixate (GstBaseSrc * base_src, GstCaps * caps);
-static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, GstBuffer * buf);
+static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer *buf);
 
-static gboolean rosaudiosrc_query (GstBaseSrc * base_src, GstQuery * query); //XXX provide scheduling info
+static gboolean rosaudiosrc_query (GstBaseSrc * base_src, GstQuery * query);
 
 static gboolean rosaudiosrc_open (Rosaudiosrc * src);
 static gboolean rosaudiosrc_close (Rosaudiosrc * src);
@@ -71,8 +71,8 @@ static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter);
  * rosaudiosrc_fill needs to wait for a ros message arriving on rosaudiosrc_sub_cb
  * use the message passing pattern of GCond to block rosaudiosrc_fill until rosaudiosrc_sub_cb gets called
  */
-void rosaudiosrc_sub_cb(Rosaudiosrc * src, const audio_msgs::msg::Audio::SharedPtr msg);
-audio_msgs::msg::Audio::SharedPtr rosaudiosrc_wait_for_msg(Rosaudiosrc * src);
+static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstSharedPtr msg);
+static audio_msgs::msg::Audio::ConstSharedPtr rosaudiosrc_wait_for_msg(Rosaudiosrc * src);
 
 /*
   XXX provide a mechanism for ROS to provide a clock
@@ -86,7 +86,7 @@ enum
   PROP_ROS_TOPIC,
   PROP_ROS_FRAME_ID,
   PROP_ROS_ENCODING,
-  PROP_INIT_CAPS
+  PROP_INIT_CAPS,
 };
 
 
@@ -147,19 +147,19 @@ static void rosaudiosrc_class_init (RosaudiosrcClass * klass)
   g_object_class_install_property (object_class, PROP_ROS_FRAME_ID,
       g_param_spec_string ("ros-frame-id", "frame-id", "frame_id of the image message",
       "",
-      (GParamFlags) (G_PARAM_READ | G_PARAM_STATIC_STRINGS))
+      (GParamFlags) (G_PARAM_READABLE | G_PARAM_STATIC_STRINGS))
   );
 
   g_object_class_install_property (object_class, PROP_ROS_ENCODING,
       g_param_spec_string ("ros-encoding", "encoding-string", "ROS message encoding string",
       "",
-      (GParamFlags) (G_PARAM_READ | G_PARAM_STATIC_STRINGS))
+      (GParamFlags) (G_PARAM_READABLE | G_PARAM_STATIC_STRINGS))
   );
 
   g_object_class_install_property (object_class, PROP_INIT_CAPS,
       g_param_spec_string ("init-caps", "initial-caps", "optional caps filter to skip wait for first message",
       "",
-      (GParamFlags) (G_PARAM_READ | G_PARAM_STATIC_STRINGS))
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
 
@@ -224,11 +224,12 @@ void rosaudiosrc_set_property (GObject * object, guint property_id,
       break;
 
     case PROP_INIT_CAPS:
-      if(msg_init)
+      if(src->msg_init)
       {
+        g_free(src->init_caps);
         src->init_caps = g_value_dup_string(value);
         // XXX set up the audio message checks and unpack the caps
-        msg_init = false;
+        src->msg_init = false;
       }
       else
       {
@@ -268,7 +269,8 @@ void rosaudiosrc_get_property (GObject * object, guint property_id,
 
     case PROP_INIT_CAPS:
       g_value_set_string(value, src->init_caps);
-      
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -349,8 +351,10 @@ static gboolean rosaudiosrc_open (Rosaudiosrc * src)
 
   rclcpp::init(0, NULL);
   src->node = std::make_shared<rclcpp::Node>(src->node_name);
-  src->sub = src->node->create_subscription<audio_msgs::msg::Audio>(src->sub_topic, 10, 
-      std::bind(rosaudiosrc_sub_cb, src, _1));
+
+  auto cb = [src] (audio_msgs::msg::Audio::ConstSharedPtr msg){rosaudiosrc_sub_cb(src, msg);};
+  rclcpp::QoS qos = rclcpp::QoS(10);
+  src->sub = src->node->create_subscription<audio_msgs::msg::Audio>(src->sub_topic, qos, cb);
 
   src->logger = src->node->get_logger();
   src->clock = src->node->get_clock();
@@ -429,7 +433,6 @@ static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
   gint width, depth, channels, endianness, rate, layout;
   const gchar * format_str;
   GstAudioFormat format_enum;
-  const GstAudioFormatInfo * format_info;
 
   Rosaudiosrc *src = GST_ROSAUDIOSRC (base_src);
 
@@ -445,19 +448,26 @@ static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
   if(src->node)
       RCLCPP_INFO(src->logger, "getcaps with filter '%s'", gst_caps_to_string(filter));
 
-  if(msg_init)
+  if(src->msg_init)
   {
-    GST_DEBUG_OBJECT (src, "getcaps returning template");
+    GST_DEBUG_OBJECT (src, "getcaps returning template early");
     return gst_pad_get_pad_template_caps (GST_BASE_SRC (src)->srcpad);
   }
 
   GST_DEBUG_OBJECT (src, "getcaps returning known caps");
 
-  format_info->width = src->stride / src->channels;
-  format_info->depth = src->stride / src->channels;
-  format_info->endianness = src->endianness;
-  
-  format_str = gst_audio_format_to_string(format_info);
+  bool sign = true;
+  endianness = src->endianness;
+  width = src->stride / src->channels;
+  depth = src->stride / src->channels;
+
+  format_enum = gst_audio_format_build_integer(
+      sign,
+      endianness,
+      width,
+      depth);
+
+  format_str = gst_audio_format_to_string(format_enum);
 
   return gst_caps_new_simple ("audio/x-raw",
       "format", G_TYPE_STRING, format_str,
@@ -466,15 +476,14 @@ static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
       "layout", G_TYPE_INT, src->layout,
       NULL);
 
-
-    GST_STATIC_CAPS ("audio/x-raw, " "format=S16LE, " "rate=[1,max], "
-        "channels=[1,max], " "layout=interleaved")
 }
 
 
 static gboolean rosaudiosrc_query (GstBaseSrc * base_src, GstQuery * query)
 {
   gboolean ret;
+
+  Rosaudiosrc *src = GST_ROSAUDIOSRC (base_src);
 
   switch (GST_QUERY_TYPE (query)) {
     case GST_QUERY_SCHEDULING:
@@ -489,7 +498,7 @@ static gboolean rosaudiosrc_query (GstBaseSrc * base_src, GstQuery * query)
       break;
     }
     default:
-      ret = GST_BASE_SRC_CLASS (parent_class)->query (src, query);
+      ret = GST_BASE_SRC_CLASS (rosaudiosrc_parent_class)->query (base_src, query);
       break;
   }
   return ret;
@@ -520,7 +529,7 @@ static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, gu
   gst_buffer_map (buf, &info, GST_MAP_READ);
   length = msg->step * msg->frames;
   info.size = length;
-  memcpy(info.data, msg.data.data(), length);
+  memcpy(info.data, msg->data.data(), length);
   gst_buffer_unmap (buf, &info);
 
   time = GST_BUFFER_PTS (buf);    //XXX link gst clock to ros clock
@@ -531,7 +540,7 @@ static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, gu
 
 
 
-void rosaudiosrc_sub_cb(Rosaudiosrc * src, const audio_msgs::msg::Audio::SharedPtr msg)
+static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstSharedPtr msg)
 {
   //fetch caps from the first msg, check on subsequent
   if(src->msg_init)
@@ -539,36 +548,39 @@ void rosaudiosrc_sub_cb(Rosaudiosrc * src, const audio_msgs::msg::Audio::SharedP
     src->stride = msg->step;
     src->channels = msg->channels;
     src->sample_rate = msg->sample_rate;
-    src->encoding = msg->encoding;
     src->endianness = (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN);
     src->layout = msg->layout;
+
+    g_free(src->encoding);
+    src->encoding = g_strdup(msg->encoding.c_str());
+
 
     src->msg_init = false;
   }
   else
   {
     if(!(
-        src->stride == msg->step &&
-        src->channels == msg->channels &&
-        src->sample_rate == msg->sample_rate &&
-        src->encoding == msg->encoding &&
-        src->endianness == (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN) &&
-        src->layout == msg->layout))
+        (src->stride == msg->step) &&
+        (src->channels == msg->channels) &&
+        (src->sample_rate == msg->sample_rate) &&
+        (0 == g_strcmp0(src->encoding, msg->encoding.c_str())) &&
+        (src->endianness == (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN)) &&
+        (src->layout == msg->layout) ))
     {
       GST_DEBUG_OBJECT (src, "ros audio message params changed during playback");
       RCLCPP_ERROR(src->logger, "audio format changed during playback");
     }
   }
 
-  g_mutex_lock (&data_mutex);
-  current_msg = msg;
+  g_mutex_lock (&(src->data_mutex));
+  src->current_msg = msg;
   src->new_msg = true;
-  g_cond_signal (&data_cond);
-  g_mutex_unlock (&data_mutex);
+  g_cond_signal (&(src->data_cond));
+  g_mutex_unlock (&(src->data_mutex));
 }
 
 
-audio_msgs::msg::Audio::SharedPtr rosaudiosrc_wait_for_msg(Rosaudiosrc * src)
+static audio_msgs::msg::Audio::ConstSharedPtr rosaudiosrc_wait_for_msg(Rosaudiosrc * src)
 {
 
   if(src->msg_init)
@@ -576,11 +588,11 @@ audio_msgs::msg::Audio::SharedPtr rosaudiosrc_wait_for_msg(Rosaudiosrc * src)
     GST_DEBUG_OBJECT (src, "ros audio filling buffer before receiving first message");
   }
 
-  g_mutex_lock (&data_mutex);
+  g_mutex_lock (&(src->data_mutex));
   while (!src->new_msg)
-    g_cond_wait (&data_cond, &data_mutex);
+    g_cond_wait (&(src->data_cond), &(src->data_mutex));
   src->new_msg = false;
-  g_mutex_unlock (&data_mutex);
+  g_mutex_unlock (&(src->data_mutex));
 
-  return current_msg;
+  return src->current_msg;
 }

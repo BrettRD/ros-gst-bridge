@@ -66,6 +66,8 @@ add_library(rosgstbridge SHARED
   include/rosaudiosink.h
   src/rosimagesink.cpp
   include/rosimagesink.h
+  src/rosaudiosrc.cpp
+  include/rosaudiosrc.h
 )
 
 #rosidl_target_interfaces(rosgstbridge

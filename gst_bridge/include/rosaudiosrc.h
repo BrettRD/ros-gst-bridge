@@ -33,8 +33,8 @@ G_BEGIN_DECLS
 #define GST_TYPE_ROSAUDIOSRC   (rosaudiosrc_get_type())
 #define GST_ROSAUDIOSRC(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROSAUDIOSRC,Rosaudiosrc))
 #define GST_ROSAUDIOSRC_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_ROSAUDIOSRC,RosaudiosrcClass))
-#define GST_IS_ROSAUDIOSINK(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_ROSAUDIOSRC))
-#define GST_IS_ROSAUDIOSINK_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_ROSAUDIOSRC))
+#define GST_IS_ROSAUDIOSRC(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_ROSAUDIOSRC))
+#define GST_IS_ROSAUDIOSRC_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_ROSAUDIOSRC))
 
 typedef struct _Rosaudiosrc Rosaudiosrc;
 typedef struct _RosaudiosrcClass RosaudiosrcClass;
@@ -50,12 +50,12 @@ struct _Rosaudiosrc
 
   bool msg_init;
   bool new_msg;
-  audio_msgs::msg::Audio::SharedPtr current_msg;
+  audio_msgs::msg::Audio::ConstSharedPtr current_msg;
   GMutex data_mutex;
   GCond data_cond;
 
   rclcpp::Node::SharedPtr node;
-  rclcpp::Subscriber<audio_msgs::msg::Audio>::SharedPtr sub;
+  rclcpp::Subscription<audio_msgs::msg::Audio>::SharedPtr sub;
   rclcpp::Logger logger;
   rclcpp::Clock::SharedPtr clock;
 
@@ -68,7 +68,7 @@ struct _Rosaudiosrc
 
 struct _RosaudiosrcClass
 {
-  GstBaseSinkClass parent_class;
+  GstBaseSrcClass parent_class;
 
   // stick member function pointers here
   // along with member function pointers for signal handlers
