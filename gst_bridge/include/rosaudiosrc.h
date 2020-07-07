@@ -48,17 +48,11 @@ struct _Rosaudiosrc
   gchar* encoding;
   gchar* init_caps;
 
-  /* This set of variables and mutexes allow signalling for a message passed between threads
-   * current_msg is set at the ROS callback and retrieved in gstreamer's push loop
+  /* Avoiding multithreaded execution because it's not necessary
+   * current_msg is set at the ROS callback and retrieved in gstreamer's fill call
    */
   bool msg_init;
-  bool new_msg;
-  audio_msgs::msg::Audio::ConstSharedPtr current_msg;
-  GMutex data_mutex;
-  GCond data_cond;
-
-
-
+  std::promise<audio_msgs::msg::Audio::ConstSharedPtr> new_msg;
 
   rclcpp::Context::SharedPtr ros_context;
   rclcpp::executor::Executor::SharedPtr ros_executor;

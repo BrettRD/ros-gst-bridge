@@ -188,7 +188,6 @@ static void rosaudiosrc_init (Rosaudiosrc * src)
   src->init_caps = g_strdup("");
 
   src->msg_init = true;
-  src->new_msg = false;
 
 }
 
@@ -540,6 +539,15 @@ static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, gu
   
   Rosaudiosrc *src = GST_ROSAUDIOSRC (base_src);
 
+  if(!src->node)
+  {
+    GST_DEBUG_OBJECT (src, "ros audio filling buffer before node init");
+  }
+  else if(src->msg_init)
+  {
+    GST_DEBUG_OBJECT (src, "ros audio filling buffer before receiving first message");
+  }
+
   //wait for a message to be published
   auto msg = rosaudiosrc_wait_for_msg(src);
 
@@ -562,7 +570,7 @@ static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, gu
 static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstSharedPtr msg)
 {
   GST_DEBUG_OBJECT (src, "ros cb called");
-  RCLCPP_INFO(src->logger, "ros cb called");
+  RCLCPP_DEBUG(src->logger, "ros cb called");
 
   //fetch caps from the first msg, check on subsequent
   if(src->msg_init)
@@ -594,31 +602,15 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
     }
   }
 
-  g_mutex_lock (&(src->data_mutex));
-  src->current_msg = msg;
-  src->new_msg = true;
-  g_cond_signal (&(src->data_cond));
-  g_mutex_unlock (&(src->data_mutex));
+  src->new_msg.set_value(msg);
 }
 
 
 static audio_msgs::msg::Audio::ConstSharedPtr rosaudiosrc_wait_for_msg(Rosaudiosrc * src)
 {
-  if(!src->node)
-  {
-    GST_DEBUG_OBJECT (src, "ros audio filling buffer before node init");
-  }
-  else if(src->msg_init)
-  {
-    GST_DEBUG_OBJECT (src, "ros audio filling buffer before receiving first message");
-  }
-
-  g_mutex_lock (&(src->data_mutex));
-  while (!src->new_msg)
-    g_cond_wait (&(src->data_cond), &(src->data_mutex));
-  src->new_msg = false;
-  auto msg = src->current_msg;  //don't reference src->current_msg directly outside of mutex
-  g_mutex_unlock (&(src->data_mutex));
-
-  return msg;
+  std::promise<audio_msgs::msg::Audio::ConstSharedPtr> new_msg;
+  src->new_msg = std::move(new_msg);
+  std::shared_future<audio_msgs::msg::Audio::ConstSharedPtr> fut(src->new_msg.get_future());
+  src->ros_executor->spin_until_future_complete(fut);
+  return fut.get();
 }
