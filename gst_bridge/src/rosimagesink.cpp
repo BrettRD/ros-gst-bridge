@@ -317,8 +317,12 @@ static gboolean rosimagesink_open (Rosimagesink * sink)
 {
   GST_DEBUG_OBJECT (sink, "open");
 
-  rclcpp::init(0, NULL);
-  sink->node = std::make_shared<rclcpp::Node>(sink->node_name);
+  sink->ros_context = std::make_shared<rclcpp::Context>();
+  sink->ros_context->init(0, NULL);    // XXX should expose the init arg list
+  rclcpp::NodeOptions opts = rclcpp::NodeOptions();
+  opts.context(sink->ros_context); //set a context to generate the node in
+  sink->node = std::make_shared<rclcpp::Node>(std::string(sink->node_name), opts);
+
   sink->pub = sink->node->create_publisher<sensor_msgs::msg::Image>(sink->pub_topic, 1);
   sink->logger = sink->node->get_logger();
   sink->clock = sink->node->get_clock();
@@ -333,7 +337,7 @@ static gboolean rosimagesink_close (Rosimagesink * sink)
   sink->clock.reset();
   sink->pub.reset();
   sink->node.reset();
-  rclcpp::shutdown();
+  sink->ros_context->shutdown("gst closing rosimagesink");
   return TRUE;
 }
 

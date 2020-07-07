@@ -47,6 +47,7 @@ struct _Rosimagesink
   gchar* frame_id;
   gchar* encoding; //image topic encoding string
 
+  rclcpp::Context::SharedPtr ros_context;
   rclcpp::Node::SharedPtr node;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub;
   rclcpp::Logger logger;

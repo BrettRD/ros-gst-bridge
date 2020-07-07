@@ -47,6 +47,7 @@ struct _Rosaudiosink
   gchar* frame_id;
   gchar* encoding; //image topic encoding string
 
+  rclcpp::Context::SharedPtr ros_context;
   rclcpp::Node::SharedPtr node;
   rclcpp::Publisher<audio_msgs::msg::Audio>::SharedPtr pub;
   rclcpp::Logger logger;

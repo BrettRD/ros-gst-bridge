@@ -63,13 +63,14 @@ static gboolean rosaudiosrc_open (Rosaudiosrc * src);
 static gboolean rosaudiosrc_close (Rosaudiosrc * src);
 
 //static gboolean rosaudiosrc_negotiate (GstBaseSrc * base_src);
-static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter);
-//static GstCaps* rosaudiosrc_setcaps (GstBaseSrc * base_src, GstCaps * caps);  
+static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter);  //set our caps preferences
+//static GstCaps* rosaudiosrc_setcaps (GstBaseSrc * base_src, GstCaps * caps);  //upstream returns any remaining caps preferences
 
 
 /*
  * rosaudiosrc_fill needs to wait for a ros message arriving on rosaudiosrc_sub_cb
  * use the message passing pattern of GCond to block rosaudiosrc_fill until rosaudiosrc_sub_cb gets called
+ * excuse the gross mix of C++ and C styling going on here, it had to happen somewhere.
  */
 static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstSharedPtr msg);
 static audio_msgs::msg::Audio::ConstSharedPtr rosaudiosrc_wait_for_msg(Rosaudiosrc * src);
@@ -349,9 +350,14 @@ static gboolean rosaudiosrc_open (Rosaudiosrc * src)
 
   GST_DEBUG_OBJECT (src, "open");
 
-  rclcpp::init(0, NULL);
-  src->node = std::make_shared<rclcpp::Node>(src->node_name);
+  src->ros_context = std::make_shared<rclcpp::Context>();
+  src->ros_context->init(0, NULL);    // XXX should expose the init arg list
+  rclcpp::NodeOptions opts = rclcpp::NodeOptions();
+  opts.context(src->ros_context); //set a context to generate the node in
+  src->node = std::make_shared<rclcpp::Node>(std::string(src->node_name), opts);
 
+  // ROS can't cope with some forms of std::bind being passed as subscriber callbacks,
+  // lambdas seem to be the preferred case for these instances
   auto cb = [src] (audio_msgs::msg::Audio::ConstSharedPtr msg){rosaudiosrc_sub_cb(src, msg);};
   rclcpp::QoS qos = rclcpp::QoS(10);
   src->sub = src->node->create_subscription<audio_msgs::msg::Audio>(src->sub_topic, qos, cb);
@@ -369,7 +375,7 @@ static gboolean rosaudiosrc_close (Rosaudiosrc * src)
   src->clock.reset();
   src->sub.reset();
   src->node.reset();
-  rclcpp::shutdown();
+  src->ros_context->shutdown("gst closing rosaudiosrc");
   return TRUE;
 }
 
@@ -525,7 +531,6 @@ static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, gu
 
   GST_DEBUG_OBJECT (src, "render");
 
-
   gst_buffer_map (buf, &info, GST_MAP_READ);
   length = msg->step * msg->frames;
   info.size = length;
@@ -582,7 +587,6 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
 
 static audio_msgs::msg::Audio::ConstSharedPtr rosaudiosrc_wait_for_msg(Rosaudiosrc * src)
 {
-
   if(src->msg_init)
   {
     GST_DEBUG_OBJECT (src, "ros audio filling buffer before receiving first message");
@@ -592,7 +596,8 @@ static audio_msgs::msg::Audio::ConstSharedPtr rosaudiosrc_wait_for_msg(Rosaudios
   while (!src->new_msg)
     g_cond_wait (&(src->data_cond), &(src->data_mutex));
   src->new_msg = false;
+  auto msg = src->current_msg;  //don't reference src->current_msg directly outside of mutex
   g_mutex_unlock (&(src->data_mutex));
 
-  return src->current_msg;
+  return msg;
 }
