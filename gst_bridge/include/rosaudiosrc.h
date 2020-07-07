@@ -57,7 +57,11 @@ struct _Rosaudiosrc
   GMutex data_mutex;
   GCond data_cond;
 
+
+
+
   rclcpp::Context::SharedPtr ros_context;
+  rclcpp::executor::Executor::SharedPtr ros_executor;
   rclcpp::Node::SharedPtr node;
   rclcpp::Subscription<audio_msgs::msg::Audio>::SharedPtr sub;
   rclcpp::Logger logger;

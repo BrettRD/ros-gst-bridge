@@ -352,9 +352,15 @@ static gboolean rosaudiosrc_open (Rosaudiosrc * src)
 
   src->ros_context = std::make_shared<rclcpp::Context>();
   src->ros_context->init(0, NULL);    // XXX should expose the init arg list
-  rclcpp::NodeOptions opts = rclcpp::NodeOptions();
+  auto opts = rclcpp::NodeOptions();
   opts.context(src->ros_context); //set a context to generate the node in
   src->node = std::make_shared<rclcpp::Node>(std::string(src->node_name), opts);
+
+  // A local ros context requires an executor to spin() on
+  auto ex_args = rclcpp::executor::ExecutorArgs();
+  ex_args.context = src->ros_context;
+  src->ros_executor = std::make_shared<rclcpp::executors::SingleThreadedExecutor>(ex_args);
+  src->ros_executor->add_node(src->node);
 
   // ROS can't cope with some forms of std::bind being passed as subscriber callbacks,
   // lambdas seem to be the preferred case for these instances
@@ -364,6 +370,10 @@ static gboolean rosaudiosrc_open (Rosaudiosrc * src)
 
   src->logger = src->node->get_logger();
   src->clock = src->node->get_clock();
+  //src->ros_executor->spin();
+  src->ros_executor->spin_some();
+
+
   return TRUE;
 }
 
@@ -384,6 +394,10 @@ static GstCaps * rosaudiosrc_fixate (GstBaseSrc * base_src, GstCaps * caps)
 {
   GstStructure *s;
   gint width, depth;
+
+  Rosaudiosrc *src = GST_ROSAUDIOSRC (base_src);
+
+  GST_DEBUG_OBJECT (src, "fixate");
 
   caps = gst_caps_make_writable (caps);
 
@@ -529,7 +543,7 @@ static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, gu
   //wait for a message to be published
   auto msg = rosaudiosrc_wait_for_msg(src);
 
-  GST_DEBUG_OBJECT (src, "render");
+  GST_DEBUG_OBJECT (src, "fill");
 
   gst_buffer_map (buf, &info, GST_MAP_READ);
   length = msg->step * msg->frames;
@@ -547,6 +561,9 @@ static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, gu
 
 static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstSharedPtr msg)
 {
+  GST_DEBUG_OBJECT (src, "ros cb called");
+  RCLCPP_INFO(src->logger, "ros cb called");
+
   //fetch caps from the first msg, check on subsequent
   if(src->msg_init)
   {
@@ -587,7 +604,11 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
 
 static audio_msgs::msg::Audio::ConstSharedPtr rosaudiosrc_wait_for_msg(Rosaudiosrc * src)
 {
-  if(src->msg_init)
+  if(!src->node)
+  {
+    GST_DEBUG_OBJECT (src, "ros audio filling buffer before node init");
+  }
+  else if(src->msg_init)
   {
     GST_DEBUG_OBJECT (src, "ros audio filling buffer before receiving first message");
   }
