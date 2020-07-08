@@ -168,7 +168,7 @@ static void rosaudiosrc_class_init (RosaudiosrcClass * klass)
   element_class->change_state = GST_DEBUG_FUNCPTR (rosaudiosrc_change_state); //use state change events to open and close subscribers
 
   basesrc_class->fixate = GST_DEBUG_FUNCPTR (rosaudiosrc_fixate); //set caps fields to our preferred values (if possible)
-  //basesrc_class->get_caps = GST_DEBUG_FUNCPTR (rosaudiosrc_getcaps);  //return caps within the filter
+  basesrc_class->get_caps = GST_DEBUG_FUNCPTR (rosaudiosrc_getcaps);  //return caps within the filter
   //basesrc_class->negotiate = GST_DEBUG_FUNCPTR (rosaudiosrc_negotiate);  //start figuring out caps and allocators
   //basesrc_class->event = GST_DEBUG_FUNCPTR (rosaudiosrc_event);  //flush events can cause discontinuities (flags exist in buffers)
   //basesrc_class->get_times = GST_DEBUG_FUNCPTR (rosaudiosrc_get_times); //asks us for start and stop times (?)
@@ -405,7 +405,6 @@ static GstCaps * rosaudiosrc_fixate (GstBaseSrc * base_src, GstCaps * caps)
   /* fields for all formats */
   gst_structure_fixate_field_nearest_int (s, "rate", 44100);
   gst_structure_fixate_field_nearest_int (s, "channels", 2);
-  gst_structure_fixate_field_nearest_int (s, "width", 16);
 
   /* fields for int */
   if (gst_structure_has_field (s, "depth")) {
@@ -420,6 +419,10 @@ static GstCaps * rosaudiosrc_fixate (GstBaseSrc * base_src, GstCaps * caps)
     gst_structure_fixate_field_nearest_int (s, "endianness", G_BYTE_ORDER);
 
   caps = GST_BASE_SRC_CLASS (rosaudiosrc_parent_class)->fixate (base_src, caps);
+
+  if(src->node)
+      RCLCPP_INFO(src->logger, "preparing audio with caps '%s'",
+          gst_caps_to_string(caps));
 
   return caps;
 }
@@ -452,16 +455,18 @@ static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
   gint width, depth, channels, endianness, rate, layout;
   const gchar * format_str;
   GstAudioFormat format_enum;
+  static audio_msgs::msg::Audio::ConstSharedPtr msg;
+  GstCaps * caps;
 
   Rosaudiosrc *src = GST_ROSAUDIOSRC (base_src);
 
   GST_DEBUG_OBJECT (src, "getcaps");
-
+/*
   if(!gst_caps_is_fixed(filter))
   {
     RCLCPP_INFO(src->logger, "caps is not fixed");
   }
-
+*/
   GST_DEBUG_OBJECT (src, "getcaps with filter %s", gst_caps_to_string(filter));
 
   if(src->node)
@@ -469,16 +474,25 @@ static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
 
   if(src->msg_init)
   {
-    GST_DEBUG_OBJECT (src, "getcaps returning template early");
-    return gst_pad_get_pad_template_caps (GST_BASE_SRC (src)->srcpad);
+    if(src->node)
+    {
+      GST_DEBUG_OBJECT (src, "getcaps with node ready, waiting for message");
+      RCLCPP_INFO(src->logger, "waiting for first message");
+      msg = rosaudiosrc_wait_for_msg(src);  // XXX need to fix API, the action happens in a side-effect
+    }
+    else
+    {
+      GST_DEBUG_OBJECT (src, "getcaps with node not ready, returning template");
+      return gst_pad_get_pad_template_caps (GST_BASE_SRC (src)->srcpad);
+    }
   }
 
   GST_DEBUG_OBJECT (src, "getcaps returning known caps");
 
   bool sign = true;
   endianness = src->endianness;
-  width = src->stride / src->channels;
-  depth = src->stride / src->channels;
+  width = (8 * src->stride) / src->channels;
+  depth = (8 * src->stride) / src->channels;
 
   format_enum = gst_audio_format_build_integer(
       sign,
@@ -488,13 +502,16 @@ static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
 
   format_str = gst_audio_format_to_string(format_enum);
 
-  return gst_caps_new_simple ("audio/x-raw",
+  caps = gst_caps_new_simple ("audio/x-raw",
       "format", G_TYPE_STRING, format_str,
       "rate", G_TYPE_INT, src->sample_rate,
       "channels", G_TYPE_INT, src->channels,
-      "layout", G_TYPE_INT, src->layout,
+      "layout", G_TYPE_STRING, "interleaved",
       NULL);
 
+  GST_DEBUG_OBJECT (src, "getcaps returning %s", gst_caps_to_string(caps));
+
+  return caps;
 }
 
 
@@ -534,10 +551,14 @@ static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, gu
 {
   GstMapInfo info;
   GstClockTime time;
-  size_t length;
+  size_t length, msg_length, out_offset;
+  const uint8_t* msg_ptr;
+  uint8_t* out_ptr;
   GstFlowReturn ret;
   
   Rosaudiosrc *src = GST_ROSAUDIOSRC (base_src);
+
+  GST_DEBUG_OBJECT (src, "fill");
 
   if(!src->node)
   {
@@ -548,19 +569,48 @@ static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, gu
     GST_DEBUG_OBJECT (src, "ros audio filling buffer before receiving first message");
   }
 
-  //wait for a message to be published
-  auto msg = rosaudiosrc_wait_for_msg(src);
+  out_offset = 0;
+  
+  do
+  {
+    // we'll probably either be holding no message, or a used one,
+    // this whole length thing should just get replaced by a ring buffer
+    length = 0;
+    if(src->msg)
+    {
+      msg_length = src->msg->step * src->msg->frames;
+      length = msg_length - src->in_offset;
+    }
 
-  GST_DEBUG_OBJECT (src, "fill");
+    //the last message has nothing new, get another
+    if(length == 0)
+    {
+      src->msg = rosaudiosrc_wait_for_msg(src);
+      src->in_offset = 0;
+      msg_length = src->msg->step * src->msg->frames;
+      length = msg_length - src->in_offset;
+    }
 
-  gst_buffer_map (buf, &info, GST_MAP_READ);
-  length = msg->step * msg->frames;
-  info.size = length;
-  memcpy(info.data, msg->data.data(), length);
-  gst_buffer_unmap (buf, &info);
+    //don't overfill the output buffer
+    if(length > (size - out_offset))
+      length = size - out_offset;
+
+    gst_buffer_map (buf, &info, GST_MAP_READ);
+
+    msg_ptr = &(src->msg->data.data()[src->in_offset]);
+    out_ptr = &(info.data[out_offset]);
+
+    info.size = length;
+    memcpy(out_ptr, msg_ptr, length);
+    out_offset += length;
+    src->in_offset += length; //mark the number of bytes written out of the saved message
+
+    gst_buffer_unmap (buf, &info);
+
+  }
+  while(out_offset < size);
 
   time = GST_BUFFER_PTS (buf);    //XXX link gst clock to ros clock
-
 
   return GST_FLOW_OK;
 }
@@ -569,8 +619,8 @@ static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, gu
 
 static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstSharedPtr msg)
 {
-  GST_DEBUG_OBJECT (src, "ros cb called");
-  RCLCPP_DEBUG(src->logger, "ros cb called");
+  //GST_DEBUG_OBJECT (src, "ros cb called");
+  //RCLCPP_DEBUG(src->logger, "ros cb called");
 
   //fetch caps from the first msg, check on subsequent
   if(src->msg_init)
@@ -611,6 +661,19 @@ static audio_msgs::msg::Audio::ConstSharedPtr rosaudiosrc_wait_for_msg(Rosaudios
   std::promise<audio_msgs::msg::Audio::ConstSharedPtr> new_msg;
   src->new_msg = std::move(new_msg);
   std::shared_future<audio_msgs::msg::Audio::ConstSharedPtr> fut(src->new_msg.get_future());
-  src->ros_executor->spin_until_future_complete(fut);
+
+  rclcpp::executor::FutureReturnCode ret;
+  
+  do
+  {
+    ret = src->ros_executor->spin_until_future_complete(fut);
+    if(ret == rclcpp::executor::FutureReturnCode::INTERRUPTED)
+    {
+      RCLCPP_INFO(src->logger, "wait for cb got interrupted");
+    }
+  }
+  while(ret != rclcpp::executor::FutureReturnCode::SUCCESS);
+
+  
   return fut.get();
 }

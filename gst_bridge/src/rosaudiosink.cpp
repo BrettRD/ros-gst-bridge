@@ -422,7 +422,7 @@ static gboolean rosaudiosink_setcaps (GstBaseSink * sink, GstCaps * caps)
 
   //collect a bunch of parameters to shoehorn into a message format
   rosaudiosink->channels = channels;
-  rosaudiosink->stride = depth * channels;
+  rosaudiosink->stride = (depth/8) * channels;
   rosaudiosink->endianness = endianness;
   rosaudiosink->sample_rate = rate;
   rosaudiosink->layout = 0; //XXX

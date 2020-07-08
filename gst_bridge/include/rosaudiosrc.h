@@ -53,6 +53,8 @@ struct _Rosaudiosrc
    */
   bool msg_init;
   std::promise<audio_msgs::msg::Audio::ConstSharedPtr> new_msg;
+  audio_msgs::msg::Audio::ConstSharedPtr msg;
+  size_t in_offset;
 
   rclcpp::Context::SharedPtr ros_context;
   rclcpp::executor::Executor::SharedPtr ros_executor;
@@ -66,6 +68,7 @@ struct _Rosaudiosrc
   size_t stride;   //bytes per frame
   gint endianness;  
   uint8_t layout;
+
 };
 
 struct _RosaudiosrcClass
