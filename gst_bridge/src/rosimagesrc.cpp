@@ -17,16 +17,16 @@
  * Boston, MA 02110-1335, USA.
  */
 /**
- * SECTION:element-rosaudiosrc
+ * SECTION:element-rosimagesrc
  *
- * The rosaudiosrc element, pipe audio data into ROS2.
+ * The rosimagesrc element, pipe image data into ROS2.
  *
  * <refsect2>
  * <title>Example launch line</title>
  * |[
- * gst-launch-1.0 -v rosaudiosrc ! queue ! audioconvert ! alsasink
+ * gst-launch-1.0 -v rosimagesrc ! queue ! ximagesink
  * ]|
- * plays audio data from ros over the default output.
+ * plays video data from ros over the default output.
  * </refsect2>
  */
 
@@ -35,45 +35,45 @@
 //#endif
 
 #include <gst/gst.h>
-#include <gst_bridge/rosaudiosrc.h>
+#include <gst_bridge/rosimagesrc.h>
+#include <gst_bridge/gst_bridge.h>
 
-
-GST_DEBUG_CATEGORY_STATIC (rosaudiosrc_debug_category);
-#define GST_CAT_DEFAULT rosaudiosrc_debug_category
+GST_DEBUG_CATEGORY_STATIC (rosimagesrc_debug_category);
+#define GST_CAT_DEFAULT rosimagesrc_debug_category
 
 /* prototypes */
 
 
-static void rosaudiosrc_set_property (GObject * object, guint property_id, const GValue * value, GParamSpec * pspec);
-static void rosaudiosrc_get_property (GObject * object, guint property_id, GValue * value, GParamSpec * pspec);
-static void rosaudiosrc_dispose (GObject * object);  //unused?
-static void rosaudiosrc_finalize (GObject * object);
+static void rosimagesrc_set_property (GObject * object, guint property_id, const GValue * value, GParamSpec * pspec);
+static void rosimagesrc_get_property (GObject * object, guint property_id, GValue * value, GParamSpec * pspec);
+static void rosimagesrc_dispose (GObject * object);  //unused?
+static void rosimagesrc_finalize (GObject * object);
 
 
-static GstStateChangeReturn rosaudiosrc_change_state (GstElement * element, GstStateChange transition);
+static GstStateChangeReturn rosimagesrc_change_state (GstElement * element, GstStateChange transition);
 
 
-static void rosaudiosrc_init (Rosaudiosrc * src);
-static GstCaps * rosaudiosrc_fixate (GstBaseSrc * base_src, GstCaps * caps);
-static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer *buf);
+static void rosimagesrc_init (Rosimagesrc * src);
+static GstCaps * rosimagesrc_fixate (GstBaseSrc * base_src, GstCaps * caps);
+static GstFlowReturn rosimagesrc_fill (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer *buf);
 
-static gboolean rosaudiosrc_query (GstBaseSrc * base_src, GstQuery * query);
+static gboolean rosimagesrc_query (GstBaseSrc * base_src, GstQuery * query);
 
-static gboolean rosaudiosrc_open (Rosaudiosrc * src);
-static gboolean rosaudiosrc_close (Rosaudiosrc * src);
+static gboolean rosimagesrc_open (Rosimagesrc * src);
+static gboolean rosimagesrc_close (Rosimagesrc * src);
 
-//static gboolean rosaudiosrc_negotiate (GstBaseSrc * base_src);
-static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter);  //set our caps preferences
-//static GstCaps* rosaudiosrc_setcaps (GstBaseSrc * base_src, GstCaps * caps);  //upstream returns any remaining caps preferences
+//static gboolean rosimagesrc_negotiate (GstBaseSrc * base_src);
+static GstCaps* rosimagesrc_getcaps (GstBaseSrc * base_src, GstCaps * filter);  //set our caps preferences
+//static GstCaps* rosimagesrc_setcaps (GstBaseSrc * base_src, GstCaps * caps);  //upstream returns any remaining caps preferences
 
 
 /*
- * rosaudiosrc_fill needs to wait for a ros message arriving on rosaudiosrc_sub_cb
- * use the message passing pattern of GCond to block rosaudiosrc_fill until rosaudiosrc_sub_cb gets called
+ * rosimagesrc_fill needs to wait for a ros message arriving on rosimagesrc_sub_cb
+ * use the message passing pattern of GCond to block rosimagesrc_fill until rosimagesrc_sub_cb gets called
  * excuse the gross mix of C++ and C styling going on here, it had to happen somewhere.
  */
-static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstSharedPtr msg);
-static audio_msgs::msg::Audio::ConstSharedPtr rosaudiosrc_wait_for_msg(Rosaudiosrc * src);
+static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::ConstSharedPtr msg);
+static sensor_msgs::msg::Image::ConstSharedPtr rosimagesrc_wait_for_msg(Rosimagesrc * src);
 
 /*
   XXX provide a mechanism for ROS to provide a clock
@@ -94,54 +94,54 @@ enum
 /* pad templates */
 
 /* FIXME add/remove the formats that you want to support */
-static GstStaticPadTemplate rosaudiosrc_src_template =
+static GstStaticPadTemplate rosimagesrc_src_template =
 GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("audio/x-raw, " "format=S16LE, " "rate=[1,max], "
+    GST_STATIC_CAPS ("video/x-raw, " "format=S16LE, " "rate=[1,max], "
         "channels=[1,max], " "layout=interleaved")
     );
 
 
 /* class initialization */
 
-G_DEFINE_TYPE_WITH_CODE (Rosaudiosrc, rosaudiosrc, GST_TYPE_BASE_SRC,
-    GST_DEBUG_CATEGORY_INIT (rosaudiosrc_debug_category, "rosaudiosrc", 0,
-        "debug category for rosaudiosrc element"))
+G_DEFINE_TYPE_WITH_CODE (Rosimagesrc, rosimagesrc, GST_TYPE_BASE_SRC,
+    GST_DEBUG_CATEGORY_INIT (rosimagesrc_debug_category, "rosimagesrc", 0,
+        "debug category for rosimagesrc element"))
 
-static void rosaudiosrc_class_init (RosaudiosrcClass * klass)
+static void rosimagesrc_class_init (RosimagesrcClass * klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GstElementClass *element_class = GST_ELEMENT_CLASS (klass);
   GstBaseSrcClass *basesrc_class = (GstBaseSrcClass *) klass;
 
-  object_class->set_property = rosaudiosrc_set_property;
-  object_class->get_property = rosaudiosrc_get_property;
-  object_class->dispose = rosaudiosrc_dispose;
-  object_class->finalize = rosaudiosrc_finalize;
+  object_class->set_property = rosimagesrc_set_property;
+  object_class->get_property = rosimagesrc_get_property;
+  object_class->dispose = rosimagesrc_dispose;
+  object_class->finalize = rosimagesrc_finalize;
 
 
   /* Setting up pads and setting metadata should be moved to
      base_class_init if you intend to subclass this class. */
   gst_element_class_add_static_pad_template (element_class,
-      &rosaudiosrc_src_template);
+      &rosimagesrc_src_template);
 
 
   gst_element_class_set_static_metadata (element_class,
-      "rosaudiosrc",
-      "Source/Audio",
-      "a gstreamer source that transports ROS audio_msgs over gstreamer",
+      "rosimagesrc",
+      "Source/Video",
+      "a gstreamer source that transports ROS image_msgs over gstreamer",
       "BrettRD <brettrd@brettrd.com>");
 
   g_object_class_install_property (object_class, PROP_ROS_NAME,
       g_param_spec_string ("ros-name", "node-name", "Name of the ROS node",
-      "gst_audio_src_node",
+      "gst_image_src_node",
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
   g_object_class_install_property (object_class, PROP_ROS_TOPIC,
       g_param_spec_string ("ros-topic", "sub-topic", "ROS topic to subscribe to",
-      "gst_audio_sub",
+      "gst_image_sub",
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
@@ -165,24 +165,24 @@ static void rosaudiosrc_class_init (RosaudiosrcClass * klass)
 
 
 
-  element_class->change_state = GST_DEBUG_FUNCPTR (rosaudiosrc_change_state); //use state change events to open and close subscribers
+  element_class->change_state = GST_DEBUG_FUNCPTR (rosimagesrc_change_state); //use state change events to open and close subscribers
 
-  basesrc_class->fixate = GST_DEBUG_FUNCPTR (rosaudiosrc_fixate); //set caps fields to our preferred values (if possible)
-  basesrc_class->get_caps = GST_DEBUG_FUNCPTR (rosaudiosrc_getcaps);  //return caps within the filter
-  //basesrc_class->negotiate = GST_DEBUG_FUNCPTR (rosaudiosrc_negotiate);  //start figuring out caps and allocators
-  //basesrc_class->event = GST_DEBUG_FUNCPTR (rosaudiosrc_event);  //flush events can cause discontinuities (flags exist in buffers)
-  //basesrc_class->get_times = GST_DEBUG_FUNCPTR (rosaudiosrc_get_times); //asks us for start and stop times (?)
-  basesrc_class->fill = GST_DEBUG_FUNCPTR(rosaudiosrc_fill);
-  basesrc_class->query = GST_DEBUG_FUNCPTR(rosaudiosrc_query);  //set the scheduling modes
+  basesrc_class->fixate = GST_DEBUG_FUNCPTR (rosimagesrc_fixate); //set caps fields to our preferred values (if possible)
+  basesrc_class->get_caps = GST_DEBUG_FUNCPTR (rosimagesrc_getcaps);  //return caps within the filter
+  //basesrc_class->negotiate = GST_DEBUG_FUNCPTR (rosimagesrc_negotiate);  //start figuring out caps and allocators
+  //basesrc_class->event = GST_DEBUG_FUNCPTR (rosimagesrc_event);  //flush events can cause discontinuities (flags exist in buffers)
+  //basesrc_class->get_times = GST_DEBUG_FUNCPTR (rosimagesrc_get_times); //asks us for start and stop times (?)
+  basesrc_class->fill = GST_DEBUG_FUNCPTR(rosimagesrc_fill);
+  basesrc_class->query = GST_DEBUG_FUNCPTR(rosimagesrc_query);  //set the scheduling modes
 }
 
-static void rosaudiosrc_init (Rosaudiosrc * src)
+static void rosimagesrc_init (Rosimagesrc * src)
 {
   // Don't register the node or the subscriber just yet,
-  // wait for rosaudiosrc_open()
+  // wait for rosimagesrc_open()
   // XXX set defaults elsewhere to keep gst-inspect consistent
-  src->node_name = g_strdup("gst_audio_src_node");
-  src->sub_topic = g_strdup("gst_audio_sub");
+  src->node_name = g_strdup("gst_image_src_node");
+  src->sub_topic = g_strdup("gst_image_sub");
   src->frame_id = g_strdup("");
   src->encoding = g_strdup("");
   src->init_caps = g_strdup("");
@@ -191,10 +191,10 @@ static void rosaudiosrc_init (Rosaudiosrc * src)
 
 }
 
-void rosaudiosrc_set_property (GObject * object, guint property_id,
+void rosimagesrc_set_property (GObject * object, guint property_id,
     const GValue * value, GParamSpec * pspec)
 {
-  Rosaudiosrc *src = GST_ROSAUDIOSRC (object);
+  Rosimagesrc *src = GST_ROSIMAGESRC (object);
 
   GST_DEBUG_OBJECT (src, "set_property");
 
@@ -228,7 +228,7 @@ void rosaudiosrc_set_property (GObject * object, guint property_id,
       {
         g_free(src->init_caps);
         src->init_caps = g_value_dup_string(value);
-        // XXX set up the audio message checks and unpack the caps
+        // XXX set up the image message checks and unpack the caps
         src->msg_init = false;
       }
       else
@@ -243,10 +243,10 @@ void rosaudiosrc_set_property (GObject * object, guint property_id,
   }
 }
 
-void rosaudiosrc_get_property (GObject * object, guint property_id,
+void rosimagesrc_get_property (GObject * object, guint property_id,
     GValue * value, GParamSpec * pspec)
 {
-  Rosaudiosrc *src = GST_ROSAUDIOSRC (object);
+  Rosimagesrc *src = GST_ROSIMAGESRC (object);
 
   GST_DEBUG_OBJECT (src, "get_property");
   switch (property_id)
@@ -277,40 +277,39 @@ void rosaudiosrc_get_property (GObject * object, guint property_id,
   }
 }
 
-void rosaudiosrc_dispose (GObject * object)
+void rosimagesrc_dispose (GObject * object)
 {
-  Rosaudiosrc *src = GST_ROSAUDIOSRC (object);
+  Rosimagesrc *src = GST_ROSIMAGESRC (object);
 
   GST_DEBUG_OBJECT (src, "dispose");
 
   /* clean up as possible.  may be called multiple times */
 
-  G_OBJECT_CLASS (rosaudiosrc_parent_class)->dispose (object);
+  G_OBJECT_CLASS (rosimagesrc_parent_class)->dispose (object);
 }
 
-void rosaudiosrc_finalize (GObject * object)
+void rosimagesrc_finalize (GObject * object)
 {
-  Rosaudiosrc *src = GST_ROSAUDIOSRC (object);
+  Rosimagesrc *src = GST_ROSIMAGESRC (object);
 
   GST_DEBUG_OBJECT (src, "finalize");
 
   /* clean up object here */
 
-  G_OBJECT_CLASS (rosaudiosrc_parent_class)->finalize (object);
+  G_OBJECT_CLASS (rosimagesrc_parent_class)->finalize (object);
 }
 
 
-static GstStateChangeReturn rosaudiosrc_change_state (GstElement * element, GstStateChange transition)
+static GstStateChangeReturn rosimagesrc_change_state (GstElement * element, GstStateChange transition)
 {
   GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
-  Rosaudiosrc *src = GST_ROSAUDIOSRC (element);
+  Rosimagesrc *src = GST_ROSIMAGESRC (element);
 
   switch (transition)
   {
     case GST_STATE_CHANGE_NULL_TO_READY:
     {
-      //gst_audio_clock_reset (GST_AUDIO_CLOCK (src->provided_clock), 0);
-      if (!rosaudiosrc_open(src))
+      if (!rosimagesrc_open(src))
       {
         GST_DEBUG_OBJECT (src, "open failed");
         return GST_STATE_CHANGE_FAILURE;
@@ -325,12 +324,12 @@ static GstStateChangeReturn rosaudiosrc_change_state (GstElement * element, GstS
       break;
   }
 
-  ret = GST_ELEMENT_CLASS (rosaudiosrc_parent_class)->change_state (element, transition);
+  ret = GST_ELEMENT_CLASS (rosimagesrc_parent_class)->change_state (element, transition);
 
   switch (transition)
   {
     case GST_STATE_CHANGE_READY_TO_NULL:
-      rosaudiosrc_close(src);
+      rosimagesrc_close(src);
       break;
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
     case GST_STATE_CHANGE_PAUSED_TO_READY:
@@ -343,7 +342,7 @@ static GstStateChangeReturn rosaudiosrc_change_state (GstElement * element, GstS
 }
 
 /* open the device with given specs */
-static gboolean rosaudiosrc_open (Rosaudiosrc * src)
+static gboolean rosimagesrc_open (Rosimagesrc * src)
 {
   using std::placeholders::_1;
 
@@ -363,9 +362,9 @@ static gboolean rosaudiosrc_open (Rosaudiosrc * src)
 
   // ROS can't cope with some forms of std::bind being passed as subscriber callbacks,
   // lambdas seem to be the preferred case for these instances
-  auto cb = [src] (audio_msgs::msg::Audio::ConstSharedPtr msg){rosaudiosrc_sub_cb(src, msg);};
+  auto cb = [src] (sensor_msgs::msg::Image::ConstSharedPtr msg){rosimagesrc_sub_cb(src, msg);};
   rclcpp::QoS qos = rclcpp::QoS(10);
-  src->sub = src->node->create_subscription<audio_msgs::msg::Audio>(src->sub_topic, qos, cb);
+  src->sub = src->node->create_subscription<sensor_msgs::msg::Image>(src->sub_topic, qos, cb);
 
   src->logger = src->node->get_logger();
   src->clock = src->node->get_clock();
@@ -377,24 +376,24 @@ static gboolean rosaudiosrc_open (Rosaudiosrc * src)
 }
 
 /* close the device */
-static gboolean rosaudiosrc_close (Rosaudiosrc * src)
+static gboolean rosimagesrc_close (Rosimagesrc * src)
 {
   GST_DEBUG_OBJECT (src, "close");
 
   src->clock.reset();
   src->sub.reset();
   src->node.reset();
-  src->ros_context->shutdown("gst closing rosaudiosrc");
+  src->ros_context->shutdown("gst closing rosimagesrc");
   return TRUE;
 }
 
 
-static GstCaps * rosaudiosrc_fixate (GstBaseSrc * base_src, GstCaps * caps)
+static GstCaps * rosimagesrc_fixate (GstBaseSrc * base_src, GstCaps * caps)
 {
   GstStructure *s;
   gint width, depth;
 
-  Rosaudiosrc *src = GST_ROSAUDIOSRC (base_src);
+  Rosimagesrc *src = GST_ROSIMAGESRC (base_src);
 
   GST_DEBUG_OBJECT (src, "fixate");
 
@@ -418,10 +417,10 @@ static GstCaps * rosaudiosrc_fixate (GstBaseSrc * base_src, GstCaps * caps)
   if (gst_structure_has_field (s, "endianness"))
     gst_structure_fixate_field_nearest_int (s, "endianness", G_BYTE_ORDER);
 
-  caps = GST_BASE_SRC_CLASS (rosaudiosrc_parent_class)->fixate (base_src, caps);
+  caps = GST_BASE_SRC_CLASS (rosimagesrc_parent_class)->fixate (base_src, caps);
 
   if(src->node)
-      RCLCPP_INFO(src->logger, "preparing audio with caps '%s'",
+      RCLCPP_INFO(src->logger, "preparing video with caps '%s'",
           gst_caps_to_string(caps));
 
   return caps;
@@ -437,9 +436,9 @@ static GstCaps * rosaudiosrc_fixate (GstBaseSrc * base_src, GstCaps * caps)
  */
 
 /*
-static gboolean rosaudiosrc_negotiate (GstBaseSrc * base_src)
+static gboolean rosimagesrc_negotiate (GstBaseSrc * base_src)
 {
-  Rosaudiosrc *src = GST_ROSAUDIOSRC (base_src);
+  Rosimagesrc *src = GST_ROSIMAGESRC (base_src);
   GST_DEBUG_OBJECT (src, "negotiate");
 
   return false;
@@ -449,16 +448,16 @@ static gboolean rosaudiosrc_negotiate (GstBaseSrc * base_src)
 
 /* return valid caps to parent class*/
 // XXX need to provide the range of possible values 
-static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
+static GstCaps* rosimagesrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
 {
   GstStructure *caps_struct;
   gint width, depth, channels, endianness, rate, layout;
   const gchar * format_str;
-  GstAudioFormat format_enum;
-  static audio_msgs::msg::Audio::ConstSharedPtr msg;
+  GstVideoFormat format_enum;
+  static sensor_msgs::msg::Image::ConstSharedPtr msg;
   GstCaps * caps;
 
-  Rosaudiosrc *src = GST_ROSAUDIOSRC (base_src);
+  Rosimagesrc *src = GST_ROSIMAGESRC (base_src);
 
   GST_DEBUG_OBJECT (src, "getcaps");
 /*
@@ -478,7 +477,7 @@ static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
     {
       GST_DEBUG_OBJECT (src, "getcaps with node ready, waiting for message");
       RCLCPP_INFO(src->logger, "waiting for first message");
-      msg = rosaudiosrc_wait_for_msg(src);  // XXX need to fix API, the action happens in a side-effect
+      msg = rosimagesrc_wait_for_msg(src);  // XXX need to fix API, the action happens in a side-effect
     }
     else
     {
@@ -489,24 +488,13 @@ static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
 
   GST_DEBUG_OBJECT (src, "getcaps returning known caps");
 
-  bool sign = true;
-  endianness = src->endianness;
-  width = (8 * src->stride) / src->channels;
-  depth = (8 * src->stride) / src->channels;
+  format_enum = gst_bridge::getGstVideoFormat(std::string(src->encoding));
+  format_str = gst_video_format_to_string(format_enum);
 
-  format_enum = gst_audio_format_build_integer(
-      sign,
-      endianness,
-      width,
-      depth);
-
-  format_str = gst_audio_format_to_string(format_enum);
-
-  caps = gst_caps_new_simple ("audio/x-raw",
+  caps = gst_caps_new_simple ("video/x-raw",
       "format", G_TYPE_STRING, format_str,
-      "rate", G_TYPE_INT, src->sample_rate,
-      "channels", G_TYPE_INT, src->channels,
-      "layout", G_TYPE_STRING, "interleaved",
+      "height", G_TYPE_INT, src->height,
+      "width", G_TYPE_INT, src->width,
       NULL);
 
   GST_DEBUG_OBJECT (src, "getcaps returning %s", gst_caps_to_string(caps));
@@ -515,11 +503,11 @@ static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
 }
 
 
-static gboolean rosaudiosrc_query (GstBaseSrc * base_src, GstQuery * query)
+static gboolean rosimagesrc_query (GstBaseSrc * base_src, GstQuery * query)
 {
   gboolean ret;
 
-  Rosaudiosrc *src = GST_ROSAUDIOSRC (base_src);
+  Rosimagesrc *src = GST_ROSIMAGESRC (base_src);
 
   switch (GST_QUERY_TYPE (query)) {
     case GST_QUERY_SCHEDULING:
@@ -534,7 +522,7 @@ static gboolean rosaudiosrc_query (GstBaseSrc * base_src, GstQuery * query)
       break;
     }
     default:
-      ret = GST_BASE_SRC_CLASS (rosaudiosrc_parent_class)->query (base_src, query);
+      ret = GST_BASE_SRC_CLASS (rosimagesrc_parent_class)->query (base_src, query);
       break;
   }
   return ret;
@@ -547,68 +535,33 @@ static gboolean rosaudiosrc_query (GstBaseSrc * base_src, GstQuery * query)
  * Also update frame_id and encoding
  * Error if the number of channels or encoding changes at runtime
  */
-static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer *buf)
+static GstFlowReturn rosimagesrc_fill (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer *buf)
 {
   GstMapInfo info;
   GstClockTime time;
-  size_t length, msg_length, out_offset;
-  const uint8_t* msg_ptr;
-  uint8_t* out_ptr;
+  size_t length;
   GstFlowReturn ret;
   
-  Rosaudiosrc *src = GST_ROSAUDIOSRC (base_src);
+  Rosimagesrc *src = GST_ROSIMAGESRC (base_src);
 
   GST_DEBUG_OBJECT (src, "fill");
 
   if(!src->node)
   {
-    GST_DEBUG_OBJECT (src, "ros audio filling buffer before node init");
+    GST_DEBUG_OBJECT (src, "ros image filling buffer before node init");
   }
   else if(src->msg_init)
   {
-    GST_DEBUG_OBJECT (src, "ros audio filling buffer before receiving first message");
+    GST_DEBUG_OBJECT (src, "ros image filling buffer before receiving first message");
   }
 
-  out_offset = 0;
-  
-  do
-  {
-    // we'll probably either be holding no message, or a used one,
-    // this whole length thing should just get replaced by a ring buffer
-    length = 0;
-    if(src->msg)
-    {
-      msg_length = src->msg->step * src->msg->frames;
-      length = msg_length - src->in_offset;
-    }
 
-    //the last message has nothing new, get another
-    if(length == 0)
-    {
-      src->msg = rosaudiosrc_wait_for_msg(src);
-      src->in_offset = 0;
-      msg_length = src->msg->step * src->msg->frames;
-      length = msg_length - src->in_offset;
-    }
+  auto msg = rosimagesrc_wait_for_msg(src);
 
-    //don't overfill the output buffer
-    if(length > (size - out_offset))
-      length = size - out_offset;
-
-    gst_buffer_map (buf, &info, GST_MAP_READ);
-
-    msg_ptr = &(src->msg->data.data()[src->in_offset]);
-    out_ptr = &(info.data[out_offset]);
-
-    info.size = length;
-    memcpy(out_ptr, msg_ptr, length);
-    out_offset += length;
-    src->in_offset += length; //mark the number of bytes written out of the saved message
-
-    gst_buffer_unmap (buf, &info);
-
-  }
-  while(out_offset < size);
+  gst_buffer_map (buf, &info, GST_MAP_READ);
+  info.size = length;
+  memcpy(info.data, msg->data.data(), length);
+  gst_buffer_unmap (buf, &info);
 
   time = GST_BUFFER_PTS (buf);    //XXX link gst clock to ros clock
 
@@ -617,7 +570,7 @@ static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, gu
 
 
 
-static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstSharedPtr msg)
+static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::ConstSharedPtr msg)
 {
   //GST_DEBUG_OBJECT (src, "ros cb called");
   //RCLCPP_DEBUG(src->logger, "ros cb called");
@@ -625,11 +578,11 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
   //fetch caps from the first msg, check on subsequent
   if(src->msg_init)
   {
-    src->stride = msg->step;
-    src->channels = msg->channels;
-    src->sample_rate = msg->sample_rate;
+    src->step = msg->step;
+    src->height = msg->height;
+    src->width = msg->width;
     src->endianness = (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN);
-    src->layout = msg->layout;
+    //src->layout = msg->layout;
 
     g_free(src->encoding);
     src->encoding = g_strdup(msg->encoding.c_str());
@@ -640,15 +593,15 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
   else
   {
     if(!(
-        (src->stride == msg->step) &&
-        (src->channels == msg->channels) &&
-        (src->sample_rate == msg->sample_rate) &&
-        (0 == g_strcmp0(src->encoding, msg->encoding.c_str())) &&
+        (src->step == msg->step) &&
+        (src->height == msg->height) &&
+        (src->width == msg->width) &&
         (src->endianness == (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN)) &&
-        (src->layout == msg->layout) ))
+        (0 == g_strcmp0(src->encoding, msg->encoding.c_str()))
+        ))
     {
-      GST_DEBUG_OBJECT (src, "ros audio message params changed during playback");
-      RCLCPP_ERROR(src->logger, "audio format changed during playback");
+      GST_DEBUG_OBJECT (src, "ros image message params changed during playback");
+      RCLCPP_ERROR(src->logger, "image format changed during playback");
     }
   }
 
@@ -656,11 +609,11 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
 }
 
 
-static audio_msgs::msg::Audio::ConstSharedPtr rosaudiosrc_wait_for_msg(Rosaudiosrc * src)
+static sensor_msgs::msg::Image::ConstSharedPtr rosimagesrc_wait_for_msg(Rosimagesrc * src)
 {
-  std::promise<audio_msgs::msg::Audio::ConstSharedPtr> new_msg;
+  std::promise<sensor_msgs::msg::Image::ConstSharedPtr> new_msg;
   src->new_msg = std::move(new_msg);
-  std::shared_future<audio_msgs::msg::Audio::ConstSharedPtr> fut(src->new_msg.get_future());
+  std::shared_future<sensor_msgs::msg::Image::ConstSharedPtr> fut(src->new_msg.get_future());
 
   rclcpp::executor::FutureReturnCode ret;
   

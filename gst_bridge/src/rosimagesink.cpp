@@ -35,7 +35,7 @@
 #endif
 
 #include <gst/gst.h>
-#include "rosimagesink.h"
+#include <gst_bridge/rosimagesink.h>
 
 
 GST_DEBUG_CATEGORY_STATIC (rosimagesink_debug_category);

@@ -24,8 +24,8 @@
 #include <gst/base/gstbasesrc.h>
 
 //include ROS and ROS message formats
-#include "rclcpp/rclcpp.hpp"
-#include "audio_msgs/msg/audio.hpp"
+#include <rclcpp/rclcpp.hpp>
+#include <audio_msgs/msg/audio.hpp>
 
 
 G_BEGIN_DECLS

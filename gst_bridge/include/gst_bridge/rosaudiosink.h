@@ -17,29 +17,29 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GST_ROSIMAGESINK_H_
-#define _GST_ROSIMAGESINK_H_
+#ifndef _GST_ROSAUDIOSINK_H_
+#define _GST_ROSAUDIOSINK_H_
 
-#include <gst/video/video-format.h>
+#include <gst/audio/audio-format.h>
 #include <gst/base/gstbasesink.h>
 
 //include ROS and ROS message formats
-#include "rclcpp/rclcpp.hpp"
-#include "sensor_msgs/msg/image.hpp"
+#include <rclcpp/rclcpp.hpp>
+#include <audio_msgs/msg/audio.hpp>
 
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_ROSIMAGESINK   (rosimagesink_get_type())
-#define GST_ROSIMAGESINK(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROSIMAGESINK,Rosimagesink))
-#define GST_ROSIMAGESINK_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_ROSIMAGESINK,RosimagesinkClass))
-#define GST_IS_ROSIMAGESINK(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_ROSIMAGESINK))
-#define GST_IS_ROSIMAGESINK_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_ROSIMAGESINK))
+#define GST_TYPE_ROSAUDIOSINK   (rosaudiosink_get_type())
+#define GST_ROSAUDIOSINK(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROSAUDIOSINK,Rosaudiosink))
+#define GST_ROSAUDIOSINK_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_ROSAUDIOSINK,RosaudiosinkClass))
+#define GST_IS_ROSAUDIOSINK(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_ROSAUDIOSINK))
+#define GST_IS_ROSAUDIOSINK_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_ROSAUDIOSINK))
 
-typedef struct _Rosimagesink Rosimagesink;
-typedef struct _RosimagesinkClass RosimagesinkClass;
+typedef struct _Rosaudiosink Rosaudiosink;
+typedef struct _RosaudiosinkClass RosaudiosinkClass;
 
-struct _Rosimagesink
+struct _Rosaudiosink
 {
   GstBaseSink parent;
   gchar* node_name;
@@ -49,18 +49,18 @@ struct _Rosimagesink
 
   rclcpp::Context::SharedPtr ros_context;
   rclcpp::Node::SharedPtr node;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub;
+  rclcpp::Publisher<audio_msgs::msg::Audio>::SharedPtr pub;
   rclcpp::Logger logger;
   rclcpp::Clock::SharedPtr clock;
 
-  int height;
-  int width;
-  
-  size_t step;   //bytes per pixel
-  gint endianness;
+  int channels;    //number of audio channels
+  int sample_rate; //sample rate in Hz
+  size_t stride;   //bytes per frame
+  gint endianness;  
+  uint8_t layout;
 };
 
-struct _RosimagesinkClass
+struct _RosaudiosinkClass
 {
   GstBaseSinkClass parent_class;
 
@@ -68,7 +68,7 @@ struct _RosimagesinkClass
   // along with member function pointers for signal handlers
 };
 
-GType rosimagesink_get_type (void);
+GType rosaudiosink_get_type (void);
 
 G_END_DECLS
 
