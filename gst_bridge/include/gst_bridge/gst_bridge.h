@@ -14,6 +14,9 @@
 #include <sensor_msgs/image_encodings.hpp>
 #include <audio_msgs/msg/audio.hpp>
 
+#define GST_BRIDGE_GST_VIDEO_FORMAT_LIST "{ GRAY8, GRAY16_LE, RGB, BGR, RGBA, BGRA }"
+#define GST_BRIDGE_GST_AUDIO_FORMAT_LIST "Any"
+
 
 namespace gst_bridge
 {

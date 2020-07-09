@@ -43,6 +43,7 @@ struct _Rosimagesrc
 {
   GstBaseSrc parent;
   gchar* node_name;
+  gchar* node_namespace;
   gchar* sub_topic;
   gchar* frame_id;
   gchar* encoding;

@@ -43,9 +43,11 @@ struct _Rosimagesink
 {
   GstBaseSink parent;
   gchar* node_name;
+  gchar* node_namespace;
   gchar* pub_topic;
   gchar* frame_id;
   gchar* encoding; //image topic encoding string
+  gchar* init_caps; //optional caps override (used for limited apis)
 
   rclcpp::Context::SharedPtr ros_context;
   rclcpp::Node::SharedPtr node;

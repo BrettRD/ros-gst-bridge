@@ -36,6 +36,7 @@
 
 #include <gst/gst.h>
 #include <gst_bridge/rosimagesink.h>
+#include <gst_bridge/gst_bridge.h>
 
 
 GST_DEBUG_CATEGORY_STATIC (rosimagesink_debug_category);
@@ -72,9 +73,11 @@ enum
 {
   PROP_0,
   PROP_ROS_NAME,
+  PROP_ROS_NAMESPACE,
   PROP_ROS_TOPIC,
   PROP_ROS_FRAME_ID,
-  PROP_ROS_ENCODING
+  PROP_ROS_ENCODING,
+  PROP_INIT_CAPS,
 };
 
 
@@ -85,21 +88,13 @@ GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS ("video/x-raw, "
-        "format = (string) RGBA, "
+        "format=" GST_BRIDGE_GST_VIDEO_FORMAT_LIST ", "
         "framerate = (fraction) [1,max], "
         "width = (int) [1,max], "
         "height = (int) [1,max]"
         )
     );
-    
-    /*
-        XXX much testing is required here to develop a mapping between
-          sensor_msgs/image_encodings.h and
-          gst/video/video-format.h
-        at minimum, the formats should be:
-        "format= {RGB, BGR, RGBA, BGRA}, "
-        and the bit depths should be automatically set
-    */
+
 /* class initialization */
 
 G_DEFINE_TYPE_WITH_CODE (Rosimagesink, rosimagesink, GST_TYPE_BASE_SINK,
@@ -136,6 +131,12 @@ static void rosimagesink_class_init (RosimagesinkClass * klass)
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
+  g_object_class_install_property (object_class, PROP_ROS_NAMESPACE,
+      g_param_spec_string ("ros-namespace", "node-namespace", "Namespace for the ROS node",
+      "",
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
+
   g_object_class_install_property (object_class, PROP_ROS_TOPIC,
       g_param_spec_string ("ros-topic", "pub-topic", "ROS topic to be published on",
       "gst_image_pub",
@@ -147,6 +148,13 @@ static void rosimagesink_class_init (RosimagesinkClass * klass)
       "rgba8",
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
+
+  g_object_class_install_property (object_class, PROP_INIT_CAPS,
+      g_param_spec_string ("init-caps", "initial-caps", "optional caps filter to skip wait for first message",
+      "",
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
+
 
   element_class->change_state = GST_DEBUG_FUNCPTR (rosimagesink_change_state); //use state change events to open and close publishers
   basesink_class->fixate = GST_DEBUG_FUNCPTR (rosimagesink_fixate); //set caps fields to our preferred values (if possible)
@@ -160,57 +168,84 @@ static void rosimagesink_class_init (RosimagesinkClass * klass)
 
 }
 
-static void rosimagesink_init (Rosimagesink * rosimagesink)
+static void rosimagesink_init (Rosimagesink * sink)
 {
   // Don't register the node or the publisher just yet,
   // wait for rosimagesink_open()
   // XXX set defaults elsewhere to keep gst-inspect consistent
-  rosimagesink->node_name = g_strdup("gst_image_sink_node");
-  rosimagesink->pub_topic = g_strdup("gst_image_pub");
-  rosimagesink->frame_id = g_strdup("image_frame");
-  rosimagesink->encoding = g_strdup("rgba8");
+  sink->node_name = g_strdup("gst_image_sink_node");
+  sink->node_namespace = g_strdup("");
+  sink->pub_topic = g_strdup("gst_image_pub");
+  sink->frame_id = g_strdup("image_frame");
+  sink->encoding = g_strdup("rgba8");
 }
 
 void rosimagesink_set_property (GObject * object, guint property_id,
     const GValue * value, GParamSpec * pspec)
 {
-  Rosimagesink *rosimagesink = GST_ROSIMAGESINK (object);
+  Rosimagesink *sink = GST_ROSIMAGESINK (object);
 
-  GST_DEBUG_OBJECT (rosimagesink, "set_property");
+  GST_DEBUG_OBJECT (sink, "set_property");
 
   switch (property_id) {
     case PROP_ROS_NAME:
-      if(rosimagesink->node)
+      if(sink->node)
       {
-        RCLCPP_ERROR(rosimagesink->logger, "can't change node name once openned");
+        RCLCPP_ERROR(sink->logger, "can't change node name once openned");
       }
       else
       {
-        g_free(rosimagesink->node_name);
-        rosimagesink->node_name = g_value_dup_string(value);
+        g_free(sink->node_name);
+        sink->node_name = g_value_dup_string(value);
+      }
+      break;
+
+    case PROP_ROS_NAMESPACE:
+      if(sink->node)
+      {
+        RCLCPP_ERROR(sink->logger, "can't change node namespace once openned");
+      }
+      else
+      {
+        g_free(sink->node_namespace);
+        sink->node_namespace = g_value_dup_string(value);
       }
       break;
 
     case PROP_ROS_TOPIC:
-      if(rosimagesink->node)
+      if(sink->node)
       {
-        RCLCPP_ERROR(rosimagesink->logger, "can't change topic name once openned");
+        RCLCPP_ERROR(sink->logger, "can't change topic name once openned");
       }
       else
       {
-        g_free(rosimagesink->pub_topic);
-        rosimagesink->pub_topic = g_value_dup_string(value);
+        g_free(sink->pub_topic);
+        sink->pub_topic = g_value_dup_string(value);
       }
       break;
 
     case PROP_ROS_FRAME_ID:
-      g_free(rosimagesink->frame_id);
-      rosimagesink->frame_id = g_value_dup_string(value);
+      g_free(sink->frame_id);
+      sink->frame_id = g_value_dup_string(value);
       break;
 
     case PROP_ROS_ENCODING:
-      g_free(rosimagesink->encoding);
-      rosimagesink->encoding = g_value_dup_string(value);
+      g_free(sink->encoding);
+      sink->encoding = g_value_dup_string(value);
+      break;
+
+    case PROP_INIT_CAPS:
+      if(sink->node)  // XXX wrong condition, but close enough
+      {
+        RCLCPP_ERROR(sink->logger, "can't change initial caps after init");
+      }
+      else
+      {
+        g_free(sink->init_caps);
+        sink->init_caps = g_value_dup_string(value);
+        // XXX set up the image message checks and unpack the caps
+        // XXX return the init_caps in fixate(), and probably earlier than that
+      }
       break;
 
     default:
@@ -222,24 +257,32 @@ void rosimagesink_set_property (GObject * object, guint property_id,
 void rosimagesink_get_property (GObject * object, guint property_id,
     GValue * value, GParamSpec * pspec)
 {
-  Rosimagesink *rosimagesink = GST_ROSIMAGESINK (object);
+  Rosimagesink *sink = GST_ROSIMAGESINK (object);
 
-  GST_DEBUG_OBJECT (rosimagesink, "get_property");
+  GST_DEBUG_OBJECT (sink, "get_property");
   switch (property_id) {
     case PROP_ROS_NAME:
-      g_value_set_string(value, rosimagesink->node_name);
+      g_value_set_string(value, sink->node_name);
+      break;
+
+    case PROP_ROS_NAMESPACE:
+      g_value_set_string(value, sink->node_namespace);
       break;
 
     case PROP_ROS_TOPIC:
-      g_value_set_string(value, rosimagesink->pub_topic);
+      g_value_set_string(value, sink->pub_topic);
       break;
 
     case PROP_ROS_FRAME_ID:
-      g_value_set_string(value, rosimagesink->frame_id);
+      g_value_set_string(value, sink->frame_id);
       break;
 
     case PROP_ROS_ENCODING:
-      g_value_set_string(value, rosimagesink->encoding);
+      g_value_set_string(value, sink->encoding);
+      break;
+
+    case PROP_INIT_CAPS:
+      g_value_set_string(value, sink->init_caps);
       break;
 
     default:
@@ -250,9 +293,9 @@ void rosimagesink_get_property (GObject * object, guint property_id,
 
 void rosimagesink_dispose (GObject * object)
 {
-  Rosimagesink *rosimagesink = GST_ROSIMAGESINK (object);
+  Rosimagesink *sink = GST_ROSIMAGESINK (object);
 
-  GST_DEBUG_OBJECT (rosimagesink, "dispose");
+  GST_DEBUG_OBJECT (sink, "dispose");
 
   /* clean up as possible.  may be called multiple times */
 
@@ -261,9 +304,9 @@ void rosimagesink_dispose (GObject * object)
 
 void rosimagesink_finalize (GObject * object)
 {
-  Rosimagesink *rosimagesink = GST_ROSIMAGESINK (object);
+  Rosimagesink *sink = GST_ROSIMAGESINK (object);
 
-  GST_DEBUG_OBJECT (rosimagesink, "finalize");
+  GST_DEBUG_OBJECT (sink, "finalize");
 
   /* clean up object here */
 
@@ -321,7 +364,7 @@ static gboolean rosimagesink_open (Rosimagesink * sink)
   sink->ros_context->init(0, NULL);    // XXX should expose the init arg list
   rclcpp::NodeOptions opts = rclcpp::NodeOptions();
   opts.context(sink->ros_context); //set a context to generate the node in
-  sink->node = std::make_shared<rclcpp::Node>(std::string(sink->node_name), opts);
+  sink->node = std::make_shared<rclcpp::Node>(std::string(sink->node_name), std::string(sink->node_namespace), opts);
 
   sink->pub = sink->node->create_publisher<sensor_msgs::msg::Image>(sink->pub_topic, 1);
   sink->logger = sink->node->get_logger();
@@ -341,9 +384,9 @@ static gboolean rosimagesink_close (Rosimagesink * sink)
   return TRUE;
 }
 
-
 static GstCaps * rosimagesink_fixate (GstBaseSink * bsink, GstCaps * caps)
 {
+  //XXX check init_caps and fixate to that
   GstStructure *s;
   gint width, depth;
 
@@ -375,7 +418,7 @@ static GstCaps * rosimagesink_fixate (GstBaseSink * bsink, GstCaps * caps)
 
 
 /* check the caps, register a node and open an publisher */
-static gboolean rosimagesink_setcaps (GstBaseSink * sink, GstCaps * caps)
+static gboolean rosimagesink_setcaps (GstBaseSink * base_sink, GstCaps * caps)
 {
   GstStructure *caps_struct;
   gint width, height, depth, endianness, rate_num, rate_den;
@@ -383,27 +426,27 @@ static gboolean rosimagesink_setcaps (GstBaseSink * sink, GstCaps * caps)
   GstVideoFormat format_enum;
   const GstVideoFormatInfo * format_info;
 
-  Rosimagesink *rosimagesink = GST_ROSIMAGESINK (sink);
+  Rosimagesink *sink = GST_ROSIMAGESINK (base_sink);
 
-  GST_DEBUG_OBJECT (rosimagesink, "setcaps");
+  GST_DEBUG_OBJECT (sink, "setcaps");
 
   if(!gst_caps_is_fixed(caps))
   {
-    RCLCPP_ERROR(rosimagesink->logger, "caps is not fixed");
+    RCLCPP_ERROR(sink->logger, "caps is not fixed");
   }
 
 
-  if(rosimagesink->node)
-      RCLCPP_INFO(rosimagesink->logger, "preparing video with caps '%s'",
+  if(sink->node)
+      RCLCPP_INFO(sink->logger, "preparing video with caps '%s'",
           gst_caps_to_string(caps));
 
   caps_struct = gst_caps_get_structure (caps, 0);
   if(!gst_structure_get_int (caps_struct, "width", &width))
-      RCLCPP_ERROR(rosimagesink->logger, "setcaps missing width");
+      RCLCPP_ERROR(sink->logger, "setcaps missing width");
   if(!gst_structure_get_int (caps_struct, "height", &height))
-      RCLCPP_ERROR(rosimagesink->logger, "setcaps missing height");
+      RCLCPP_ERROR(sink->logger, "setcaps missing height");
   if(!gst_structure_get_fraction (caps_struct, "framerate", &rate_num, &rate_den))
-      RCLCPP_ERROR(rosimagesink->logger, "setcaps missing framerate");
+      RCLCPP_ERROR(sink->logger, "setcaps missing framerate");
 
   format_str = gst_structure_get_string(caps_struct, "format");
 
@@ -416,33 +459,48 @@ static gboolean rosimagesink_setcaps (GstBaseSink * sink, GstCaps * caps)
     
     depth = format_info->pixel_stride[0];
     
-    RCLCPP_INFO(rosimagesink->logger, "setcaps format string is %s ", format_str);
-    RCLCPP_INFO(rosimagesink->logger, "setcaps n_components is %d", format_info->n_components);
-    RCLCPP_INFO(rosimagesink->logger, "setcaps bits is %d", format_info->bits);
-    RCLCPP_INFO(rosimagesink->logger, "setcaps pixel_stride is %d", depth);
+
+    //allow the encoding to be overridden by parameters
+    //but update it if it's blank
+    if(0 == g_strcmp0(sink->init_caps, ""))
+    {
+      g_free(sink->init_caps);
+      sink->init_caps = gst_caps_to_string(caps);
+    }
+    if(0 == g_strcmp0(sink->encoding, ""))
+    {
+      g_free(sink->encoding);
+      sink->encoding = g_strdup(gst_bridge::getRosEncoding(format_enum).c_str());
+    }
+
+
+    RCLCPP_INFO(sink->logger, "setcaps format string is %s ", format_str);
+    RCLCPP_INFO(sink->logger, "setcaps n_components is %d", format_info->n_components);
+    RCLCPP_INFO(sink->logger, "setcaps bits is %d", format_info->bits);
+    RCLCPP_INFO(sink->logger, "setcaps pixel_stride is %d", depth);
 
     if(format_info->bits < 8)
     {
       depth = depth/8;
-      RCLCPP_ERROR(rosimagesink->logger, "low bits per pixel");
+      RCLCPP_ERROR(sink->logger, "low bits per pixel");
     }
 
     //endianness = format_info->endianness;
   }
   else
   {
-    RCLCPP_ERROR(rosimagesink->logger, "setcaps missing format");
+    RCLCPP_ERROR(sink->logger, "setcaps missing format");
     if(!gst_structure_get_int (caps_struct, "endianness", &endianness))
-        RCLCPP_ERROR(rosimagesink->logger, "setcaps missing endianness");
+        RCLCPP_ERROR(sink->logger, "setcaps missing endianness");
   }
 
 
   //collect a bunch of parameters to shoehorn into a message format
-  rosimagesink->width = width;
-  rosimagesink->height = height;
-  rosimagesink->step = width * depth; //full row step size in bytes
-  rosimagesink->endianness = endianness;
-  //rosimagesink->sample_rate = rate;
+  sink->width = width;
+  sink->height = height;
+  sink->step = width * depth; //full row step size in bytes
+  sink->endianness = endianness;  // XXX used without init
+  //sink->sample_rate = rate;
 
   return true;
 }

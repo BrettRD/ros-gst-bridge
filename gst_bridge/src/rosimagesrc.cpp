@@ -84,12 +84,14 @@ enum
 {
   PROP_0,
   PROP_ROS_NAME,
+  PROP_ROS_NAMESPACE,
   PROP_ROS_TOPIC,
   PROP_ROS_FRAME_ID,
   PROP_ROS_ENCODING,
   PROP_INIT_CAPS,
 };
 
+//#define GST_VIDEO_FORMAT_RANGE "{ GRAY8, GRAY16_LE, RGB, BGR, RGBA, BGRA }"
 
 /* pad templates */
 
@@ -98,8 +100,11 @@ static GstStaticPadTemplate rosimagesrc_src_template =
 GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("video/x-raw, " "format=RGBA, " "rate=[1,max], "
-        "height=[1,max], " "width=[1,max]")
+    GST_STATIC_CAPS ("video/x-raw, "
+        "format=" GST_BRIDGE_GST_VIDEO_FORMAT_LIST ", "
+        "rate=[1,max], "
+        "height=[1,max], "
+        "width=[1,max]")
     );
 
 
@@ -136,6 +141,12 @@ static void rosimagesrc_class_init (RosimagesrcClass * klass)
   g_object_class_install_property (object_class, PROP_ROS_NAME,
       g_param_spec_string ("ros-name", "node-name", "Name of the ROS node",
       "gst_image_src_node",
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
+
+  g_object_class_install_property (object_class, PROP_ROS_NAMESPACE,
+      g_param_spec_string ("ros-namespace", "node-namespace", "Namespace for the ROS node",
+      "",
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
@@ -182,6 +193,7 @@ static void rosimagesrc_init (Rosimagesrc * src)
   // wait for rosimagesrc_open()
   // XXX set defaults elsewhere to keep gst-inspect consistent
   src->node_name = g_strdup("gst_image_src_node");
+  src->node_namespace = g_strdup("");
   src->sub_topic = g_strdup("gst_image_sub");
   src->frame_id = g_strdup("");
   src->encoding = g_strdup("");
@@ -211,6 +223,18 @@ void rosimagesrc_set_property (GObject * object, guint property_id,
       }
       break;
 
+    case PROP_ROS_NAMESPACE:
+      if(src->node)
+      {
+        RCLCPP_ERROR(src->logger, "can't change node namespace once openned");
+      }
+      else
+      {
+        g_free(src->node_namespace);
+        src->node_namespace = g_value_dup_string(value);
+      }
+      break;
+
     case PROP_ROS_TOPIC:
       if(src->node)
       {
@@ -228,7 +252,28 @@ void rosimagesrc_set_property (GObject * object, guint property_id,
       {
         g_free(src->init_caps);
         src->init_caps = g_value_dup_string(value);
-        // XXX set up the image message checks and unpack the caps
+
+        // XXX split this into a function
+        GstCaps * caps = gst_caps_from_string(src->init_caps);
+        GstStructure * caps_struct = gst_caps_get_structure (caps, 0);
+        if(!gst_structure_get_int (caps_struct, "width", &src->width))
+          GST_DEBUG_OBJECT (src, "caps_init missing width");
+        if(!gst_structure_get_int (caps_struct, "height", &src->height))
+          GST_DEBUG_OBJECT (src, "caps_init missing height");
+        // XXX this check is redundant right now, should allow overrides by making ros-encoding READWRITE
+        if(0 == g_strcmp0(src->encoding, ""))
+        {
+          const gchar * format_str = gst_structure_get_string(caps_struct, "format");
+          if(!format_str)
+            GST_DEBUG_OBJECT (src, "caps_init missing format");
+          GstVideoFormat format = gst_video_format_from_string (format_str);
+          g_free(src->encoding);
+          src->encoding = g_strdup(gst_bridge::getRosEncoding(format).c_str());
+          src->step = gst_video_format_get_info(format)->pixel_stride[0];
+          src->endianness = 0;  // XXX pull this from somewhere
+
+        }
+
         src->msg_init = false;
       }
       else
@@ -253,6 +298,10 @@ void rosimagesrc_get_property (GObject * object, guint property_id,
   {
     case PROP_ROS_NAME:
       g_value_set_string(value, src->node_name);
+      break;
+
+    case PROP_ROS_NAMESPACE:
+      g_value_set_string(value, src->node_namespace);
       break;
 
     case PROP_ROS_TOPIC:
@@ -352,7 +401,7 @@ static gboolean rosimagesrc_open (Rosimagesrc * src)
   src->ros_context->init(0, NULL);    // XXX should expose the init arg list
   auto opts = rclcpp::NodeOptions();
   opts.context(src->ros_context); //set a context to generate the node in
-  src->node = std::make_shared<rclcpp::Node>(std::string(src->node_name), opts);
+  src->node = std::make_shared<rclcpp::Node>(std::string(src->node_name), std::string(src->node_namespace), opts);
 
   // A local ros context requires an executor to spin() on
   auto ex_args = rclcpp::executor::ExecutorArgs();
@@ -450,8 +499,6 @@ static gboolean rosimagesrc_negotiate (GstBaseSrc * base_src)
 // XXX need to provide the range of possible values 
 static GstCaps* rosimagesrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
 {
-  GstStructure *caps_struct;
-  gint width, depth, channels, endianness, rate, layout;
   const gchar * format_str;
   GstVideoFormat format_enum;
   static sensor_msgs::msg::Image::ConstSharedPtr msg;
@@ -471,35 +518,40 @@ static GstCaps* rosimagesrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
   if(src->node)
       RCLCPP_INFO(src->logger, "getcaps with filter '%s'", gst_caps_to_string(filter));
 
-  if(src->msg_init)
+  // if init_caps is not set, we wait for the first message
+  // if init_caps is set, we don't wait
+  if(0 == g_strcmp0(src->init_caps, ""))
   {
-    if(src->node)
-    {
-      GST_DEBUG_OBJECT (src, "getcaps with node ready, waiting for message");
-      RCLCPP_INFO(src->logger, "waiting for first message");
-      msg = rosimagesrc_wait_for_msg(src);  // XXX need to fix API, the action happens in a side-effect
-    }
-    else
+    if(!src->node)
     {
       GST_DEBUG_OBJECT (src, "getcaps with node not ready, returning template");
       return gst_pad_get_pad_template_caps (GST_BASE_SRC (src)->srcpad);
     }
+    GST_DEBUG_OBJECT (src, "getcaps with node ready, waiting for message");
+    RCLCPP_INFO(src->logger, "waiting for first message");
+    msg = rosimagesrc_wait_for_msg(src);  // XXX need to fix API, the action happens in a side-effect
+
+    format_enum = gst_bridge::getGstVideoFormat(std::string(src->encoding));
+    format_str = gst_video_format_to_string(format_enum);
+
+    caps = gst_caps_new_simple ("video/x-raw",
+        "format", G_TYPE_STRING, format_str,
+        "height", G_TYPE_INT, src->height,
+        "width", G_TYPE_INT, src->width,
+        NULL);
+
+    gchar* caps_str = gst_caps_to_string(caps);
+    GST_DEBUG_OBJECT (src, "getcaps after first message returning %s", caps_str);
+    g_free(caps_str);
+
+    return caps;
   }
-
-  GST_DEBUG_OBJECT (src, "getcaps returning known caps");
-
-  format_enum = gst_bridge::getGstVideoFormat(std::string(src->encoding));
-  format_str = gst_video_format_to_string(format_enum);
-
-  caps = gst_caps_new_simple ("video/x-raw",
-      "format", G_TYPE_STRING, format_str,
-      "height", G_TYPE_INT, src->height,
-      "width", G_TYPE_INT, src->width,
-      NULL);
-
-  GST_DEBUG_OBJECT (src, "getcaps returning %s", gst_caps_to_string(caps));
-
-  return caps;
+  else
+  {
+    GST_DEBUG_OBJECT (src, "getcaps returning caps from init_caps");
+    caps = gst_caps_from_string(src->init_caps);
+    return caps;
+  }
 }
 
 
@@ -507,7 +559,7 @@ static gboolean rosimagesrc_query (GstBaseSrc * base_src, GstQuery * query)
 {
   gboolean ret;
 
-  Rosimagesrc *src = GST_ROSIMAGESRC (base_src);
+  //Rosimagesrc *src = GST_ROSIMAGESRC (base_src);
 
   switch (GST_QUERY_TYPE (query)) {
     case GST_QUERY_SCHEDULING:
@@ -540,7 +592,8 @@ static GstFlowReturn rosimagesrc_fill (GstBaseSrc * base_src, guint64 offset, gu
   GstMapInfo info;
   GstClockTime time;
   size_t length;
-  GstFlowReturn ret;
+  GstFlowReturn ret = GST_FLOW_OK;
+  (void) offset;
   
   Rosimagesrc *src = GST_ROSIMAGESRC (base_src);
 
@@ -558,6 +611,24 @@ static GstFlowReturn rosimagesrc_fill (GstBaseSrc * base_src, guint64 offset, gu
   auto msg = rosimagesrc_wait_for_msg(src);
 
   length = msg->data.size();
+
+  if(length != size)
+    GST_DEBUG_OBJECT (src, "size mismatch, %ld, %ld", length, size);
+  /* XXX need to implement rosimagesrc_create instead,
+   * look at gstbasesrc and gstpushsrc default create for the allocator
+   * You do very simply ignore size and offset, and allocate a gstbuffer
+  excerpt:
+  if (pool) {
+    ret = gst_buffer_pool_acquire_buffer (pool, buffer, NULL);
+  } else if (size != -1) {
+    *buffer = gst_buffer_new_allocate (allocator, size, &params);
+    if (G_UNLIKELY (*buffer == NULL))
+      goto alloc_failed;
+
+    ret = GST_FLOW_OK;
+  }
+   */
+
   gst_buffer_map (buf, &info, GST_MAP_READ);
   info.size = length;
   memcpy(info.data, msg->data.data(), length);
@@ -565,7 +636,7 @@ static GstFlowReturn rosimagesrc_fill (GstBaseSrc * base_src, guint64 offset, gu
 
   time = GST_BUFFER_PTS (buf);    //XXX link gst clock to ros clock
 
-  return GST_FLOW_OK;
+  return ret;
 }
 
 
@@ -578,7 +649,7 @@ static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::Const
   //fetch caps from the first msg, check on subsequent
   if(src->msg_init)
   {
-    src->step = msg->step;
+    src->step = msg->step / msg->width;
     src->height = msg->height;
     src->width = msg->width;
     src->endianness = (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN);
@@ -592,17 +663,17 @@ static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::Const
   }
   else
   {
-    if(!(
-        (src->step == msg->step) &&
-        (src->height == msg->height) &&
-        (src->width == msg->width) &&
-        (src->endianness == (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN)) &&
-        (0 == g_strcmp0(src->encoding, msg->encoding.c_str()))
-        ))
-    {
-      GST_DEBUG_OBJECT (src, "ros image message params changed during playback");
-      RCLCPP_ERROR(src->logger, "image format changed during playback");
-    }
+    if(!(src->step == msg->step / msg->width))
+      RCLCPP_ERROR(src->logger, "image format changed during playback, step %d != %d", src->step, msg->step);
+    if(!(src->height == msg->height))
+      RCLCPP_ERROR(src->logger, "image format changed during playback, height %d != %d", src->height, msg->height);
+    if(!(src->width == msg->width))
+      RCLCPP_ERROR(src->logger, "image format changed during playback, width %d != %d", src->width, msg->width);
+    if(!(src->endianness == msg->is_bigendian))
+      RCLCPP_ERROR(src->logger, "image format changed during playback, endianness %d != %d", src->endianness, msg->is_bigendian);
+    if(!(0 == g_strcmp0(src->encoding, msg->encoding.c_str())))
+      RCLCPP_ERROR(src->logger, "image format changed during playback, encoding %s != %s", src->encoding, msg->encoding);
+    
   }
 
   src->new_msg.set_value(msg);
