@@ -98,8 +98,8 @@ static GstStaticPadTemplate rosimagesrc_src_template =
 GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("video/x-raw, " "format=S16LE, " "rate=[1,max], "
-        "channels=[1,max], " "layout=interleaved")
+    GST_STATIC_CAPS ("video/x-raw, " "format=RGBA, " "rate=[1,max], "
+        "height=[1,max], " "width=[1,max]")
     );
 
 
@@ -555,9 +555,9 @@ static GstFlowReturn rosimagesrc_fill (GstBaseSrc * base_src, guint64 offset, gu
     GST_DEBUG_OBJECT (src, "ros image filling buffer before receiving first message");
   }
 
-
   auto msg = rosimagesrc_wait_for_msg(src);
 
+  length = msg->data.size();
   gst_buffer_map (buf, &info, GST_MAP_READ);
   info.size = length;
   memcpy(info.data, msg->data.data(), length);
