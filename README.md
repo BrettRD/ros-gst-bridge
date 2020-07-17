@@ -1,16 +1,16 @@
 # ros-gst-bridge
-Avbidirectional, ros to gstreamer bridge
+A bidirectional, ROS to GStreamer bridge
 
 ROS is great for running exquisitely weird processes on video streams.\
 GStreamer is great for running complex pipelines with conversions between common formats.
 
-It should be easy to pass data between gstreamer and ROS without loss of information.
+It should be easy to pass data between GStreamer and ROS without loss of information.
 
 ## Features
 
 ### audio_msgs
 A message class for transporting raw audio data with appropriate metadata for analysis
-(this is likely to change unannounced)
+(this is likely to change)
 
 ### gst_pipeline
 A collection of python scripts that handle gstreamer pipeline generation within a ROS node.
@@ -23,20 +23,19 @@ The GStreamer plugin has source and sink elements that appear on the ROS graph a
 These nodes can be configured by passing parameters via the GStreamer pipeline, and can be assigned names, namespaces, and frame_ids.  These nodes can also be launched using gst-launch, or instantiated in pipelines inside other applications.
 
 
-## Requirements:
+## Design goals:
 * ROS Messages and GStreamer caps should not lose metadata like timestamps.
 * ROS sim-time and pipeline clocks must be translatable. (accelerated simulations should drive accelerated pipelines)
 * A new message format for Audio messages permitting accurate time stamps, flexible number formats, multiple channels, and flexible sample packing.
 * bridge nodes should be gstreamer bins, not ROS nodes running appsink. (this reduces code complexity, improves pipeline efficiency, and allows ROS2 borrowed messages to be passed through the pipeline to facilitate zero-copy publishing)
-* a flexible, ros param driven, intermediate node needs to exist to hold the pipeline and handle pipeline events.
-* pipeline events should be able to trigger events in ROS
-* the pipeline node must be manageable from ROS launch syntax
+* A ROS node should hold the pipeline and handle pipeline events, allowing use of ros launch and parameters.
+* The pipeline node should be extensible to allow complex event handling like WebRTC signalling.
 
 
 ## Architecture:
 GStreamer is able to run multiple streams in parallel and has an effective threading system. 
 Managing pipeline events is not a resource intensive process, and can be comfortably handled by a Python script without significant loss of performance or generality. This pipeline manager could also be written in C, but the GLib C and ROS C++ conventions make it difficult to avoid memory leaks.
-A gstreamer pipeline can comfortably manage multiple unconnected streams, so only one pipeline node should be required on any given host.
+A gstreamer pipeline can comfortably manage multiple independent streams, so only one pipeline node should be required on any given host.
 
 The sources and sinks should be implemented as gstreamer elements for a couple of reasons.\
 GStreamer elements are intended to be compact and versatile, this encourages reduction of code complexity.
