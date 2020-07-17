@@ -1,0 +1,35 @@
+#logitech gamepad F310
+pipeline_node:
+  ros__parameters:
+
+    # paths to search for additional gstreamer plugins
+    gst_plugin_paths:
+    
+    # ros packages to search for additional plugins
+    # {package name, plugin subdirectory}
+    gst_plugin_ros_packages:
+      - {gst_bridge: 'lib/gst_bridge/'}
+    
+    # only used to ensure node fails early if plugins are missing
+    required_gst_plugins:
+      - 'rosgstbridge'
+      - 'videotestsrc'
+      - 'audiotestsrc'
+      - 'alsasrc'
+      - 'webrtc'
+      - 'nice'
+      - 'opus'
+      - 'vpx'
+      - 'dtls'
+      - 'srtp'
+      - 'rtp'
+      - 'rtpmanager'
+  
+    simple_bins:
+      - 'alsasrc ! audioconvert ! rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
+      - 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink'
+      #- 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! tee name=t ! queue ! rosaudiosink provide-clock=False ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2" t. ! queue ! audioconvert ! alsasink'
+      #- 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! queue ! audioconvert ! alsasink'
+      #- 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! tee name=t ! queue ! audioconvert ! alsasink t. ! queue !  rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
+      #- 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! queue ! audioconvert ! rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
+    

@@ -15,6 +15,9 @@ from gst_pipeline.simplebin import Simplebin
 from gst_pipeline.webrtc_pipes import webrtc_pipes
 from gst_pipeline.webrtc_transport_ws import webrtc_transport_ws
 
+import os
+
+from ament_index_python.packages import get_package_share_directory, get_package_prefix
 
 
 import asyncio
@@ -23,10 +26,8 @@ import asyncio_glib
 
 
 # locate gstreamer plugins from other ROS packages
-def ros_path(package):
-  return 'install/' + package + '/lib/' + package
 
-gst_plugin_paths = [ros_path('gst_bridge')]
+gst_plugin_paths = [os.path.join(get_package_prefix('gst_bridge'), 'lib/gst_bridge')]
 gst_required_plugins = ["opus", "vpx", "nice", "webrtc", "dtls", "srtp", "rtp",
     "rtpmanager", "videotestsrc", "audiotestsrc", "rosgstbridge"]
 
@@ -56,28 +57,20 @@ def main(args=None):
     exit(1)
 
 
-
   ## connect to the signalling server before trying to negotiate links
   #webrtc_transport = webrtc_transport_ws(pipe_node, loop)
   #webrtc_segment = webrtc_pipes(pipe_node, webrtc_transport, "webrtc_example_bin")
   #webrtc_transport.connect()
   #pipe_node.add_section(webrtc_segment)
 
+  descr_list = [
+    'alsasrc ! audioconvert ! rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"',
+    'videotestsrc is-live=true pattern=ball ! queue ! ximagesink'
+    ]
 
-
-
-
-  # basic pipelines
-  # descr = 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! tee name=t ! queue ! rosaudiosink provide-clock=False ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2" t. ! queue ! audioconvert ! alsasink'
-  # descr = 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink'
-  #descr = 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! queue ! audioconvert ! alsasink'
-  #descr = 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! tee name=t ! queue ! audioconvert ! alsasink \
-  #    t. ! queue !  rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
-  #descr = 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! queue ! audioconvert ! rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
-  descr = 'alsasrc ! audioconvert ! rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
-
-  simple_segment = Simplebin(pipe_node, descr, 'simple_bridge_test_bin')
-  pipe_node.add_section(simple_segment)
+  for descr in descr_list:
+    simple_segment = Simplebin(pipe_node, descr, 'simple_bridge_test_bin')
+    pipe_node.add_section(simple_segment)
 
   pipe_node.start_pipeline()
 
