@@ -18,24 +18,34 @@ from gst_pipeline.webrtc_sigchan import webrtc_sigchan
 
 
 #XXX collect some of these from ros parameter server
-webrtc_name = 'sendrecv'
-stun_server = 'stun://stun.l.google.com:19302'
-audio_src_bin_descr = ' audiotestsrc volume=0.3 is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay ! application/x-rtp,media=audio,encoding-name=OPUS,payload=96 ! queue ! ' + webrtc_name + '. '
-video_src_bin_descr = ' videotestsrc is-live=true pattern=ball ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay ! application/x-rtp,media=video,encoding-name=VP8,payload=97 ! queue ! ' + webrtc_name + '. '
-webrtc_descr = 'webrtcbin name=' + webrtc_name + ' bundle-policy=max-bundle stun-server=' + stun_server + ' '
-webrtc_descr = webrtc_descr + '\n ' + video_src_bin_descr + '\n ' + audio_src_bin_descr
-
-video_sink_bin_descr = ' queue ! videoconvert ! ximagesink'
-audio_sink_bin_descr = ' queue ! alsasink'
+default_stun_server = 'stun://stun.l.google.com:19302'
+default_audio_src_bin_descr = ' audiotestsrc volume=0.3 is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay ! application/x-rtp,media=audio,encoding-name=OPUS,payload=96 ! queue '
+default_video_src_bin_descr = ' videotestsrc is-live=true pattern=ball ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay ! application/x-rtp,media=video,encoding-name=VP8,payload=97 ! queue '
+default_video_sink_bin_descr = ' queue ! videoconvert ! ximagesink'
+default_audio_sink_bin_descr = ' queue ! alsasink'
 
 
 class webrtc_pipes:
-  def __init__(self, node_, transport,  name_):
+  def __init__(self, node_, transport,  name_,
+      stun_server = default_stun_server,
+      webrtc_element_name = 'webrtc_element',
+      audio_src_bin_descr = default_audio_src_bin_descr,
+      video_src_bin_descr = default_video_src_bin_descr,
+      video_sink_bin_descr = default_video_sink_bin_descr,
+      audio_sink_bin_descr = default_audio_sink_bin_descr,
+      ):
     self.node = node_
     self.chan = webrtc_sigchan(node_, transport)
     self.name = name_
+    self.stun_server = stun_server
+    self.webrtc_element_name = webrtc_element_name
+    self.audio_src_bin_descr = audio_src_bin_descr
+    self.video_src_bin_descr = video_src_bin_descr
+    self.video_sink_bin_descr = video_sink_bin_descr
+    self.audio_sink_bin_descr = audio_sink_bin_descr
+
     self.bin = self.build_initial_pipe()
-    self.webrtc = self.bin.get_by_name(webrtc_name)
+    self.webrtc = self.bin.get_by_name(self.webrtc_element_name)
     self.chan.webrtc = self.webrtc
     self.connect_callbacks(self.webrtc)
 
@@ -53,6 +63,13 @@ class webrtc_pipes:
 
 
   def build_initial_pipe(self):
+
+    webrtc_bin_descr = 'webrtcbin name=' + self.webrtc_element_name + ' bundle-policy=max-bundle stun-server=' + self.stun_server + ' '
+    webrtc_descr = \
+      webrtc_bin_descr + '\n ' + \
+      self.video_src_bin_descr + ' ! ' + self.webrtc_element_name + '\n ' + \
+      self.audio_src_bin_descr + ' ! ' + self.webrtc_element_name
+
     self.node.get_logger().debug("building initial webrtc pipes")
     self.node.get_logger().debug(webrtc_descr)
 
@@ -107,10 +124,10 @@ class webrtc_pipes:
 
     name = caps.to_string()
     if name.startswith('video'):
-      sink_bin_descr = video_sink_bin_descr
+      sink_bin_descr = self.video_sink_bin_descr
       self.node.get_logger().debug('incoming video stream')
     elif name.startswith('audio'):
-      sink_bin_descr = audio_sink_bin_descr
+      sink_bin_descr = self.audio_sink_bin_descr
       self.node.get_logger().debug('incoming audio stream')
 
     # XXX using Ghost Pads has a small performace penalty, can we link the pads directly?

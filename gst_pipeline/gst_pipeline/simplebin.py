@@ -11,7 +11,6 @@ import diagnostic_msgs
 
 
 
-
 class Simplebin:
   def __init__(self, node_, bin_description, name_):
     self.node = node_

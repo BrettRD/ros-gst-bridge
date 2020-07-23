@@ -12,15 +12,27 @@ import diagnostic_msgs
 
 import asyncio
 
+import os
+
+from ament_index_python.packages import get_package_share_directory, get_package_prefix
+
+
 class Pipeline(Node):
   def __init__(self, node_name='pipeline_node'):
     super().__init__(node_name)
+    self.registry = Gst.Registry()
+    self.registry.connect('plugin-added', self.plugin_added)
+
+    # get plugin info from parameter server
+    self.fetch_params()
+    self.add_plugin_paths(self.gst_plugin_paths) # XXX make this available in args
+    self.check_plugins(self.gst_plugins_required)
+
+
     self.updater = diagnostic_updater.Updater(self)
     self.updater.setHardwareID("Gst1.0")
     self.updater.add("Pipe Status", self.diagnostic_task)
 
-    self.registry = Gst.Registry()
-    self.registry.connect('plugin-added', self.plugin_added)
 
     self.pipe = Gst.Pipeline.new("rospipe")
     self.bus = self.pipe.get_bus()
@@ -33,10 +45,35 @@ class Pipeline(Node):
 
 
 
+  def fetch_params(self):
+    self.declare_parameters(
+      namespace='',
+      parameters=[
+        ('gst_plugin_paths', []),
+        ('gst_plugin_ros_packages', []),
+        ('gst_plugins_required', []),
+      ]
+    )
+    self.gst_plugin_paths = self.get_parameter('gst_plugin_paths').value
+    self.gst_plugin_ros_packages = self.get_parameter('gst_plugin_ros_packages').value
+    self.gst_plugins_required = self.get_parameter('gst_plugins_required').value
+    self.get_logger().info('parameter '+ 'gst_plugins_required' + ' is ' + str(self.gst_plugins_required))
+    self.get_logger().info('parameter '+ 'gst_plugin_paths' + ' is ' + str(self.gst_plugin_paths))
+    self.get_logger().info('parameter '+ 'gst_plugin_ros_packages' + ' is ' + str(self.gst_plugin_ros_packages))
+
+    for pack in self.gst_plugin_ros_packages:
+      subdir = self.declare_parameter('gst_plugin_ros_package_subdirs.' + pack).value
+      if subdir == None:
+        self.get_logger().error('parameter '+ 'gst_plugin_ros_package_subdirs.' + pack + ' not found')
+      plugin_path = os.path.join(get_package_prefix(pack), subdir)
+      self.gst_plugin_paths.append(plugin_path)
+
+
+
   async def async_task(self):
     while True:
       self.updater.update()
-      await asyncio.sleep(0.5)
+      await asyncio.sleep(0.5)  # XXX make variable diagnostic frequency
       #self.get_logger().info("diagnostics update")
 
 
@@ -115,8 +152,9 @@ class Pipeline(Node):
       iterator = item.iterate_elements()
       iterator.foreach(self.foreach_element_diagnostics, user_data)
 
-
+  # XXX functional style list check can be swapped for something more legible
   def check_plugins(self, needed):
+    # XXX pull the list from the parameter server
     missing = list(filter(lambda p: self.registry.get().find_plugin(p) is None, needed))
     if len(missing):
       self.get_logger().warn('Missing gstreamer plugins: ' + str(missing))
