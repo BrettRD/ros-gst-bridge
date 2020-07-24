@@ -666,7 +666,7 @@ static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::Const
   else
   {
     if(!(src->step == msg->step / msg->width))
-      RCLCPP_ERROR(src->logger, "image format changed during playback, step %d != %d", src->step, msg->step);
+      RCLCPP_ERROR(src->logger, "image format changed during playback, step %d != %d", src->step, msg->step/msg->width);
     if(!(src->height == msg->height))
       RCLCPP_ERROR(src->logger, "image format changed during playback, height %d != %d", src->height, msg->height);
     if(!(src->width == msg->width))
@@ -674,7 +674,7 @@ static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::Const
     if(!(src->endianness == (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN)))
       RCLCPP_ERROR(src->logger, "image format changed during playback, endianness %d != %d", src->endianness, (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN));
     if(!(0 == g_strcmp0(src->encoding, msg->encoding.c_str())))
-      RCLCPP_ERROR(src->logger, "image format changed during playback, encoding %s != %s", src->encoding, msg->encoding);
+      RCLCPP_ERROR(src->logger, "image format changed during playback, encoding %s != %s", src->encoding, msg->encoding.c_str());
     
   }
 

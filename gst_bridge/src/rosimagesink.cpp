@@ -145,7 +145,7 @@ static void rosimagesink_class_init (RosimagesinkClass * klass)
 
   g_object_class_install_property (object_class, PROP_ROS_ENCODING,
       g_param_spec_string ("ros-encoding", "encoding-string", "A hack to flexibly set the encoding string",
-      "rgba8",
+      "",
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
@@ -177,7 +177,7 @@ static void rosimagesink_init (Rosimagesink * sink)
   sink->node_namespace = g_strdup("");
   sink->pub_topic = g_strdup("gst_image_pub");
   sink->frame_id = g_strdup("image_frame");
-  sink->encoding = g_strdup("rgba8");
+  sink->encoding = g_strdup("");
 }
 
 void rosimagesink_set_property (GObject * object, guint property_id,
@@ -454,11 +454,7 @@ static gboolean rosimagesink_setcaps (GstBaseSink * base_sink, GstCaps * caps)
   {
     format_enum = gst_video_format_from_string (format_str);
     format_info = gst_video_format_get_info (format_enum);
-    // XXX collect a bunch more info from format_info
-    format_info = gst_video_format_get_info (format_info->unpack_format);
-    
     depth = format_info->pixel_stride[0];
-    
 
     //allow the encoding to be overridden by parameters
     //but update it if it's blank
@@ -472,7 +468,6 @@ static gboolean rosimagesink_setcaps (GstBaseSink * base_sink, GstCaps * caps)
       g_free(sink->encoding);
       sink->encoding = g_strdup(gst_bridge::getRosEncoding(format_enum).c_str());
     }
-
 
     RCLCPP_INFO(sink->logger, "setcaps format string is %s ", format_str);
     RCLCPP_INFO(sink->logger, "setcaps n_components is %d", format_info->n_components);

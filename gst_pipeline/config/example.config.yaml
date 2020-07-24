@@ -1,4 +1,3 @@
-#logitech gamepad F310
 gst_pipeline_node:
   ros__parameters:
 
