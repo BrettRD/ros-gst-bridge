@@ -207,6 +207,14 @@ static void rosimagesrc_init (Rosimagesrc * src)
 
   src->msg_init = true;
 
+  /* configure basesrc to be a live source */
+  gst_base_src_set_live (GST_BASE_SRC (src), TRUE);
+  /* make basesrc output a segment in time */
+  gst_base_src_set_format (GST_BASE_SRC (src), GST_FORMAT_TIME);
+  /* make basesrc set timestamps on outgoing buffers based on the running_time
+   * when they were captured */
+  gst_base_src_set_do_timestamp (GST_BASE_SRC (src), TRUE);
+
 }
 
 void rosimagesrc_set_property (GObject * object, guint property_id,
@@ -503,10 +511,6 @@ static GstCaps * rosimagesrc_fixate (GstBaseSrc * base_src, GstCaps * caps)
   caps = gst_caps_make_writable (caps);
 
   s = gst_caps_get_structure (caps, 0);
-
-  /* fields for all formats */
-  gst_structure_fixate_field_nearest_int (s, "rate", 44100);
-  gst_structure_fixate_field_nearest_int (s, "channels", 2);
 
   /* fields for int */
   if (gst_structure_has_field (s, "depth")) {
