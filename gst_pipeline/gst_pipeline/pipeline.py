@@ -18,21 +18,36 @@ from ament_index_python.packages import get_package_share_directory, get_package
 
 
 class Pipeline(Node):
-  def __init__(self, node_name='pipeline_node'):
+  def __init__(self, node_name='pipeline_node',
+    param_prefix='',
+    gst_plugin_paths = [], # list of strings
+    gst_plugin_ros_packages = [], # list of tuples (package_name,sub_dir)
+    gst_plugins_required = [] # list of strings
+  ):
     super().__init__(node_name)
     self.registry = Gst.Registry()
     self.registry.connect('plugin-added', self.plugin_added)
 
-    # get plugin info from parameter server
-    self.fetch_params()
-    self.add_plugin_paths(self.gst_plugin_paths) # XXX make this available in args
-    self.check_plugins(self.gst_plugins_required)
+    # pull additional info from parameter server
+    paths, packages, plugins = self.fetch_params(param_prefix)
+    self.gst_plugin_paths = gst_plugin_paths + paths
+    self.gst_plugin_ros_packages = gst_plugin_ros_packages + packages
+    self.gst_plugins_required = gst_plugins_required + plugins
 
+    # unpack ros packages into paths
+    for (pack, subdir) in self.gst_plugin_ros_packages:
+      plugin_path = os.path.join(get_package_prefix(pack), subdir)
+      self.gst_plugin_paths.append(plugin_path)
+
+    self.get_logger().debug('additional gst plugin paths are ' + str(paths))
+    self.get_logger().debug('required gst plugins are ' + str(plugins))
+
+    self.add_plugin_paths(self.gst_plugin_paths)
+    self.check_plugins(self.gst_plugins_required)
 
     self.updater = diagnostic_updater.Updater(self)
     self.updater.setHardwareID("Gst1.0")
     self.updater.add("Pipe Status", self.diagnostic_task)
-
 
     self.pipe = Gst.Pipeline.new("rospipe")
     self.bus = self.pipe.get_bus()
@@ -44,30 +59,30 @@ class Pipeline(Node):
     self.updater.force_update()
 
 
-
-  def fetch_params(self):
+  def fetch_params(self, param_prefix=''):
     self.declare_parameters(
-      namespace='',
+      namespace=param_prefix,
       parameters=[
         ('gst_plugin_paths', []),
-        ('gst_plugin_ros_packages', []),
         ('gst_plugins_required', []),
+        ('gst_plugin_ros_packages', []),
       ]
     )
-    self.gst_plugin_paths = self.get_parameter('gst_plugin_paths').value
-    self.gst_plugin_ros_packages = self.get_parameter('gst_plugin_ros_packages').value
-    self.gst_plugins_required = self.get_parameter('gst_plugins_required').value
-    self.get_logger().info('parameter '+ 'gst_plugins_required' + ' is ' + str(self.gst_plugins_required))
-    self.get_logger().info('parameter '+ 'gst_plugin_paths' + ' is ' + str(self.gst_plugin_paths))
-    self.get_logger().info('parameter '+ 'gst_plugin_ros_packages' + ' is ' + str(self.gst_plugin_ros_packages))
-
-    for pack in self.gst_plugin_ros_packages:
-      subdir = self.declare_parameter('gst_plugin_ros_package_subdirs.' + pack).value
+    if param_prefix != '':
+      param_prefix = param_prefix + '.'
+    paths =         self.get_parameter(param_prefix + 'gst_plugin_paths').value
+    plugins =       self.get_parameter(param_prefix + 'gst_plugins_required').value
+    packages = []
+    package_list =  self.get_parameter(param_prefix + 'gst_plugin_ros_packages').value
+    
+    for pack in package_list:
+      subdir = self.declare_parameter(param_prefix + 'gst_plugin_ros_package_subdirs.' + pack).value
       if subdir == None:
-        self.get_logger().error('parameter '+ 'gst_plugin_ros_package_subdirs.' + pack + ' not found')
-      plugin_path = os.path.join(get_package_prefix(pack), subdir)
-      self.gst_plugin_paths.append(plugin_path)
+        self.get_logger().error('parameter "'+ param_prefix + 'gst_plugin_ros_package_subdirs' + '.' + pack + '" not found')
+      else:
+        packages.append( (pack,subdir) )
 
+    return paths, packages, plugins
 
 
   async def async_task(self):

@@ -26,7 +26,8 @@ default_audio_sink_bin_descr = ' queue ! alsasink'
 
 
 class webrtc_pipes:
-  def __init__(self, node_, transport,  name_,
+  def __init__(self, node_, name_, transport,
+      param_prefix=None,
       stun_server = default_stun_server,
       webrtc_element_name = 'webrtc_element',
       audio_src_bin_descr = default_audio_src_bin_descr,
@@ -37,12 +38,22 @@ class webrtc_pipes:
     self.node = node_
     self.chan = webrtc_sigchan(node_, transport)
     self.name = name_
+
     self.stun_server = stun_server
     self.webrtc_element_name = webrtc_element_name
     self.audio_src_bin_descr = audio_src_bin_descr
     self.video_src_bin_descr = video_src_bin_descr
     self.video_sink_bin_descr = video_sink_bin_descr
     self.audio_sink_bin_descr = audio_sink_bin_descr
+
+    if param_prefix != None:
+      self.stun_server,
+      self.webrtc_element_name,
+      self.audio_src_bin_descr,
+      self.video_src_bin_descr,
+      self.video_sink_bin_descr,
+      self.audio_sink_bin_descr = self.fetch_params(param_prefix)
+
 
     self.bin = self.build_initial_pipe()
     self.webrtc = self.bin.get_by_name(self.webrtc_element_name)
@@ -60,6 +71,29 @@ class webrtc_pipes:
     self.video_sink_built = False
 
 
+  def fetch_params(self, param_prefix):
+    self.node.declare_parameters(
+      namespace=param_prefix,
+      parameters=[
+        ('stun_server', None),
+        ('element_name', None),
+        ('audio_src_bin_descr', None),
+        ('video_src_bin_descr', None),
+        ('video_sink_bin_descr', None),
+        ('audio_sink_bin_descr', None)
+        #('signalling', None) # always pass the signalling protocol handler by argument
+      ]
+    )
+    if param_prefix != '':
+      param_prefix = param_prefix + '.'
+    stun_server =          self.node.get_parameter(param_prefix + 'stun_server').value
+    element_name =         self.node.get_parameter(param_prefix + 'element_name').value
+    audio_src_bin_descr =  self.node.get_parameter(param_prefix + 'audio_src_bin_descr').value
+    video_src_bin_descr =  self.node.get_parameter(param_prefix + 'video_src_bin_descr').value
+    video_sink_bin_descr = self.node.get_parameter(param_prefix + 'video_sink_bin_descr').value
+    audio_sink_bin_descr = self.node.get_parameter(param_prefix + 'audio_sink_bin_descr').value
+
+    return stun_server, element_name, audio_src_bin_descr, video_src_bin_descr, video_sink_bin_descr, audio_sink_bin_descr
 
 
   def build_initial_pipe(self):

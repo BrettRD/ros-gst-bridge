@@ -34,59 +34,59 @@ gst_pipeline_node:
     #######################################################################
     # These params are parsed to create event handlers                    #
     #######################################################################
+
+    # give each pipeline event handler a name under its type
+    descr: 'root level params are ok?'
     
+    audio_test:
+      descr: 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! queue ! audioconvert ! alsasink'
 
-    # simple_bin uses gst-launch syntax to create simple media pipelines with no complex event logic.
-
-    # give each pipeline event handler a name
     simple_bins:
       - audio_test
       - video_test
+      
+    video_test:
+      descr: 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink'
+    # simplebin only requires a gst-launch syntax pipeline description under 'descr'
+
+
+    #webrtc_bins:
+    #  - webrtc_example_bin
     
-    # attach properties to the named event handlers
-    simple_bin_props:
-      audio_test:
-        descr: 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! queue ! audioconvert ! alsasink'
-      video_test:
-        descr: 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink'
-      mic_rossink_test:
-        descr: 'alsasrc ! audioconvert ! rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
-      rossrc_rossink_test:
-        descr: 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! tee name=t ! queue ! rosaudiosink provide-clock=False ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2" t. ! queue ! audioconvert ! alsasink'
-      rossink_live_test:
-        descr: 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! tee name=t ! queue ! audioconvert ! alsasink t. ! queue !  rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
-      rossink_test:
-        descr: 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! queue ! audioconvert ! rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
+    # assign the properties to each event handler named above
+
+    mic_rossink_test:
+      descr: 'alsasrc ! audioconvert ! rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
+    rossrc_rossink_test:
+      descr: 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! tee name=t ! queue ! rosaudiosink provide-clock=False ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2" t. ! queue ! audioconvert ! alsasink'
+    rossink_live_test:
+      descr: 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! tee name=t ! queue ! audioconvert ! alsasink t. ! queue !  rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
+    rossink_test:
+      descr: 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! queue ! audioconvert ! rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
 
 
 
     # webrtc_bin creates a webrtc element and negotiates a connection with a remote peer
     # the transport (signalling transport) is used to hold the webrtc signalling protocol for peer discovery
+    webrtc_example_bin:
+      stun_server: 'stun://stun.l.google.com:19302'
+      element_name: 'sendrecv'  # the name of the webrtc element in the middle of the pipeline, appears in diagnostics
+      audio_src_bin_descr: ' audiotestsrc volume=0.3 is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay ! application/x-rtp,media=audio,encoding-name=OPUS,payload=96 ! queue '
+      video_src_bin_descr: ' videotestsrc is-live=true pattern=ball ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay ! application/x-rtp,media=video,encoding-name=VP8,payload=97 ! queue '
+      video_sink_bin_descr: ' queue ! videoconvert ! ximagesink'
+      audio_sink_bin_descr: ' queue ! alsasink '
+      
+      # select the signalling protocol handler, then declare properties for it.
+      signalling: webrtc_transport_ws
+      #signalling: webrtc_transport_ros
 
+      #parameters for webrtc_transport_ws:
+      signalling_server: 'wss://webrtc.nirbheek.in:8443'
+      node_id: 1125
+      peer_id: 4874
 
-    webrtc_bins:
-      - webrtc_example_bin
-
-    webrtc_bin_props:
-      webrtc_example_bin:
-        stun_server: 'stun://stun.l.google.com:19302'
-        bin_name: 'sendrecv'  # the name of the webrtc element in the middle of the pipeline, appears in diagnostics
-        audio_src_bin_descr: ' audiotestsrc volume=0.3 is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay ! application/x-rtp,media=audio,encoding-name=OPUS,payload=96 ! queue '
-        video_src_bin_descr: ' videotestsrc is-live=true pattern=ball ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay ! application/x-rtp,media=video,encoding-name=VP8,payload=97 ! queue '
-        video_sink_bin_descr: ' queue ! videoconvert ! ximagesink'
-        audio_sink_bin_descr: ' queue ! alsasink '
-        
-        # select the signalling protocol handler, then declare properties for it.
-        signalling: webrtc_transport_ws
-        #signalling: webrtc_transport_ros
-
-        webrtc_transport_ws:
-          signalling_server: 'wss://webrtc.nirbheek.in:8443'
-          node_id: 1125
-          peer_id: 4874
-
-        webrtc_transport_ros:  # not yet implemented
-          sdp_pub_topic: 'webrtc_example_bin/sdp_out'
-          sdp_sub_topic: 'webrtc_example_bin/sdp_in'
-          ice_pub_topic: 'webrtc_example_bin/ice_in'
-          ice_sub_topic: 'webrtc_example_bin/ice_in'
+      #paramters for webrtc_transport_ros:  # not yet implemented
+      sdp_pub_topic: 'webrtc_example_bin/sdp_out'
+      sdp_sub_topic: 'webrtc_example_bin/sdp_in'
+      ice_pub_topic: 'webrtc_example_bin/ice_in'
+      ice_sub_topic: 'webrtc_example_bin/ice_in'
