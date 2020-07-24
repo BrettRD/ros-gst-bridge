@@ -29,7 +29,7 @@ class Pipeline(Node):
     self.registry.connect('plugin-added', self.plugin_added)
 
     # pull additional info from parameter server
-    paths, packages, plugins = self.fetch_params(param_prefix)
+    (paths, packages, plugins) = self.fetch_params(param_prefix)
     self.gst_plugin_paths = gst_plugin_paths + paths
     self.gst_plugin_ros_packages = gst_plugin_ros_packages + packages
     self.gst_plugins_required = gst_plugins_required + plugins
@@ -60,16 +60,16 @@ class Pipeline(Node):
 
 
   def fetch_params(self, param_prefix=''):
+    if param_prefix != '':
+      param_prefix = param_prefix + '.'
     self.declare_parameters(
       namespace=param_prefix,
       parameters=[
-        ('gst_plugin_paths', []),
-        ('gst_plugins_required', []),
-        ('gst_plugin_ros_packages', []),
+        (param_prefix + 'gst_plugin_paths', []),
+        (param_prefix + 'gst_plugins_required', []),
+        (param_prefix + 'gst_plugin_ros_packages', []),
       ]
     )
-    if param_prefix != '':
-      param_prefix = param_prefix + '.'
     paths =         self.get_parameter(param_prefix + 'gst_plugin_paths').value
     plugins =       self.get_parameter(param_prefix + 'gst_plugins_required').value
     packages = []
@@ -82,7 +82,7 @@ class Pipeline(Node):
       else:
         packages.append( (pack,subdir) )
 
-    return paths, packages, plugins
+    return (paths, packages, plugins)
 
 
   async def async_task(self):

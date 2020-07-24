@@ -47,12 +47,12 @@ class webrtc_pipes:
     self.audio_sink_bin_descr = audio_sink_bin_descr
 
     if param_prefix != None:
-      self.stun_server,
+      (self.stun_server,
       self.webrtc_element_name,
       self.audio_src_bin_descr,
       self.video_src_bin_descr,
       self.video_sink_bin_descr,
-      self.audio_sink_bin_descr = self.fetch_params(param_prefix)
+      self.audio_sink_bin_descr) = self.fetch_params(param_prefix)
 
 
     self.bin = self.build_initial_pipe()
@@ -72,28 +72,27 @@ class webrtc_pipes:
 
 
   def fetch_params(self, param_prefix):
+    if param_prefix != '':
+      param_prefix = param_prefix + '.'
     self.node.declare_parameters(
-      namespace=param_prefix,
+      namespace='',
       parameters=[
-        ('stun_server', None),
-        ('element_name', None),
-        ('audio_src_bin_descr', None),
-        ('video_src_bin_descr', None),
-        ('video_sink_bin_descr', None),
-        ('audio_sink_bin_descr', None)
+        (param_prefix + 'stun_server', None),
+        (param_prefix + 'element_name', None),
+        (param_prefix + 'audio_src_bin_descr', None),
+        (param_prefix + 'video_src_bin_descr', None),
+        (param_prefix + 'video_sink_bin_descr', None),
+        (param_prefix + 'audio_sink_bin_descr', None)
         #('signalling', None) # always pass the signalling protocol handler by argument
       ]
     )
-    if param_prefix != '':
-      param_prefix = param_prefix + '.'
     stun_server =          self.node.get_parameter(param_prefix + 'stun_server').value
     element_name =         self.node.get_parameter(param_prefix + 'element_name').value
     audio_src_bin_descr =  self.node.get_parameter(param_prefix + 'audio_src_bin_descr').value
     video_src_bin_descr =  self.node.get_parameter(param_prefix + 'video_src_bin_descr').value
     video_sink_bin_descr = self.node.get_parameter(param_prefix + 'video_sink_bin_descr').value
     audio_sink_bin_descr = self.node.get_parameter(param_prefix + 'audio_sink_bin_descr').value
-
-    return stun_server, element_name, audio_src_bin_descr, video_src_bin_descr, video_sink_bin_descr, audio_sink_bin_descr
+    return (stun_server, element_name, audio_src_bin_descr, video_src_bin_descr, video_sink_bin_descr, audio_sink_bin_descr)
 
 
   def build_initial_pipe(self):
@@ -101,8 +100,8 @@ class webrtc_pipes:
     webrtc_bin_descr = 'webrtcbin name=' + self.webrtc_element_name + ' bundle-policy=max-bundle stun-server=' + self.stun_server + ' '
     webrtc_descr = \
       webrtc_bin_descr + '\n ' + \
-      self.video_src_bin_descr + ' ! ' + self.webrtc_element_name + '\n ' + \
-      self.audio_src_bin_descr + ' ! ' + self.webrtc_element_name
+      self.video_src_bin_descr + ' ! ' + self.webrtc_element_name + '.' + '\n ' + \
+      self.audio_src_bin_descr + ' ! ' + self.webrtc_element_name + '.'
 
     self.node.get_logger().debug("building initial webrtc pipes")
     self.node.get_logger().debug(webrtc_descr)

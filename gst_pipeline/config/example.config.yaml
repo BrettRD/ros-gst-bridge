@@ -34,27 +34,21 @@ gst_pipeline_node:
     #######################################################################
     # These params are parsed to create event handlers                    #
     #######################################################################
-
-    # give each pipeline event handler a name under its type
-    descr: 'root level params are ok?'
     
-    audio_test:
-      descr: 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! queue ! audioconvert ! alsasink'
-
     simple_bins:
       - audio_test
       - video_test
-      
-    video_test:
-      descr: 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink'
+
     # simplebin only requires a gst-launch syntax pipeline description under 'descr'
 
+    webrtc_bins:
+      - webrtc_example_bin
 
-    #webrtc_bins:
-    #  - webrtc_example_bin
-    
     # assign the properties to each event handler named above
-
+    audio_test:
+      descr: 'audiotestsrc volume=0.3 is-live=true wave=red-noise ! queue ! audioconvert ! alsasink'
+    video_test:
+      descr: 'videotestsrc is-live=true pattern=ball ! queue ! ximagesink'
     mic_rossink_test:
       descr: 'alsasrc ! audioconvert ! rosaudiosink ros-name="audio_node" ros-topic="audio" ros-encoding="S16C2"'
     rossrc_rossink_test:
@@ -75,17 +69,17 @@ gst_pipeline_node:
       video_src_bin_descr: ' videotestsrc is-live=true pattern=ball ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay ! application/x-rtp,media=video,encoding-name=VP8,payload=97 ! queue '
       video_sink_bin_descr: ' queue ! videoconvert ! ximagesink'
       audio_sink_bin_descr: ' queue ! alsasink '
-      
       # select the signalling protocol handler, then declare properties for it.
+
       signalling: webrtc_transport_ws
       #signalling: webrtc_transport_ros
-
-      #parameters for webrtc_transport_ws:
+      
+      #parameters for signalling over webrtc_transport_ws:
       signalling_server: 'wss://webrtc.nirbheek.in:8443'
       node_id: 1125
       peer_id: 4874
-
-      #paramters for webrtc_transport_ros:  # not yet implemented
+      
+      #paramters for signalling over webrtc_transport_ros:  # not yet implemented
       sdp_pub_topic: 'webrtc_example_bin/sdp_out'
       sdp_sub_topic: 'webrtc_example_bin/sdp_in'
       ice_pub_topic: 'webrtc_example_bin/ice_in'

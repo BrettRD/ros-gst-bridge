@@ -47,11 +47,11 @@ class webrtc_transport_ws:
     self.offer = offer
     self.autodial = autodial
     if param_prefix != None:
-      self.server,
+      (self.server,
       self.node_id,
       self.peer_id,
       self.offer,
-      self.autodial = self.fetch_params(param_prefix)
+      self.autodial) = self.fetch_params(param_prefix)
 
     self.conn = None  # websockets connection
     self.diagnostics = diagnostic_updater.FunctionDiagnosticTask('Transport', self.diagnostic_task)
@@ -70,25 +70,24 @@ class webrtc_transport_ws:
 
 
   def fetch_params(self, param_prefix):
-    self.node.declare_parameters(
-      namespace=param_prefix,
-      parameters=[
-        ('signalling_server', ''),
-        ('node_id', 0),
-        ('peer_id', 0),
-        ('offer', True),
-        ('autodial', True)
-      ]
-    )
     if param_prefix != '':
       param_prefix = param_prefix + '.'
+    self.node.declare_parameters(
+      namespace='',
+      parameters=[
+        (param_prefix + 'signalling_server', ''),
+        (param_prefix + 'node_id', 0),
+        (param_prefix + 'peer_id', 0),
+        (param_prefix + 'offer', True),
+        (param_prefix + 'autodial', True)
+      ]
+    )
     server =    self.node.get_parameter(param_prefix + 'signalling_server').value
     node_id =   self.node.get_parameter(param_prefix + 'node_id').value
     peer_id =   self.node.get_parameter(param_prefix + 'peer_id').value
     offer =     self.node.get_parameter(param_prefix + 'offer').value
-    autodial =  self.node.get_parameter(param_prefix + 'autodail').value
-
-    return server, node_id, peer_id, offer, autodial
+    autodial =  self.node.get_parameter(param_prefix + 'autodial').value
+    return (server, node_id, peer_id, offer, autodial)
 
 
   def connect_callbacks(self, _remote_sends_ice_cb, _remote_sends_sdp_cb, _create_offer_cb=None):

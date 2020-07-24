@@ -50,7 +50,6 @@ class Simplebin:
 
 
   def fetch_params(self, param_prefix):
-    self.node.get_logger().error('simplebin fetching parameters under "' + param_prefix + '"')
     if param_prefix != '':
       param_prefix = param_prefix + '.'
 
@@ -63,6 +62,4 @@ class Simplebin:
     bin_description = self.node.get_parameter(param_prefix + 'descr').value
     if bin_description == None:
       self.node.get_logger().error('parameter "' + param_prefix + 'descr' + '" not found')
-    self.node.get_logger().error('parameter "' + param_prefix + 'descr' + '" is "' + str(bin_description) + '"')
-
     return bin_description

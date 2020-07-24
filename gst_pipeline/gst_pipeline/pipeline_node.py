@@ -92,9 +92,9 @@ def build_webrtc_bins(pipe_node, loop):
   )
   for name in pipe_node.get_parameter(webrtc_bins_list).value:
     pipe_node.declare_parameters(
-      namespace=name,
+      namespace='',
       parameters=[
-        ('signalling', None)
+        (name + '.' + 'signalling', None)
       ]
     )
     webrtc_transport = None
