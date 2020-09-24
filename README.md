@@ -8,20 +8,19 @@ It should be easy to pass data between GStreamer and ROS without loss of informa
 
 ## Features
 
-### audio_msgs
-A message class for transporting raw audio data with appropriate metadata for analysis
-(this is likely to change)
-
-### gst_pipeline
-A collection of python scripts that handle gstreamer pipeline generation within a ROS node.
-Simplebin takes a gst-launch style pipeline descriptor and assembles basic but extremely versatile pipelines.
-This collection includes a modular WebRTC signalling system and pipeline handler making it easier to get data to a browser.
-
 ### gst_bridge
-A package containing a GStreamer plugin, and simple format conversions (similar goal to cv-bridge).
+A ROS2 package containing a GStreamer plugin, and simple format conversions (similar goal to cv-bridge).
 The GStreamer plugin has source and sink elements that appear on the ROS graph as independent ROS nodes.
 These nodes can be configured by passing parameters via the GStreamer pipeline, and can be assigned names, namespaces, and frame_ids.  These nodes can also be launched using gst-launch, or instantiated in pipelines inside other applications.
 
+### gst_pipeline
+A ROS2 package with a collection of python scripts that handle gstreamer pipeline generation within a ROS node.
+Simplebin takes a gst-launch style pipeline descriptor and assembles basic but extremely versatile pipelines.
+This collection includes a modular WebRTC signalling system and pipeline handler making it easier to get data to a browser.
+
+### audio_msgs
+A message class for transporting raw audio data with metadata equivalent to sensor_msgs/image
+(this is likely to change)
 
 ## Design goals:
 * ROS Messages and GStreamer caps should not lose metadata like timestamps.
@@ -47,7 +46,7 @@ audio-common and gs-cam have good examples of the gstreamer appsrc/appsink API.
 
 
 ## Remaining work
-* The python node needs to call `Gst.Registry().scan_path(install/<package_name>/lib/<package_name>)` to import the elements, ideally this path should be derived from a call to ROS tools.
-* pipeline elements should optionally provide a clock source to GStreamer, to allow the use of ROS sim-time.
-* pipeline elements should optionally provide a clock source to ROS, to allow the use of pipeline time generated from an external hardware clock.
-* image format equivalences need further testing, and basic format converters are needed.
+* Pipeline elements should optionally provide a clock source to GStreamer, to allow the use of ROS sim-time.
+* Pipeline elements should optionally provide a clock source to ROS, to allow the use of pipeline time generated from an external hardware clock.
+* Image format equivalences between GStreamer and ROS need more testing
+* Examples of pipelines that control element parameters from ROS topics
