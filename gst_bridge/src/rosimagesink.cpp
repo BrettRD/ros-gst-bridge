@@ -318,6 +318,7 @@ static GstStateChangeReturn rosimagesink_change_state (GstElement * element, Gst
 {
   GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
   Rosimagesink *sink = GST_ROSIMAGESINK (element);
+  GST_DEBUG_OBJECT (sink, "change state");
 
   switch (transition)
   {
@@ -389,6 +390,9 @@ static GstCaps * rosimagesink_fixate (GstBaseSink * bsink, GstCaps * caps)
   //XXX check init_caps and fixate to that
   GstStructure *s;
   gint width, depth;
+  Rosimagesink *sink = GST_ROSIMAGESINK (bsink);
+
+  GST_DEBUG_OBJECT (sink, "fixate");
 
   caps = gst_caps_make_writable (caps);
 
@@ -513,7 +517,7 @@ static GstFlowReturn rosimagesink_render (GstBaseSink * sink, GstBuffer * buf)
 
   Rosimagesink *rosimagesink = GST_ROSIMAGESINK (sink);
 
-  //GST_DEBUG_OBJECT (rosimagesink, "render");
+  GST_DEBUG_OBJECT (rosimagesink, "render");
 
   time = GST_BUFFER_PTS (buf);    //XXX link gst clock to ros clock
 

@@ -23,13 +23,14 @@ find_package(rclcpp REQUIRED)
 
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-# find gstreamer
 
+# find gstreamer
 set(gstreamer_components app pbutils audio fft net)
 find_package(GStreamer 1.8.3 REQUIRED COMPONENTS ${gstreamer_components})
+
 # find glib
 set(glib_components gio gio-unix gobject gthread gmodule)
-find_package(GLIB 2.36 REQUIRED COMPONENTS ${glib_components})
+find_package(GLIB 2.28 REQUIRED COMPONENTS ${glib_components})
 
 ## Include messages
 find_package(std_msgs REQUIRED)
@@ -89,11 +90,9 @@ target_link_libraries(rosgstbridge PUBLIC
   ${GSTREAMER_LIBRARIES}
   ${GLIB_LIBRARIES}
   ${GLIB_GIO_LIBRARIES}
-  gstcontroller-1.0
-  gstaudio-1.0
-  gstvideo-1.0
-  gstbase-1.0
-  gstnet-1.0
+  ${GSTREAMER_AUDIO_LIBRARIES}
+  ${GSTREAMER_APP_LIBRARIES}
+  ${GSTREAMER_VIDEO_LIBRARIES}
 )
 
 #ament_export_include_directories(include)
