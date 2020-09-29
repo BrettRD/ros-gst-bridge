@@ -22,6 +22,7 @@
 
 #include <gst/audio/audio-format.h>
 #include <gst/base/gstbasesink.h>
+#include <gst_bridge/gst_bridge.h>
 
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
@@ -43,21 +44,23 @@ struct _Rosaudiosink
 {
   GstBaseSink parent;
   gchar* node_name;
+  gchar* node_namespace;
   gchar* pub_topic;
-  gchar* frame_id;
-  gchar* encoding; //image topic encoding string
 
   rclcpp::Context::SharedPtr ros_context;
+  rclcpp::executor::Executor::SharedPtr ros_executor;
   rclcpp::Node::SharedPtr node;
-  rclcpp::Publisher<audio_msgs::msg::Audio>::SharedPtr pub;
   rclcpp::Logger logger;
   rclcpp::Clock::SharedPtr clock;
 
-  int channels;    //number of audio channels
-  int sample_rate; //sample rate in Hz
-  size_t stride;   //bytes per frame
-  gint endianness;  
-  uint8_t layout;
+  rclcpp::Publisher<audio_msgs::msg::Audio>::SharedPtr pub;
+
+  gchar* frame_id;
+  gchar* encoding; //msg encoding override string (for hacking)
+  gchar* init_caps; //a hack to allow skipping preroll
+
+  GstAudioInfo audio_info;
+  
 };
 
 struct _RosaudiosinkClass

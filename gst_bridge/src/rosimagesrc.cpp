@@ -36,7 +36,6 @@
 
 #include <gst/gst.h>
 #include <gst_bridge/rosimagesrc.h>
-#include <gst_bridge/gst_bridge.h>
 
 GST_DEBUG_CATEGORY_STATIC (rosimagesrc_debug_category);
 #define GST_CAT_DEFAULT rosimagesrc_debug_category
@@ -97,20 +96,13 @@ enum
   PROP_INIT_CAPS,
 };
 
-//#define GST_VIDEO_FORMAT_RANGE "{ GRAY8, GRAY16_LE, RGB, BGR, RGBA, BGRA }"
-
 /* pad templates */
 
-/* FIXME add/remove the formats that you want to support */
 static GstStaticPadTemplate rosimagesrc_src_template =
 GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("video/x-raw, "
-        "format=" GST_BRIDGE_GST_VIDEO_FORMAT_LIST ", "
-        "rate=[1,max], "
-        "height=[1,max], "
-        "width=[1,max]")
+    GST_STATIC_CAPS (ROS_IMAGE_MSG_CAPS)
     );
 
 
@@ -578,8 +570,8 @@ static GstCaps* rosimagesrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
   }
   else
   {
-    GST_DEBUG_OBJECT (src, "getcaps returning caps from init_caps");
     caps = gst_caps_from_string(src->init_caps);
+    GST_DEBUG_OBJECT (src, "getcaps returning %s from init_caps", gst_caps_to_string(caps));
     return caps;
   }
 }
@@ -704,6 +696,5 @@ static sensor_msgs::msg::Image::ConstSharedPtr rosimagesrc_wait_for_msg(Rosimage
   }
   while(ret != rclcpp::executor::FutureReturnCode::SUCCESS);
 
-  
   return fut.get();
 }

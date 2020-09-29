@@ -36,7 +36,6 @@
 
 #include <gst/gst.h>
 #include <gst_bridge/rosimagesink.h>
-#include <gst_bridge/gst_bridge.h>
 
 
 GST_DEBUG_CATEGORY_STATIC (rosimagesink_debug_category);
@@ -53,16 +52,14 @@ static void rosimagesink_finalize (GObject * object);
 
 
 static GstStateChangeReturn rosimagesink_change_state (GstElement * element, GstStateChange transition);
-static void rosimagesink_init (Rosimagesink * rosimagesink);
-static gboolean rosimagesink_setcaps (GstBaseSink * sink, GstCaps * caps);
-static GstCaps * rosimagesink_fixate (GstBaseSink * bsink, GstCaps * caps);
+static void rosimagesink_init (Rosimagesink * sink);
+static gboolean rosimagesink_setcaps (GstBaseSink * base_sink, GstCaps * caps);
+static GstCaps * rosimagesink_fixate (GstBaseSink * base_sink, GstCaps * caps);
 
-static GstFlowReturn rosimagesink_render (GstBaseSink * sink, GstBuffer * buffer);
+static GstFlowReturn rosimagesink_render (GstBaseSink * base_sink, GstBuffer * buffer);
 
 static gboolean rosimagesink_open (Rosimagesink * sink);
 static gboolean rosimagesink_close (Rosimagesink * sink);
-
-// create a member function that sends a ROS message, call it from render
 
 /*
   provide a mechanism for ROS to provide a clock
@@ -87,12 +84,7 @@ static GstStaticPadTemplate rosimagesink_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("video/x-raw, "
-        "format=" GST_BRIDGE_GST_VIDEO_FORMAT_LIST ", "
-        "framerate = (fraction) [1,max], "
-        "width = (int) [1,max], "
-        "height = (int) [1,max]"
-        )
+    GST_STATIC_CAPS (ROS_IMAGE_MSG_CAPS)
     );
 
 /* class initialization */
@@ -143,6 +135,12 @@ static void rosimagesink_class_init (RosimagesinkClass * klass)
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
+  g_object_class_install_property (object_class, PROP_ROS_FRAME_ID,
+      g_param_spec_string ("ros-frame-id", "frame-id", "frame_id of the image message",
+      "",
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
+
   g_object_class_install_property (object_class, PROP_ROS_ENCODING,
       g_param_spec_string ("ros-encoding", "encoding-string", "A hack to flexibly set the encoding string",
       "",
@@ -178,6 +176,7 @@ static void rosimagesink_init (Rosimagesink * sink)
   sink->pub_topic = g_strdup("gst_image_pub");
   sink->frame_id = g_strdup("image_frame");
   sink->encoding = g_strdup("");
+  sink->init_caps =  g_strdup("");
 }
 
 void rosimagesink_set_property (GObject * object, guint property_id,
@@ -385,12 +384,12 @@ static gboolean rosimagesink_close (Rosimagesink * sink)
   return TRUE;
 }
 
-static GstCaps * rosimagesink_fixate (GstBaseSink * bsink, GstCaps * caps)
+static GstCaps * rosimagesink_fixate (GstBaseSink * base_sink, GstCaps * caps)
 {
   //XXX check init_caps and fixate to that
   GstStructure *s;
   gint width, depth;
-  Rosimagesink *sink = GST_ROSIMAGESINK (bsink);
+  Rosimagesink *sink = GST_ROSIMAGESINK (base_sink);
 
   GST_DEBUG_OBJECT (sink, "fixate");
 
@@ -415,7 +414,7 @@ static GstCaps * rosimagesink_fixate (GstBaseSink * bsink, GstCaps * caps)
   if (gst_structure_has_field (s, "endianness"))
     gst_structure_fixate_field_nearest_int (s, "endianness", G_BYTE_ORDER);
 
-  caps = GST_BASE_SINK_CLASS (rosimagesink_parent_class)->fixate (bsink, caps);
+  caps = GST_BASE_SINK_CLASS (rosimagesink_parent_class)->fixate (base_sink, caps);
 
   return caps;
 }
@@ -506,7 +505,7 @@ static gboolean rosimagesink_setcaps (GstBaseSink * base_sink, GstCaps * caps)
 
 
 
-static GstFlowReturn rosimagesink_render (GstBaseSink * sink, GstBuffer * buf)
+static GstFlowReturn rosimagesink_render (GstBaseSink * base_sink, GstBuffer * buf)
 {
   GstMapInfo info;
   GstClockTime time;
@@ -515,9 +514,9 @@ static GstFlowReturn rosimagesink_render (GstBaseSink * sink, GstBuffer * buf)
   auto msg = sensor_msgs::msg::Image();
   GstFlowReturn ret;
 
-  Rosimagesink *rosimagesink = GST_ROSIMAGESINK (sink);
+  Rosimagesink *sink = GST_ROSIMAGESINK (base_sink);
 
-  GST_DEBUG_OBJECT (rosimagesink, "render");
+  GST_DEBUG_OBJECT (sink, "render");
 
   time = GST_BUFFER_PTS (buf);    //XXX link gst clock to ros clock
 
@@ -532,21 +531,21 @@ static GstFlowReturn rosimagesink_render (GstBaseSink * sink, GstBuffer * buf)
   //create a message (this loan should be extended upstream)
   // need to use fixed data length message to benefit from zero-copy
   
-  //auto msg = rosimagesink->pub->borrow_loaned_message();
+  //auto msg = sink->pub->borrow_loaned_message();
   //msg.get().frames = 
 
   //fill the blanks
-  msg.width = rosimagesink->width;
-  msg.height = rosimagesink->height;
-  msg.encoding = rosimagesink->encoding;
-  msg.is_bigendian = (rosimagesink->endianness == G_BIG_ENDIAN);
-  msg.step = rosimagesink->step;
+  msg.width = sink->width;
+  msg.height = sink->height;
+  msg.encoding = sink->encoding;
+  msg.is_bigendian = (sink->endianness == G_BIG_ENDIAN);
+  msg.step = sink->step;
   
-  msg.header.stamp = rosimagesink->clock->now();
-  msg.header.frame_id = rosimagesink->frame_id;
+  msg.header.stamp = sink->clock->now();
+  msg.header.frame_id = sink->frame_id;
 
   //publish
-  rosimagesink->pub->publish(msg);
+  sink->pub->publish(msg);
 
   return GST_FLOW_OK;
 }

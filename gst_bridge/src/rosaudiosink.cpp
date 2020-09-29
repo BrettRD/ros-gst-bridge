@@ -34,7 +34,6 @@
 #include "config.h"
 #endif
 
-#include <gst/gst.h>
 #include <gst_bridge/rosaudiosink.h>
 
 
@@ -70,23 +69,22 @@ enum
 {
   PROP_0,
   PROP_ROS_NAME,
+  PROP_ROS_NAMESPACE,
   PROP_ROS_TOPIC,
   PROP_ROS_FRAME_ID,
-  PROP_ROS_ENCODING
+  PROP_ROS_ENCODING,
+  PROP_INIT_CAPS,
 };
 
 
 /* pad templates */
 
-/* FIXME add/remove the formats that you want to support */
 static GstStaticPadTemplate rosaudiosink_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("audio/x-raw,format=S16LE,rate=[1,max],"
-        "channels=[1,max],layout=interleaved")
+    GST_STATIC_CAPS (ROS_AUDIO_MSG_CAPS)
     );
-
 
 /* class initialization */
 
@@ -124,6 +122,12 @@ static void rosaudiosink_class_init (RosaudiosinkClass * klass)
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
+  g_object_class_install_property (object_class, PROP_ROS_NAMESPACE,
+      g_param_spec_string ("ros-namespace", "node-namespace", "Namespace for the ROS node",
+      "",
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
+
   g_object_class_install_property (object_class, PROP_ROS_TOPIC,
       g_param_spec_string ("ros-topic", "pub-topic", "ROS topic to be published on",
       "gst_audio_pub",
@@ -142,6 +146,13 @@ static void rosaudiosink_class_init (RosaudiosinkClass * klass)
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
+  g_object_class_install_property (object_class, PROP_INIT_CAPS,
+      g_param_spec_string ("init-caps", "initial-caps", "optional caps filter to skip wait for first message",
+      "",
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
+
+
   element_class->change_state = GST_DEBUG_FUNCPTR (rosaudiosink_change_state); //use state change events to open and close publishers
   basesink_class->fixate = GST_DEBUG_FUNCPTR (rosaudiosink_fixate); //set caps fields to our preferred values (if possible)
   basesink_class->set_caps = GST_DEBUG_FUNCPTR (rosaudiosink_setcaps);  //gstreamer informs us what caps we're using.
@@ -154,57 +165,85 @@ static void rosaudiosink_class_init (RosaudiosinkClass * klass)
 
 }
 
-static void rosaudiosink_init (Rosaudiosink * rosaudiosink)
+static void rosaudiosink_init (Rosaudiosink * sink)
 {
   // Don't register the node or the publisher just yet,
   // wait for rosaudiosink_open()
   // XXX set defaults elsewhere to keep gst-inspect consistent
-  rosaudiosink->node_name = g_strdup("gst_audio_sink_node");
-  rosaudiosink->pub_topic = g_strdup("gst_audio_pub");
-  rosaudiosink->frame_id = g_strdup("audio_frame");
-  rosaudiosink->encoding = g_strdup("16SC1");
+  sink->node_name = g_strdup("gst_audio_sink_node");
+  sink->node_namespace = g_strdup("");
+  sink->pub_topic = g_strdup("gst_audio_pub");
+  sink->frame_id = g_strdup("audio_frame");
+  sink->encoding = g_strdup("16SC1");
+  sink->init_caps =  g_strdup("");
 }
 
 void rosaudiosink_set_property (GObject * object, guint property_id,
     const GValue * value, GParamSpec * pspec)
 {
-  Rosaudiosink *rosaudiosink = GST_ROSAUDIOSINK (object);
+  Rosaudiosink *sink = GST_ROSAUDIOSINK (object);
 
-  GST_DEBUG_OBJECT (rosaudiosink, "set_property");
+  GST_DEBUG_OBJECT (sink, "set_property");
 
   switch (property_id) {
     case PROP_ROS_NAME:
-      if(rosaudiosink->node)
+      if(sink->node)
       {
-        RCLCPP_ERROR(rosaudiosink->logger, "can't change node name once openned");
+        RCLCPP_ERROR(sink->logger, "can't change node name once openned");
       }
       else
       {
-        g_free(rosaudiosink->node_name);
-        rosaudiosink->node_name = g_value_dup_string(value);
+        g_free(sink->node_name);
+        sink->node_name = g_value_dup_string(value);
+      }
+      break;
+
+    case PROP_ROS_NAMESPACE:
+      if(sink->node)
+      {
+        RCLCPP_ERROR(sink->logger, "can't change node namespace once openned");
+      }
+      else
+      {
+        g_free(sink->node_namespace);
+        sink->node_namespace = g_value_dup_string(value);
       }
       break;
 
     case PROP_ROS_TOPIC:
-      if(rosaudiosink->node)
+      if(sink->node)
       {
-        RCLCPP_ERROR(rosaudiosink->logger, "can't change topic name once openned");
+        RCLCPP_ERROR(sink->logger, "can't change topic name once openned");
       }
       else
       {
-        g_free(rosaudiosink->pub_topic);
-        rosaudiosink->pub_topic = g_value_dup_string(value);
+        g_free(sink->pub_topic);
+        sink->pub_topic = g_value_dup_string(value);
       }
       break;
 
     case PROP_ROS_FRAME_ID:
-      g_free(rosaudiosink->frame_id);
-      rosaudiosink->frame_id = g_value_dup_string(value);
+      g_free(sink->frame_id);
+      sink->frame_id = g_value_dup_string(value);
       break;
 
     case PROP_ROS_ENCODING:
-      g_free(rosaudiosink->encoding);
-      rosaudiosink->encoding = g_value_dup_string(value);
+      g_free(sink->encoding);
+      sink->encoding = g_value_dup_string(value);
+      break;
+
+    case PROP_INIT_CAPS:
+      if(sink->node)  // XXX wrong condition, but close enough
+      {
+        RCLCPP_ERROR(sink->logger, "can't change initial caps after init");
+      }
+      else
+      {
+        g_free(sink->init_caps);
+        sink->init_caps = g_value_dup_string(value);
+        // XXX set up the image message checks and unpack the caps
+        // XXX return the init_caps in fixate(), and probably earlier than that
+      }
       break;
 
     default:
@@ -216,24 +255,32 @@ void rosaudiosink_set_property (GObject * object, guint property_id,
 void rosaudiosink_get_property (GObject * object, guint property_id,
     GValue * value, GParamSpec * pspec)
 {
-  Rosaudiosink *rosaudiosink = GST_ROSAUDIOSINK (object);
+  Rosaudiosink *sink = GST_ROSAUDIOSINK (object);
 
-  GST_DEBUG_OBJECT (rosaudiosink, "get_property");
+  GST_DEBUG_OBJECT (sink, "get_property");
   switch (property_id) {
     case PROP_ROS_NAME:
-      g_value_set_string(value, rosaudiosink->node_name);
+      g_value_set_string(value, sink->node_name);
+      break;
+
+    case PROP_ROS_NAMESPACE:
+      g_value_set_string(value, sink->node_namespace);
       break;
 
     case PROP_ROS_TOPIC:
-      g_value_set_string(value, rosaudiosink->pub_topic);
+      g_value_set_string(value, sink->pub_topic);
       break;
 
     case PROP_ROS_FRAME_ID:
-      g_value_set_string(value, rosaudiosink->frame_id);
+      g_value_set_string(value, sink->frame_id);
       break;
 
     case PROP_ROS_ENCODING:
-      g_value_set_string(value, rosaudiosink->encoding);
+      g_value_set_string(value, sink->encoding);
+      break;
+
+    case PROP_INIT_CAPS:
+      g_value_set_string(value, sink->init_caps);
       break;
 
     default:
@@ -244,9 +291,9 @@ void rosaudiosink_get_property (GObject * object, guint property_id,
 
 void rosaudiosink_dispose (GObject * object)
 {
-  Rosaudiosink *rosaudiosink = GST_ROSAUDIOSINK (object);
+  Rosaudiosink *sink = GST_ROSAUDIOSINK (object);
 
-  GST_DEBUG_OBJECT (rosaudiosink, "dispose");
+  GST_DEBUG_OBJECT (sink, "dispose");
 
   /* clean up as possible.  may be called multiple times */
 
@@ -255,9 +302,9 @@ void rosaudiosink_dispose (GObject * object)
 
 void rosaudiosink_finalize (GObject * object)
 {
-  Rosaudiosink *rosaudiosink = GST_ROSAUDIOSINK (object);
+  Rosaudiosink *sink = GST_ROSAUDIOSINK (object);
 
-  GST_DEBUG_OBJECT (rosaudiosink, "finalize");
+  GST_DEBUG_OBJECT (sink, "finalize");
 
   /* clean up object here */
 
@@ -336,11 +383,14 @@ static gboolean rosaudiosink_close (Rosaudiosink * sink)
   return TRUE;
 }
 
-
-static GstCaps * rosaudiosink_fixate (GstBaseSink * bsink, GstCaps * caps)
+static GstCaps * rosaudiosink_fixate (GstBaseSink * base_sink, GstCaps * caps)
 {
+  //XXX check init_caps and fixate to that
   GstStructure *s;
   gint width, depth;
+  Rosaudiosink *sink = GST_ROSAUDIOSINK (base_sink);
+
+  GST_DEBUG_OBJECT (sink, "fixate");
 
   caps = gst_caps_make_writable (caps);
 
@@ -363,117 +413,69 @@ static GstCaps * rosaudiosink_fixate (GstBaseSink * bsink, GstCaps * caps)
   if (gst_structure_has_field (s, "endianness"))
     gst_structure_fixate_field_nearest_int (s, "endianness", G_BYTE_ORDER);
 
-  caps = GST_BASE_SINK_CLASS (rosaudiosink_parent_class)->fixate (bsink, caps);
+  caps = GST_BASE_SINK_CLASS (rosaudiosink_parent_class)->fixate (base_sink, caps);
 
   return caps;
 }
 
 
 /* check the caps, register a node and open an publisher */
-static gboolean rosaudiosink_setcaps (GstBaseSink * sink, GstCaps * caps)
+static gboolean rosaudiosink_setcaps (GstBaseSink * base_sink, GstCaps * caps)
 {
-  GstStructure *caps_struct;
-  gint width, depth, channels, endianness, rate, layout;
-  const gchar * format_str;
-  GstAudioFormat format_enum;
-  const GstAudioFormatInfo * format_info;
+  GstAudioInfo audio_info;
 
-  Rosaudiosink *rosaudiosink = GST_ROSAUDIOSINK (sink);
+  Rosaudiosink *sink = GST_ROSAUDIOSINK (base_sink);
 
-  GST_DEBUG_OBJECT (rosaudiosink, "setcaps");
+  GST_DEBUG_OBJECT (sink, "setcaps");
 
   if(!gst_caps_is_fixed(caps))
   {
-    RCLCPP_ERROR(rosaudiosink->logger, "caps is not fixed");
+    RCLCPP_ERROR(sink->logger, "caps is not fixed");
+    return false;
   }
 
-
-  if(rosaudiosink->node)
-      RCLCPP_INFO(rosaudiosink->logger, "preparing audio with caps '%s'",
+  if(sink->node)
+      RCLCPP_INFO(sink->logger, "preparing audio with caps '%s'",
           gst_caps_to_string(caps));
 
-  caps_struct = gst_caps_get_structure (caps, 0);
-  if(!gst_structure_get_int (caps_struct, "channels", &channels))
-      RCLCPP_ERROR(rosaudiosink->logger, " setcaps missing channels");
-  if(!gst_structure_get_int (caps_struct, "rate", &rate))
-      RCLCPP_ERROR(rosaudiosink->logger, " setcaps missing rate");
-
-  format_str = gst_structure_get_string(caps_struct, "format");
-
-  if(format_str)
+  if(gst_audio_info_from_caps(&audio_info , caps))
   {
-    format_enum = gst_audio_format_from_string (format_str);
-    format_info = gst_audio_format_get_info (format_enum);
-    width = format_info->width;
-    depth = format_info->depth;
-    endianness = format_info->endianness;
-  }
-  else
-  {
-    RCLCPP_ERROR(rosaudiosink->logger, " setcaps missing format");
-    if(!gst_structure_get_int (caps_struct, "width", &width))
-        RCLCPP_ERROR(rosaudiosink->logger, " setcaps missing width");
-    if(!gst_structure_get_int (caps_struct, "depth", &depth))
-        RCLCPP_ERROR(rosaudiosink->logger, " setcaps missing depth");
-    if(!gst_structure_get_int (caps_struct, "endianness", &endianness))
-        RCLCPP_ERROR(rosaudiosink->logger, " setcaps missing endianness");
+    sink->audio_info = audio_info;
+    return true;
   }
 
-
-  //collect a bunch of parameters to shoehorn into a message format
-  rosaudiosink->channels = channels;
-  rosaudiosink->stride = (depth/8) * channels;
-  rosaudiosink->endianness = endianness;
-  rosaudiosink->sample_rate = rate;
-  rosaudiosink->layout = 0; //XXX
-
-  return true;
+  return false;
 }
 
 
 
-static GstFlowReturn rosaudiosink_render (GstBaseSink * sink, GstBuffer * buf)
+static GstFlowReturn rosaudiosink_render (GstBaseSink * base_sink, GstBuffer * buf)
 {
   GstMapInfo info;
   GstClockTime time;
-  uint8_t* data;
-  size_t length;
-  auto msg = audio_msgs::msg::Audio();
-  GstFlowReturn ret;
+  audio_msgs::msg::Audio msg;
 
-  Rosaudiosink *rosaudiosink = GST_ROSAUDIOSINK (sink);
+  // XXX look into borrowed messages, can buf be extended into the middleware?
+  //    auto msg = sink->pub->borrow_loaned_message();
+  //    msg.get().frames = ...
 
-  GST_DEBUG_OBJECT (rosaudiosink, "render");
+  Rosaudiosink *sink = GST_ROSAUDIOSINK (base_sink);
+  GST_DEBUG_OBJECT (sink, "render");
 
-  time = GST_BUFFER_PTS (buf);    //XXX link gst clock to ros clock
+  time = GST_BUFFER_PTS (buf);    // XXX link gst clock to ros clock
+
+  msg = gst_bridge::gst_audio_info_to_audio_msg(&(sink->audio_info));
+  msg.header.stamp = sink->clock->now();
+  msg.header.frame_id = sink->frame_id;
 
   gst_buffer_map (buf, &info, GST_MAP_READ);
-  length = info.size;
-  data = info.data;
-  msg.data.resize(length);
-  memcpy(msg.data.data(), data, length);
+  msg.data.assign(info.data, info.data+info.size);
+  msg.frames = info.size/GST_AUDIO_INFO_BPF(&(sink->audio_info));
   gst_buffer_unmap (buf, &info);
-  data = NULL;
-
-  //create a message (this loan should be extended upstream)
-  // need to use fixed data length message to benefit from zero-copy
-  
-  //auto msg = rosaudiosink->pub->borrow_loaned_message();
-  //msg.get().frames = 
-
-  //fill the blanks
-  msg.frames = length/rosaudiosink->stride;
-  msg.channels = rosaudiosink->channels;    
-  msg.sample_rate = rosaudiosink->sample_rate;
-  msg.encoding = rosaudiosink->encoding;
-  msg.is_bigendian = (rosaudiosink->endianness == G_BIG_ENDIAN);
-  msg.layout = rosaudiosink->layout;
-  msg.step = rosaudiosink->stride;
-  msg.header.stamp = rosaudiosink->clock->now();
-  msg.header.frame_id = rosaudiosink->frame_id;
 
   //publish
-  rosaudiosink->pub->publish(msg);
+  sink->pub->publish(msg);
 
   return GST_FLOW_OK;
 }
+

@@ -22,6 +22,7 @@
 
 #include <gst/audio/audio-format.h>
 #include <gst/base/gstbasesrc.h>
+#include <gst_bridge/gst_bridge.h>
 
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
@@ -43,32 +44,30 @@ struct _Rosaudiosrc
 {
   GstBaseSrc parent;
   gchar* node_name;
+  gchar* node_namespace;
   gchar* sub_topic;
-  gchar* frame_id;
-  gchar* encoding;
-  gchar* init_caps;
-
-  /* Avoiding multithreaded execution because it's not necessary
-   * current_msg is set at the ROS callback and retrieved in gstreamer's fill call
-   */
-  bool msg_init;
-  std::promise<audio_msgs::msg::Audio::ConstSharedPtr> new_msg;
-  audio_msgs::msg::Audio::ConstSharedPtr msg;
-  size_t in_offset;
 
   rclcpp::Context::SharedPtr ros_context;
   rclcpp::executor::Executor::SharedPtr ros_executor;
   rclcpp::Node::SharedPtr node;
-  rclcpp::Subscription<audio_msgs::msg::Audio>::SharedPtr sub;
   rclcpp::Logger logger;
   rclcpp::Clock::SharedPtr clock;
 
-  int channels;    //number of audio channels
-  int sample_rate; //sample rate in Hz
-  size_t stride;   //bytes per frame
-  gint endianness;  
-  uint8_t layout;
+  rclcpp::Subscription<audio_msgs::msg::Audio>::SharedPtr sub;
 
+  gchar* frame_id;
+  gchar* encoding;
+  gchar* init_caps;
+
+  GstAudioInfo audio_info;
+
+  //messy startup flag
+  bool msg_init;
+
+  // message cache XXX only used for buffer size stuff, fix allocation sizing instead
+  std::promise<audio_msgs::msg::Audio::ConstSharedPtr> new_msg;
+  audio_msgs::msg::Audio::ConstSharedPtr msg;
+  size_t in_offset;
 };
 
 struct _RosaudiosrcClass
