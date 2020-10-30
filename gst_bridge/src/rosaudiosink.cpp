@@ -30,9 +30,6 @@
  * </refsect2>
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 #include <gst_bridge/rosaudiosink.h>
 
@@ -44,7 +41,6 @@ GST_DEBUG_CATEGORY_STATIC (rosaudiosink_debug_category);
 
 
 static void rosaudiosink_set_property (GObject * object, guint property_id, const GValue * value, GParamSpec * pspec);
-
 static void rosaudiosink_get_property (GObject * object, guint property_id, GValue * value, GParamSpec * pspec);
 static void rosaudiosink_dispose (GObject * object);  //unused?
 static void rosaudiosink_finalize (GObject * object);
@@ -52,10 +48,11 @@ static void rosaudiosink_finalize (GObject * object);
 
 static GstStateChangeReturn rosaudiosink_change_state (GstElement * element, GstStateChange transition);
 static void rosaudiosink_init (Rosaudiosink * rosaudiosink);
-static gboolean rosaudiosink_setcaps (GstBaseSink * sink, GstCaps * caps);
 static GstCaps * rosaudiosink_fixate (GstBaseSink * bsink, GstCaps * caps);
 
+static gboolean rosaudiosink_setcaps (GstBaseSink * sink, GstCaps * caps);
 static GstFlowReturn rosaudiosink_render (GstBaseSink * sink, GstBuffer * buffer);
+
 
 static gboolean rosaudiosink_open (Rosaudiosink * sink);
 static gboolean rosaudiosink_close (Rosaudiosink * sink);

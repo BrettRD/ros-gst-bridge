@@ -50,9 +50,6 @@ struct _Rosimagesrc
   gchar* encoding;
   gchar* init_caps;
 
-  /* Avoiding multithreaded execution because it's not necessary
-   * current_msg is set at the ROS callback and retrieved in gstreamer's fill call
-   */
   bool msg_init;
   std::promise<sensor_msgs::msg::Image::ConstSharedPtr> new_msg;
 

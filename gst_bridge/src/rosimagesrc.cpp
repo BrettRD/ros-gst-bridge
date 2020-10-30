@@ -54,7 +54,7 @@ static GstStateChangeReturn rosimagesrc_change_state (GstElement * element, GstS
 
 static void rosimagesrc_init (Rosimagesrc * src);
 static GstCaps * rosimagesrc_fixate (GstBaseSrc * base_src, GstCaps * caps);
-static GstFlowReturn rosimagesrc_fill (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer *buf);
+static GstFlowReturn rosimagesrc_create (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer **buf);
 
 static gboolean rosimagesrc_query (GstBaseSrc * base_src, GstQuery * query);
 
@@ -67,8 +67,7 @@ static GstCaps* rosimagesrc_getcaps (GstBaseSrc * base_src, GstCaps * filter);  
 
 
 /*
- * rosimagesrc_fill needs to wait for a ros message arriving on rosimagesrc_sub_cb
- * use the message passing pattern of GCond to block rosimagesrc_fill until rosimagesrc_sub_cb gets called
+ * rosimagesrc_create needs to wait for a ros message arriving on rosimagesrc_sub_cb
  * excuse the gross mix of C++ and C styling going on here, it had to happen somewhere.
  */
 static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::ConstSharedPtr msg);
@@ -181,7 +180,7 @@ static void rosimagesrc_class_init (RosimagesrcClass * klass)
   //basesrc_class->negotiate = GST_DEBUG_FUNCPTR (rosimagesrc_negotiate);  //start figuring out caps and allocators
   //basesrc_class->event = GST_DEBUG_FUNCPTR (rosimagesrc_event);  //flush events can cause discontinuities (flags exist in buffers)
   //basesrc_class->get_times = GST_DEBUG_FUNCPTR (rosimagesrc_get_times); //asks us for start and stop times (?)
-  basesrc_class->fill = GST_DEBUG_FUNCPTR(rosimagesrc_fill);
+  basesrc_class->create = GST_DEBUG_FUNCPTR(rosimagesrc_create);
   basesrc_class->query = GST_DEBUG_FUNCPTR(rosimagesrc_query);  //set the scheduling modes
 }
 
@@ -609,45 +608,57 @@ static gboolean rosimagesrc_query (GstBaseSrc * base_src, GstQuery * query)
  * Also update frame_id and encoding
  * Error if the number of channels or encoding changes at runtime
  */
-static GstFlowReturn rosimagesrc_fill (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer *buf)
+static GstFlowReturn rosimagesrc_create (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer **buf)
 {
   GstMapInfo info;
   GstClockTime time;
   size_t length;
   GstFlowReturn ret = GST_FLOW_OK;
-  (void) offset;
-  
+  GstBuffer *res_buf;
+
   Rosimagesrc *src = GST_ROSIMAGESRC (base_src);
 
-  GST_DEBUG_OBJECT (src, "fill");
+  GST_DEBUG_OBJECT (src, "create");
 
   if(!src->node)
   {
-    GST_DEBUG_OBJECT (src, "ros image filling buffer before node init");
+    GST_DEBUG_OBJECT (src, "ros image creating buffer before node init");
   }
   else if(src->msg_init)
   {
-    GST_DEBUG_OBJECT (src, "ros image filling buffer before receiving first message");
+    GST_DEBUG_OBJECT (src, "ros image creating buffer before receiving first message");
   }
 
   auto msg = rosimagesrc_wait_for_msg(src);
 
   length = msg->data.size();
+  if (*buf == NULL) {
+    /* downstream did not provide us with a buffer to fill, allocate one
+     * ourselves 
+     * XXX pass the vector memory on directly */
+    ret = GST_BASE_SRC_CLASS (rosimagesrc_parent_class)->alloc (base_src, offset, length, &res_buf);
+    if (G_UNLIKELY (ret != GST_FLOW_OK))
+      GST_DEBUG_OBJECT (src, "Failed to allocate buffer of %u bytes", length);
+    *buf = res_buf;
+    size = length;
+  } else {
+    /* downstream provided a buffer to fill
+     * XXX pass the buffer to the ros subscription allocator */
+    res_buf = *buf;
+  }
 
   if(length != size)
     GST_DEBUG_OBJECT (src, "size mismatch, %ld, %d", length, size);
 
-  gst_buffer_map (buf, &info, GST_MAP_READ);
+  gst_buffer_map (*buf, &info, GST_MAP_READ);
   info.size = length;
   memcpy(info.data, msg->data.data(), length);
-  gst_buffer_unmap (buf, &info);
+  gst_buffer_unmap (*buf, &info);
 
-  time = GST_BUFFER_PTS (buf);    //XXX link gst clock to ros clock
+  time = GST_BUFFER_PTS (*buf);    //XXX link gst clock to ros clock
 
   return ret;
 }
-
-
 
 static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::ConstSharedPtr msg)
 {
@@ -684,17 +695,17 @@ static sensor_msgs::msg::Image::ConstSharedPtr rosimagesrc_wait_for_msg(Rosimage
   src->new_msg = std::move(new_msg);
   std::shared_future<sensor_msgs::msg::Image::ConstSharedPtr> fut(src->new_msg.get_future());
 
-  rclcpp::executor::FutureReturnCode ret;
+  rclcpp::FutureReturnCode ret;
   
   do
   {
     ret = src->ros_executor->spin_until_future_complete(fut);
-    if(ret == rclcpp::executor::FutureReturnCode::INTERRUPTED)
+    if(ret == rclcpp::FutureReturnCode::INTERRUPTED)
     {
       RCLCPP_INFO(src->logger, "wait for cb got interrupted");
     }
   }
-  while(ret != rclcpp::executor::FutureReturnCode::SUCCESS);
+  while(ret != rclcpp::FutureReturnCode::SUCCESS);
 
   return fut.get();
 }

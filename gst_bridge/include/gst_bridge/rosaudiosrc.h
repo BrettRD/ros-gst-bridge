@@ -46,28 +46,21 @@ struct _Rosaudiosrc
   gchar* node_name;
   gchar* node_namespace;
   gchar* sub_topic;
-
-  rclcpp::Context::SharedPtr ros_context;
-  rclcpp::executor::Executor::SharedPtr ros_executor;
-  rclcpp::Node::SharedPtr node;
-  rclcpp::Logger logger;
-  rclcpp::Clock::SharedPtr clock;
-
-  rclcpp::Subscription<audio_msgs::msg::Audio>::SharedPtr sub;
-
   gchar* frame_id;
   gchar* encoding;
   gchar* init_caps;
 
-  GstAudioInfo audio_info;
-
-  //messy startup flag
   bool msg_init;
-
-  // message cache XXX only used for buffer size stuff, fix allocation sizing instead
   std::promise<audio_msgs::msg::Audio::ConstSharedPtr> new_msg;
-  audio_msgs::msg::Audio::ConstSharedPtr msg;
-  size_t in_offset;
+
+  rclcpp::Context::SharedPtr ros_context;
+  rclcpp::executor::Executor::SharedPtr ros_executor;
+  rclcpp::Node::SharedPtr node;
+  rclcpp::Subscription<audio_msgs::msg::Audio>::SharedPtr sub;
+  rclcpp::Logger logger;
+  rclcpp::Clock::SharedPtr clock;
+
+  GstAudioInfo audio_info;
 };
 
 struct _RosaudiosrcClass

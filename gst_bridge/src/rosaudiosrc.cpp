@@ -30,9 +30,6 @@
  * </refsect2>
  */
 
-//#ifdef HAVE_CONFIG_H
-//#include "config.h"
-//#endif
 
 #include <gst_bridge/rosaudiosrc.h>
 
@@ -50,11 +47,10 @@ static void rosaudiosrc_finalize (GObject * object);
 
 
 static GstStateChangeReturn rosaudiosrc_change_state (GstElement * element, GstStateChange transition);
-
-
 static void rosaudiosrc_init (Rosaudiosrc * src);
 static GstCaps * rosaudiosrc_fixate (GstBaseSrc * base_src, GstCaps * caps);
-static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer *buf);
+
+static GstFlowReturn rosaudiosrc_create (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer **buf); // XXX use create() instead
 
 static gboolean rosaudiosrc_query (GstBaseSrc * base_src, GstQuery * query);
 
@@ -67,8 +63,7 @@ static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter);  
 
 
 /*
- * rosaudiosrc_fill needs to wait for a ros message arriving on rosaudiosrc_sub_cb
- * use the message passing pattern of GCond to block rosaudiosrc_fill until rosaudiosrc_sub_cb gets called
+ * rosaudiosrc_create needs to wait for a ros message arriving on rosaudiosrc_sub_cb
  * excuse the gross mix of C++ and C styling going on here, it had to happen somewhere.
  */
 static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstSharedPtr msg);
@@ -179,7 +174,7 @@ static void rosaudiosrc_class_init (RosaudiosrcClass * klass)
   //basesrc_class->negotiate = GST_DEBUG_FUNCPTR (rosaudiosrc_negotiate);  //start figuring out caps and allocators
   //basesrc_class->event = GST_DEBUG_FUNCPTR (rosaudiosrc_event);  //flush events can cause discontinuities (flags exist in buffers)
   //basesrc_class->get_times = GST_DEBUG_FUNCPTR (rosaudiosrc_get_times); //asks us for start and stop times (?)
-  basesrc_class->fill = GST_DEBUG_FUNCPTR(rosaudiosrc_fill);
+  basesrc_class->create = GST_DEBUG_FUNCPTR(rosaudiosrc_create); // allocate and fill a buffer
   basesrc_class->query = GST_DEBUG_FUNCPTR(rosaudiosrc_query);  //set the scheduling modes
 }
 
@@ -345,7 +340,6 @@ static void rosaudiosrc_set_msg_props_from_caps_string(Rosaudiosrc * src, gchar 
 
 static void rosaudiosrc_set_msg_props_from_msg(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstSharedPtr msg)
 {
-  // XXX capture the block size here
 
   GstAudioFormat fmt;
   if(0 == g_strcmp0(src->encoding, "")) fmt = gst_bridge::getGstAudioFormat(msg->encoding);
@@ -366,6 +360,9 @@ static void rosaudiosrc_set_msg_props_from_msg(Rosaudiosrc * src, audio_msgs::ms
   if(GST_AUDIO_INFO_LAYOUT(&(src->audio_info)) != ((msg->layout == audio_msgs::msg::Audio::LAYOUT_INTERLEAVED) ? GST_AUDIO_LAYOUT_INTERLEAVED : GST_AUDIO_LAYOUT_NON_INTERLEAVED))
       RCLCPP_ERROR(src->logger, "audio format misunderstood, layout %d != %d",
       GST_AUDIO_INFO_LAYOUT(&(src->audio_info)), ((msg->layout == audio_msgs::msg::Audio::LAYOUT_INTERLEAVED) ? GST_AUDIO_LAYOUT_INTERLEAVED : GST_AUDIO_LAYOUT_NON_INTERLEAVED));
+
+  size_t blocksize = msg->step * msg->frames;
+  gst_base_src_set_blocksize(GST_BASE_SRC (src), blocksize);
 
   src->msg_init = false;
 }
@@ -562,9 +559,8 @@ static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
   else
   {
     caps = gst_caps_from_string(src->init_caps);
-    if(gst_audio_info_from_caps(&audio_info , caps))
+    if(gst_audio_info_from_caps(&(src->audio_info) , caps))
     {
-      src->audio_info = audio_info;
       GST_DEBUG_OBJECT (src, "getcaps returning %s from init_caps", gst_caps_to_string(caps));
       src->msg_init = false;  //start checking message consistency
       return caps;
@@ -609,70 +605,54 @@ static gboolean rosaudiosrc_query (GstBaseSrc * base_src, GstQuery * query)
  * Also update frame_id and encoding
  * Error if the number of channels or encoding changes at runtime
  */
-static GstFlowReturn rosaudiosrc_fill (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer *buf)
+static GstFlowReturn rosaudiosrc_create (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer **buf)
 {
   GstMapInfo info;
   GstClockTime time;
-  size_t length, msg_length, out_offset;
-  const uint8_t* msg_ptr;
-  uint8_t* out_ptr;
+  size_t length;
+  GstFlowReturn ret = GST_FLOW_OK;
+  GstBuffer *res_buf;
 
-  (void) offset;
   Rosaudiosrc *src = GST_ROSAUDIOSRC (base_src);
 
-  GST_DEBUG_OBJECT (src, "fill");
+  GST_DEBUG_OBJECT (src, "create");
 
   if(!src->node)
   {
-    GST_DEBUG_OBJECT (src, "ros audio filling buffer before node init");
+    GST_DEBUG_OBJECT (src, "ros audio creating buffer before node init");
   }
   else if(src->msg_init)
   {
-    GST_DEBUG_OBJECT (src, "ros audio filling buffer before receiving first message");
+    GST_DEBUG_OBJECT (src, "ros audio creating buffer before receiving first message");
   }
 
-  out_offset = 0;
-  
-  do
-  {
-    // we'll probably either be holding no message, or a used one,
-    // this whole length thing should just get replaced by a ring buffer or correctly sized buffers
-    length = 0;
-    if(src->msg)
-    {
-      msg_length = src->msg->step * src->msg->frames;
-      length = msg_length - src->in_offset;
-    }
+  auto msg = rosaudiosrc_wait_for_msg(src);
 
-    //the last message has nothing new, get another
-    if(length == 0)
-    {
-      src->msg = rosaudiosrc_wait_for_msg(src);
-      src->in_offset = 0;
-      msg_length = src->msg->step * src->msg->frames;
-      length = msg_length - src->in_offset;
-    }
-
-    //don't overfill the output buffer
-    if(length > (size - out_offset))
-      length = size - out_offset;
-
-    gst_buffer_map (buf, &info, GST_MAP_READ);
-
-    msg_ptr = &(src->msg->data.data()[src->in_offset]);
-    out_ptr = &(info.data[out_offset]);
-
-    info.size = length;
-    memcpy(out_ptr, msg_ptr, length);
-    out_offset += length;
-    src->in_offset += length; //mark the number of bytes written out of the saved message
-
-    gst_buffer_unmap (buf, &info);
-
+  length = msg->data.size();
+  if (*buf == NULL) {
+    /* downstream did not provide us with a buffer to fill, allocate one
+     * ourselves 
+     * XXX pass the vector memory on directly */
+    ret = GST_BASE_SRC_CLASS (rosaudiosrc_parent_class)->alloc (base_src, offset, length, &res_buf);
+    if (G_UNLIKELY (ret != GST_FLOW_OK))
+      GST_DEBUG_OBJECT (src, "Failed to allocate buffer of %u bytes", length);
+    *buf = res_buf;
+    size = length;
+  } else {
+    /* downstream provided a buffer to fill
+     * XXX pass the buffer to the ros subscription allocator */
+    res_buf = *buf;
   }
-  while(out_offset < size);
 
-  time = GST_BUFFER_PTS (buf);    //XXX link gst clock to ros clock
+  if(length != size)
+    GST_DEBUG_OBJECT (src, "size mismatch, %ld, %d", length, size);
+
+  gst_buffer_map (*buf, &info, GST_MAP_READ);
+  info.size = length;
+  memcpy(info.data, msg->data.data(), length);
+  gst_buffer_unmap (*buf, &info);
+
+  time = GST_BUFFER_PTS (*buf);    //XXX link gst clock to ros clock
 
   return GST_FLOW_OK;
 }
@@ -717,17 +697,17 @@ static audio_msgs::msg::Audio::ConstSharedPtr rosaudiosrc_wait_for_msg(Rosaudios
   src->new_msg = std::move(new_msg);
   std::shared_future<audio_msgs::msg::Audio::ConstSharedPtr> fut(src->new_msg.get_future());
 
-  rclcpp::executor::FutureReturnCode ret;
+  rclcpp::FutureReturnCode ret;
   
   do
   {
     ret = src->ros_executor->spin_until_future_complete(fut);
-    if(ret == rclcpp::executor::FutureReturnCode::INTERRUPTED)
+    if(ret == rclcpp::FutureReturnCode::INTERRUPTED)
     {
       RCLCPP_INFO(src->logger, "wait for cb got interrupted");
     }
   }
-  while(ret != rclcpp::executor::FutureReturnCode::SUCCESS);
+  while(ret != rclcpp::FutureReturnCode::SUCCESS);
 
   return fut.get();
 }
