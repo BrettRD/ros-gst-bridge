@@ -27,7 +27,7 @@ class Pipeline(Node):
     super().__init__(node_name)
     self.registry = Gst.Registry()
     self.registry.connect('plugin-added', self.plugin_added)
-
+    self.node_name = node_name
     # pull additional info from parameter server
     (paths, packages, plugins) = self.fetch_params(param_prefix)
     self.gst_plugin_paths = gst_plugin_paths + paths
@@ -57,7 +57,7 @@ class Pipeline(Node):
     self.bus.connect('message::eos', self.on_eos)
     self.bus.connect('message::info', self.on_info)
     self.updater.force_update()
-
+    self.diagnostic_timer = self.create_timer(0.5, self.updater.update)
 
   def fetch_params(self, param_prefix=''):
     if param_prefix != '':
@@ -86,10 +86,7 @@ class Pipeline(Node):
 
 
   async def async_task(self):
-    while True:
-      self.updater.update()
-      await asyncio.sleep(0.5)  # XXX make variable diagnostic frequency
-      #self.get_logger().info("diagnostics update")
+    rclpy.spin(self)
 
 
 

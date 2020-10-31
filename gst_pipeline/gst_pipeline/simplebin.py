@@ -26,7 +26,7 @@ def find_ros_param_type(value):
     param_type = Parameter.Type.STRING
   else:
     param_type = Parameter.Type.NOT_SET
-    
+
   #param_type = Parameter.Type.BOOL_ARRAY
   #param_type = Parameter.Type.BYTE_ARRAY
   #param_type = Parameter.Type.DOUBLE_ARRAY
@@ -54,6 +54,7 @@ class Simplebin:
     self.bin = self.make_gst_bin(self.bin_description)
     self.diagnostics = self.make_diagnostic_task()
     self.build_param_table(self.bin, '')
+    #self.node.get_logger().warn('element has prop table ' + str(self.param_table))
     self.node.add_on_set_parameters_callback(self.param_cb)
 
 
@@ -73,8 +74,8 @@ class Simplebin:
     stat.add(self.name + ' State', 'yes?')
     return stat
 
-  # This function will recurse through the elements
-  # under item, and declare all properties it finds
+  # This function will recurse through the elements and declare all properties it finds
+  # XXX this feature should be moved into class Pipeline(Node) and update when elements are created or destroyed
   def build_param_table(self, item, prefix):
     if prefix != '':
       prefix = prefix + '.' + item.name
@@ -86,47 +87,43 @@ class Simplebin:
       # don't wrap props for a bin
       self.node.get_logger().debug('building param table bin')
     else:
-    #elif type(item) == Gst.Element:
       self.node.get_logger().debug('building param table element')
       param_spec_list = item.list_properties()
       for prop in param_spec_list:
-        # make a name to appear in the ROS param list
-        prop_name = prop.name
-        ros_param_name = prefix + '.' + prop_name
-        #param_type = gtype_to_param_type(prop.value_type)
-        #Parameter.Type.NOT_SET
-
-        self.node.get_logger().debug('element has prop ' + prop_name + ' ' + str(prop.value_type))
-        
-        # store the link from ROS param to element
-        value = item.get_property(prop_name)
+        value = item.get_property(prop.name)
+        ros_param_name = prefix + '.' + prop.name
         ros_param_type = find_ros_param_type(value)
 
         if Parameter.Type.NOT_SET != ros_param_type:
           self.node.get_logger().debug('adding param ' + ros_param_name + ' ' + str(ros_param_type))
-          self.param_table[ros_param_name] = {'prop_name':prop_name, 'element':item, 'default':value}
+          self.param_table[ros_param_name] = {'prop_name':prop.name, 'element':item, 'default':value}
           self.node.declare_parameter(ros_param_name, value) # XXX declare all at once
           # add a callback to update ROS parameters when element props change
-          item.connect('notify::' + prop_name, self.prop_cb, ros_param_name, ros_param_type) # XXX test this, 
+          item.connect('notify::' + prop.name, self.prop_cb, ros_param_name, ros_param_type) # XXX test this, 
+        else:
+          self.node.get_logger().warn('ignoring prop ' + prop.name + ' type is ' + str(prop.value_type))
+      # GLib.free(param_spec_list) # XXX docs say the list needs freeing, but this call fails
 
-      # GLib.free(param_spec_list) # XXX
 
   def prop_cb(self, element, prop, ros_param_name, ros_param_type):
-    prop_name = prop.get_name()
-    param_type = gtype_to_param_type(prop.value_type)
     value = element.get_property(prop.name)
-    self.node.set_parameters([ros_param_name, param_type, value])
+    if value != self.node.get_parameter(ros_param_name).value:
+      self.node.get_logger().debug('element callback ' + ros_param_name + ' changed')
+      self.node.set_parameters([Parameter(ros_param_name, ros_param_type, value)])
 
   def param_cb(self, params):
     for param in params:
-      if param in self.param_table:
-        element = param_table[param.name]['element']
-        prop_name = param_table[param.name]['prop_name']
+      if param.name in self.param_table:
+        self.node.get_logger().debug('param callback ' + param.name)
+        element = self.param_table[param.name]['element']
+        prop_name = self.param_table[param.name]['prop_name']
         if param.value != element.get_property(prop_name):
           element.set_property(prop_name, param.value)
       else:
         self.node.get_logger().warn('simple pipeline ' + self.name + ' param_cb: unrecognised parameter "' + param.name + '"')
     return SetParametersResult(successful=True)
+
+
 
   def fetch_params(self, param_prefix):
     if param_prefix != '':
