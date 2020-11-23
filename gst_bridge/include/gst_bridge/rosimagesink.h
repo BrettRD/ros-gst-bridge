@@ -55,6 +55,7 @@ struct _Rosimagesink
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub;
   rclcpp::Logger logger;
   rclcpp::Clock::SharedPtr clock;
+  GstClockTimeDiff ros_clock_offset;
 
   int height;
   int width;

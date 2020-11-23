@@ -59,6 +59,7 @@ struct _Rosaudiosrc
   rclcpp::Subscription<audio_msgs::msg::Audio>::SharedPtr sub;
   rclcpp::Logger logger;
   rclcpp::Clock::SharedPtr clock;
+  GstClockTimeDiff ros_clock_offset;
 
   GstAudioInfo audio_info;
 };

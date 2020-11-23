@@ -3,6 +3,14 @@
 namespace gst_bridge
 {
 
+GstClockTimeDiff sample_clock_offset(GstClock* gst_clock, rclcpp::Clock::SharedPtr ros_clock)
+{
+  GstClockTime g_time = gst_clock_get_time (gst_clock); //gst time now
+  GstClockTime r_time = ros_clock->now().nanoseconds();  //ros time now
+  return r_time - g_time;  //instantaneous offset between ros and gst
+}
+
+
 // convert between ROS and GST types, only fully transparent mappings
 GstVideoFormat getGstVideoFormat(const std::string & encoding)
 {

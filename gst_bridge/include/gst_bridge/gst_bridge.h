@@ -11,6 +11,8 @@
 #include <gst/video/video-format.h>
 #include <gst/audio/audio-format.h>
 
+#include <rclcpp/rclcpp.hpp>
+
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/image_encodings.hpp>
 #include <audio_msgs/msg/audio.hpp>
@@ -46,6 +48,9 @@
 
 namespace gst_bridge
 {
+//measure the difference between ROS and GST time
+//raw sampling of the clocks seems to be stable within about 10uS
+GstClockTimeDiff sample_clock_offset(GstClock* gst_clock, rclcpp::Clock::SharedPtr ros_clock);
 
 // convert between ROS and GST types
 GstVideoFormat getGstVideoFormat(const std::string & encoding);

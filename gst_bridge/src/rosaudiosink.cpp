@@ -326,8 +326,12 @@ static GstStateChangeReturn rosaudiosink_change_state (GstElement * element, Gst
       }
       break;
     }
-    case GST_STATE_CHANGE_READY_TO_PAUSED:
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
+    {
+      sink->ros_clock_offset = gst_bridge::sample_clock_offset(GST_ELEMENT_CLOCK(sink), sink->clock);
+      break;
+    }
+    case GST_STATE_CHANGE_READY_TO_PAUSED:
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
     case GST_STATE_CHANGE_PAUSED_TO_READY:
     default:
@@ -449,7 +453,8 @@ static gboolean rosaudiosink_setcaps (GstBaseSink * base_sink, GstCaps * caps)
 static GstFlowReturn rosaudiosink_render (GstBaseSink * base_sink, GstBuffer * buf)
 {
   GstMapInfo info;
-  GstClockTime time;
+  rclcpp::Time msg_time;
+  GstClockTimeDiff base_time;
   audio_msgs::msg::Audio msg;
 
   // XXX look into borrowed messages, can buf be extended into the middleware?
@@ -459,10 +464,12 @@ static GstFlowReturn rosaudiosink_render (GstBaseSink * base_sink, GstBuffer * b
   Rosaudiosink *sink = GST_ROSAUDIOSINK (base_sink);
   GST_DEBUG_OBJECT (sink, "render");
 
-  time = GST_BUFFER_PTS (buf);    // XXX link gst clock to ros clock
+  // XXX use the base sink clock synchronising features
+  base_time = gst_element_get_base_time(GST_ELEMENT(sink));
+  msg_time = rclcpp::Time(GST_BUFFER_PTS(buf) + base_time + sink->ros_clock_offset, sink->clock->get_clock_type());
 
   msg = gst_bridge::gst_audio_info_to_audio_msg(&(sink->audio_info));
-  msg.header.stamp = sink->clock->now();
+  msg.header.stamp = msg_time;
   msg.header.frame_id = sink->frame_id;
 
   gst_buffer_map (buf, &info, GST_MAP_READ);

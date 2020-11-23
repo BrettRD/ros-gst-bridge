@@ -330,8 +330,12 @@ static GstStateChangeReturn rosimagesink_change_state (GstElement * element, Gst
       }
       break;
     }
-    case GST_STATE_CHANGE_READY_TO_PAUSED:
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
+    {
+      sink->ros_clock_offset = gst_bridge::sample_clock_offset(GST_ELEMENT_CLOCK(sink), sink->clock);
+      break;
+    }
+    case GST_STATE_CHANGE_READY_TO_PAUSED:
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
     case GST_STATE_CHANGE_PAUSED_TO_READY:
     default:
@@ -508,31 +512,22 @@ static gboolean rosimagesink_setcaps (GstBaseSink * base_sink, GstCaps * caps)
 static GstFlowReturn rosimagesink_render (GstBaseSink * base_sink, GstBuffer * buf)
 {
   GstMapInfo info;
-  GstClockTime time;
-  uint8_t* data;
-  size_t length;
-  auto msg = sensor_msgs::msg::Image();
-  GstFlowReturn ret;
+  rclcpp::Time msg_time;
+  GstClockTimeDiff base_time;
+  sensor_msgs::msg::Image msg;
 
   Rosimagesink *sink = GST_ROSIMAGESINK (base_sink);
-
   GST_DEBUG_OBJECT (sink, "render");
 
-  time = GST_BUFFER_PTS (buf);    //XXX link gst clock to ros clock
+  // XXX use the base sink clock synchronising features
+  base_time = gst_element_get_base_time(GST_ELEMENT(sink));
+  msg_time = rclcpp::Time(GST_BUFFER_PTS(buf) + base_time + sink->ros_clock_offset, sink->clock->get_clock_type());
 
-  gst_buffer_map (buf, &info, GST_MAP_READ);
-  length = info.size;
-  data = info.data;
-  msg.data.resize(length);
-  memcpy(msg.data.data(), data, length);
-  gst_buffer_unmap (buf, &info);
-  data = NULL;
+  msg.header.stamp = msg_time;
+  msg.header.frame_id = sink->frame_id;
 
-  //create a message (this loan should be extended upstream)
-  // need to use fixed data length message to benefit from zero-copy
-  
   //auto msg = sink->pub->borrow_loaned_message();
-  //msg.get().frames = 
+  //msg.get().width = 
 
   //fill the blanks
   msg.width = sink->width;
@@ -541,8 +536,9 @@ static GstFlowReturn rosimagesink_render (GstBaseSink * base_sink, GstBuffer * b
   msg.is_bigendian = (sink->endianness == G_BIG_ENDIAN);
   msg.step = sink->step;
   
-  msg.header.stamp = sink->clock->now();
-  msg.header.frame_id = sink->frame_id;
+  gst_buffer_map (buf, &info, GST_MAP_READ);
+  msg.data.assign(info.data, info.data+info.size);
+  gst_buffer_unmap (buf, &info);
 
   //publish
   sink->pub->publish(msg);

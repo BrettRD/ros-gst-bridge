@@ -52,6 +52,7 @@ struct _Rosaudiosink
   rclcpp::Node::SharedPtr node;
   rclcpp::Logger logger;
   rclcpp::Clock::SharedPtr clock;
+  GstClockTimeDiff ros_clock_offset;
 
   rclcpp::Publisher<audio_msgs::msg::Audio>::SharedPtr pub;
 

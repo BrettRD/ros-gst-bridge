@@ -418,8 +418,12 @@ static GstStateChangeReturn rosimagesrc_change_state (GstElement * element, GstS
       }
       break;
     }
-    case GST_STATE_CHANGE_READY_TO_PAUSED:
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
+    {
+      src->ros_clock_offset = gst_bridge::sample_clock_offset(GST_ELEMENT_CLOCK(src), src->clock);
+      break;
+    }
+    case GST_STATE_CHANGE_READY_TO_PAUSED:
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
     case GST_STATE_CHANGE_PAUSED_TO_READY:
     default:
@@ -431,8 +435,10 @@ static GstStateChangeReturn rosimagesrc_change_state (GstElement * element, GstS
   switch (transition)
   {
     case GST_STATE_CHANGE_READY_TO_NULL:
+    {
       rosimagesrc_close(src);
       break;
+    }
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
     case GST_STATE_CHANGE_PAUSED_TO_READY:
     default:
@@ -611,7 +617,7 @@ static gboolean rosimagesrc_query (GstBaseSrc * base_src, GstQuery * query)
 static GstFlowReturn rosimagesrc_create (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer **buf)
 {
   GstMapInfo info;
-  GstClockTime time;
+  GstClockTimeDiff base_time;
   size_t length;
   GstFlowReturn ret = GST_FLOW_OK;
   GstBuffer *res_buf;
@@ -638,7 +644,7 @@ static GstFlowReturn rosimagesrc_create (GstBaseSrc * base_src, guint64 offset, 
      * XXX pass the vector memory on directly */
     ret = GST_BASE_SRC_CLASS (rosimagesrc_parent_class)->alloc (base_src, offset, length, &res_buf);
     if (G_UNLIKELY (ret != GST_FLOW_OK))
-      GST_DEBUG_OBJECT (src, "Failed to allocate buffer of %u bytes", length);
+      GST_DEBUG_OBJECT (src, "Failed to allocate buffer of %lu bytes", length);
     *buf = res_buf;
     size = length;
   } else {
@@ -655,7 +661,8 @@ static GstFlowReturn rosimagesrc_create (GstBaseSrc * base_src, guint64 offset, 
   memcpy(info.data, msg->data.data(), length);
   gst_buffer_unmap (*buf, &info);
 
-  time = GST_BUFFER_PTS (*buf);    //XXX link gst clock to ros clock
+  base_time = gst_element_get_base_time(GST_ELEMENT(src));
+  GST_BUFFER_PTS (*buf) = rclcpp::Time(msg->header.stamp).nanoseconds() - src->ros_clock_offset - base_time;
 
   return ret;
 }
