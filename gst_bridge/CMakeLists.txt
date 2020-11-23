@@ -102,6 +102,12 @@ target_link_libraries(rosgstbridge PUBLIC
 #  DESTINATION include/${PROJECT_NAME}
 #)
 
+install(DIRECTORY
+  config
+  launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
 # note the nonstandard install location for the gst plugin
 install(TARGETS rosgstbridge
   DESTINATION lib/${PROJECT_NAME}
