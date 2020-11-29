@@ -95,12 +95,41 @@ target_link_libraries(rosgstbridge PUBLIC
   ${GSTREAMER_VIDEO_LIBRARIES}
 )
 
-#ament_export_include_directories(include)
-#ament_export_libraries(${PROJECT_NAME})
-#install(
-#  DIRECTORY include/${PROJECT_NAME}/
-#  DESTINATION include/${PROJECT_NAME}
-#)
+
+# XXX this lib build needs pruning
+add_library(gst_bridge SHARED
+  src/gst_bridge.cpp
+)
+target_include_directories(gst_bridge PUBLIC
+  ${rclcpp_INCLUDE_DIRS}
+  ${sensor_msgs_INCLUDE_DIRS}
+  ${audio_msgs_INCLUDE_DIRS}
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${GSTREAMER_INCLUDE_DIRS}
+  ${GLIB_INCLUDE_DIRS}
+  ${GOBJECT_INCLUDE_DIR}
+)
+target_link_libraries(gst_bridge PUBLIC
+  ${rclcpp_LIBRARIES}
+  ${sensor_msgs_LIBRARIES}
+  ${audio_msgs_LIBRARIES}
+  ${GSTREAMER_LIBRARIES}
+  ${GLIB_LIBRARIES}
+  ${GLIB_GIO_LIBRARIES}
+  ${GSTREAMER_AUDIO_LIBRARIES}
+  ${GSTREAMER_APP_LIBRARIES}
+  ${GSTREAMER_VIDEO_LIBRARIES}
+)
+
+
+ament_export_include_directories(include)
+ament_export_libraries(gst_bridge src/gst_bridge.cpp)
+#ament_export_libraries(gst_bridge)
+
+install(DIRECTORY include/
+  DESTINATION include)
+
 
 install(DIRECTORY
   config
@@ -108,8 +137,14 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(TARGETS ${PROJECT_NAME}
+  EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
+
 # note the nonstandard install location for the gst plugin
-install(TARGETS rosgstbridge
+install(TARGETS rosgstbridge 
   DESTINATION lib/${PROJECT_NAME}
 )
 
