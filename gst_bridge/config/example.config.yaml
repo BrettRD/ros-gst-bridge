@@ -31,17 +31,19 @@ gst_pipeline_node:
 
 
     #######################################################################
-    # These params are parsed to create event handlers                    #
+    # List the gstreamer bins to generate, and provide descriptions later #
     #######################################################################
-    
+
     simple_bins:
       - audio_test
       - video_test
 
-    # simplebin only requires a gst-launch syntax pipeline description under 'descr'
+    #webrtc_bins:
+    #  - webrtc_example_bin
 
-    webrtc_bins:
-      - webrtc_example_bin
+    #######################################################################
+    # describe the gstreamer bins listed above                            #
+    #######################################################################
 
     # assign the properties to each event handler named above
     audio_test:
