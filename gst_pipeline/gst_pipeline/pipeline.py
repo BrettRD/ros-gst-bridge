@@ -86,8 +86,9 @@ class Pipeline(Node):
 
 
   async def async_task(self):
-    rclpy.spin(self)
-
+    while True:
+      rclpy.spin_once(self, timeout_sec=0)
+      await asyncio.sleep(0.1)
 
 
   def on_status_changed(self, bus, message):
