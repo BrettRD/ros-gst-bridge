@@ -18,9 +18,10 @@ def generate_launch_description():
             config_filename, launch.substitutions.TextSubstitution(text='.config.yaml')]),
 
         launch_ros.actions.Node(
-            node_name='gst_pipeline_node',
+            name='gst_pipeline_node',
             package='gst_pipeline',
-            node_executable='pipeline_node',
-            parameters=[config_filepath]),
+            executable='pipeline_node',
+            parameters=[config_filepath]
+        ),
     ])
     

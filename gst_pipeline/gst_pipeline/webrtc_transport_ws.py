@@ -108,6 +108,7 @@ class webrtc_transport_ws:
 
   async def async_task(self):
     sslctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+    self.node.get_logger().debug('connecting to server')
     self.conn = await websockets.connect(self.server, ssl=sslctx)
     assert self.conn
     self.node.get_logger().debug('registering with server')
