@@ -98,10 +98,11 @@ class webrtc_pipes:
   def build_initial_pipe(self):
 
     webrtc_bin_descr = 'webrtcbin name=' + self.webrtc_element_name + ' bundle-policy=max-bundle stun-server=' + self.stun_server + ' '
-    webrtc_descr = \
-      webrtc_bin_descr + '\n ' + \
-      self.video_src_bin_descr + ' ! ' + self.webrtc_element_name + '.' + '\n ' + \
-      self.audio_src_bin_descr + ' ! ' + self.webrtc_element_name + '.'
+    webrtc_descr = webrtc_bin_descr
+    if self.video_src_bin_descr != '':
+      webrtc_descr += self.video_src_bin_descr + ' ! ' + self.webrtc_element_name + '.'
+    if self.audio_src_bin_descr != '':
+      webrtc_descr += self.audio_src_bin_descr + ' ! ' + self.webrtc_element_name + '.'
 
     self.node.get_logger().debug("building initial webrtc pipes")
     self.node.get_logger().debug(webrtc_descr)
@@ -109,6 +110,7 @@ class webrtc_pipes:
     webrtc_bin = Gst.parse_bin_from_description(webrtc_descr, True)
     webrtc_bin.name = self.name
     
+    # XXX creating separate bins requires tracking down the the specific pads to link
     #audio_src_bin =  Gst.parse_bin_from_description(audio_src_bin_descr, False)
     #audio_src_bin.link(webrtc_bin)
     #video_src_bin =  Gst.parse_bin_from_description(video_src_bin_descr, False)

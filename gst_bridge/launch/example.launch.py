@@ -21,6 +21,7 @@ def generate_launch_description():
             name='gst_pipeline_node',
             package='gst_pipeline',
             executable='pipeline_node',
+            arguments=['--ros-args', '--log-level', 'debug'],
             parameters=[config_filepath]
         ),
     ])

@@ -63,6 +63,10 @@ def main(args=None):
 
 
 
+# XXX standardise the factory method call, and move the call itself to the file that it corresponds to
+#  def build_*_from_params(param_list, pipe_node, loop):
+#    return [bin_list]
+
 
 
 # factory method for simplebin
