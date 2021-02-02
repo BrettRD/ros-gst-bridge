@@ -437,7 +437,7 @@ static gboolean rosaudiosrc_open (Rosaudiosrc * src)
   // ROS can't cope with some forms of std::bind being passed as subscriber callbacks,
   // lambdas seem to be the preferred case for these instances
   auto cb = [src] (audio_msgs::msg::Audio::ConstSharedPtr msg){rosaudiosrc_sub_cb(src, msg);};
-  rclcpp::QoS qos = rclcpp::QoS(10);
+  rclcpp::QoS qos = rclcpp::SystemDefaultsQoS();  //XXX add a parameter for overrides
   src->sub = src->node->create_subscription<audio_msgs::msg::Audio>(src->sub_topic, qos, cb);
 
   src->logger = src->node->get_logger();
