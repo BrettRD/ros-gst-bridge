@@ -365,8 +365,8 @@ static gboolean rosaudiosink_open (Rosaudiosink * sink)
   rclcpp::NodeOptions opts = rclcpp::NodeOptions();
   opts.context(sink->ros_context); //set a context to generate the node in
   sink->node = std::make_shared<rclcpp::Node>(std::string(sink->node_name), opts);
-
-  sink->pub = sink->node->create_publisher<audio_msgs::msg::Audio>(sink->pub_topic, 1);
+  rclcpp::QoS qos = rclcpp::SystemDefaultsQoS();  //XXX add a parameter for overrides
+  sink->pub = sink->node->create_publisher<audio_msgs::msg::Audio>(sink->pub_topic, qos);
   sink->logger = sink->node->get_logger();
   sink->clock = sink->node->get_clock();
   return TRUE;
