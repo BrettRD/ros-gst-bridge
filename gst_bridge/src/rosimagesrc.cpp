@@ -471,7 +471,7 @@ static gboolean rosimagesrc_open (Rosimagesrc * src)
   // ROS can't cope with some forms of std::bind being passed as subscriber callbacks,
   // lambdas seem to be the preferred case for these instances
   auto cb = [src] (sensor_msgs::msg::Image::ConstSharedPtr msg){rosimagesrc_sub_cb(src, msg);};
-  rclcpp::QoS qos = rclcpp::SystemDefaultsQoS();  //XXX add a parameter for overrides
+  rclcpp::QoS qos = rclcpp::SensorDataQoS();  //XXX add a parameter for overrides
   src->sub = src->node->create_subscription<sensor_msgs::msg::Image>(src->sub_topic, qos, cb);
 
   src->logger = src->node->get_logger();
