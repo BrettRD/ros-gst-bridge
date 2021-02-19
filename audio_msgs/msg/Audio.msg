@@ -3,11 +3,11 @@
 std_msgs/Header header  # Header timestamp should be acquisition time the beginning of the buffer
                         # Header frame_id should be meaningful to the location of the transducers
 
-uint32 frames           # Number of time intervals in this buffer
+uint64 seq_num          # accumulator of number of frames that came before this message
+
+uint32 frames           # Number of sample-rate intervals in this buffer
 uint32 channels         # number of channels of audio
-
 int32 sample_rate       # the sample rate of the audio in Hz (number type following Gstreamer)
-
 
                         # Values for encoding should follow Image message OpenCV convention
 string encoding         # Encoding of samples, channel meaning, ordering, etc

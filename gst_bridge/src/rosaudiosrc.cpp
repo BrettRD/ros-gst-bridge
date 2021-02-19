@@ -633,6 +633,7 @@ static GstFlowReturn rosaudiosrc_create (GstBaseSrc * base_src, guint64 offset, 
   }
 
   auto msg = rosaudiosrc_wait_for_msg(src);
+  // XXX check sequence number and pad the buffer
 
   length = msg->data.size();
   if (*buf == NULL) {

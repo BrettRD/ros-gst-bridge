@@ -329,6 +329,7 @@ static GstStateChangeReturn rosaudiosink_change_state (GstElement * element, Gst
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
     {
       sink->ros_clock_offset = gst_bridge::sample_clock_offset(GST_ELEMENT_CLOCK(sink), sink->clock);
+      sink->msg_seq_num = 0;
       break;
     }
     case GST_STATE_CHANGE_READY_TO_PAUSED:
@@ -475,6 +476,9 @@ static GstFlowReturn rosaudiosink_render (GstBaseSink * base_sink, GstBuffer * b
   gst_buffer_map (buf, &info, GST_MAP_READ);
   msg.data.assign(info.data, info.data+info.size);
   msg.frames = info.size/GST_AUDIO_INFO_BPF(&(sink->audio_info));
+  msg.seq_num = sink->msg_seq_num;
+  sink->msg_seq_num += msg.frames;
+
   gst_buffer_unmap (buf, &info);
 
   //publish
