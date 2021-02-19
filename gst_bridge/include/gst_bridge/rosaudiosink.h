@@ -61,7 +61,7 @@ struct _Rosaudiosink
   gchar* init_caps; //a hack to allow skipping preroll
 
   GstAudioInfo audio_info;
-  
+  uint64_t msg_seq_num;
 };
 
 struct _RosaudiosinkClass

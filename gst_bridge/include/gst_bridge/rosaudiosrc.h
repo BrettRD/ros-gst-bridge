@@ -62,6 +62,7 @@ struct _Rosaudiosrc
   GstClockTimeDiff ros_clock_offset;
 
   GstAudioInfo audio_info;
+  uint64_t msg_seq_num;
 };
 
 struct _RosaudiosrcClass
