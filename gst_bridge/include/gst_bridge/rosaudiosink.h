@@ -23,6 +23,7 @@
 #include <gst/audio/audio-format.h>
 #include <gst/base/gstbasesink.h>
 #include <gst_bridge/gst_bridge.h>
+#include <gst_bridge/rosbasesink.h>
 
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
@@ -42,23 +43,14 @@ typedef struct _RosaudiosinkClass RosaudiosinkClass;
 
 struct _Rosaudiosink
 {
-  GstBaseSink parent;
-  gchar* node_name;
-  gchar* node_namespace;
+  RosBaseSink parent;
+
   gchar* pub_topic;
-
-  rclcpp::Context::SharedPtr ros_context;
-  rclcpp::executor::Executor::SharedPtr ros_executor;
-  rclcpp::Node::SharedPtr node;
-  rclcpp::Logger logger;
-  rclcpp::Clock::SharedPtr clock;
-  GstClockTimeDiff ros_clock_offset;
-
-  rclcpp::Publisher<audio_msgs::msg::Audio>::SharedPtr pub;
-
   gchar* frame_id;
   gchar* encoding; //msg encoding override string (for hacking)
   gchar* init_caps; //a hack to allow skipping preroll
+
+  rclcpp::Publisher<audio_msgs::msg::Audio>::SharedPtr pub;
 
   GstAudioInfo audio_info;
   uint64_t msg_seq_num;
@@ -66,7 +58,7 @@ struct _Rosaudiosink
 
 struct _RosaudiosinkClass
 {
-  GstBaseSinkClass parent_class;
+  RosBaseSinkClass parent_class;
 
   // stick member function pointers here
   // along with member function pointers for signal handlers

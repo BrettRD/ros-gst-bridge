@@ -42,9 +42,6 @@ GST_DEBUG_CATEGORY_STATIC (rosbasesink_debug_category);
 
 static void rosbasesink_set_property (GObject * object, guint property_id, const GValue * value, GParamSpec * pspec);
 static void rosbasesink_get_property (GObject * object, guint property_id, GValue * value, GParamSpec * pspec);
-static void rosbasesink_dispose (GObject * object);  //unused?
-static void rosbasesink_finalize (GObject * object);
-
 
 static GstStateChangeReturn rosbasesink_change_state (GstElement * element, GstStateChange transition);
 static void rosbasesink_init (RosBaseSink * rosbasesink);
@@ -67,10 +64,6 @@ enum
   PROP_0,
   PROP_ROS_NAME,
   PROP_ROS_NAMESPACE,
-  PROP_ROS_TOPIC,
-  PROP_ROS_FRAME_ID,
-  PROP_ROS_ENCODING,
-  PROP_INIT_CAPS,
 };
 
 
@@ -125,28 +118,15 @@ static void rosbasesink_class_init (RosBaseSinkClass * klass)
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
-  g_object_class_install_property (object_class, PROP_ROS_TOPIC,
-      g_param_spec_string ("ros-topic", "pub-topic", "ROS topic to be published on",
-      "gst_base_pub",
-      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
-  );
-
-  g_object_class_install_property (object_class, PROP_INIT_CAPS,
-      g_param_spec_string ("init-caps", "initial-caps", "optional caps filter to skip wait for first message",
-      "",
-      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
-  );
-
 
   element_class->change_state = GST_DEBUG_FUNCPTR (rosbasesink_change_state); //use state change events to open and close publishers
-  basesink_class->fixate = GST_DEBUG_FUNCPTR (rosbasesink_fixate); //set caps fields to our preferred values (if possible)
   basesink_class->set_caps = GST_DEBUG_FUNCPTR (rosbasesink_setcaps);  //gstreamer informs us what caps we're using.
+  basesink_class->get_caps = GST_DEBUG_FUNCPTR (rosbasesink_getcaps);  //requests a set of caps to choose from
   //basesink_class->event = GST_DEBUG_FUNCPTR (rosbasesink_event);  //flush events can cause discontinuities (flags exist in buffers)
   //basesink_class->wait_event = GST_DEBUG_FUNCPTR (rosbasesink_wait_event); //eos events, finish rendering the output then return
   //basesink_class->get_times = GST_DEBUG_FUNCPTR (rosbasesink_get_times); //asks us for start and stop times (?)
   //basesink_class->preroll = GST_DEBUG_FUNCPTR (rosbasesink_preroll); //hands us the first buffer
   basesink_class->render = GST_DEBUG_FUNCPTR (rosbasesink_render); // gives us a buffer to forward
-  //basesink_class->activate_pull = GST_DEBUG_FUNCPTR (rosbasesink_activate_pull);  //lets the sink drive the pipeline scheduling (useful for synchronising a file into a rosbag playback)
 
 }
 
@@ -157,7 +137,6 @@ static void rosbasesink_init (RosBaseSink * sink)
   // XXX set defaults elsewhere to keep gst-inspect consistent
   sink->node_name = g_strdup("gst_base_sink_node");
   sink->node_namespace = g_strdup("");
-  sink->pub_topic = g_strdup("gst_base_pub");
   sink->init_caps =  g_strdup("");
 }
 
@@ -193,28 +172,6 @@ void rosbasesink_set_property (GObject * object, guint property_id,
       }
       break;
 
-    case PROP_ROS_TOPIC:
-      if(sink->node)
-      {
-        RCLCPP_ERROR(sink->logger, "can't change topic name once openned");
-      }
-      else
-      {
-        g_free(sink->pub_topic);
-        sink->pub_topic = g_value_dup_string(value);
-      }
-      break;
-
-    case PROP_ROS_FRAME_ID:
-      g_free(sink->frame_id);
-      sink->frame_id = g_value_dup_string(value);
-      break;
-
-    case PROP_ROS_ENCODING:
-      g_free(sink->encoding);
-      sink->encoding = g_value_dup_string(value);
-      break;
-
     case PROP_INIT_CAPS:
       if(sink->node)  // XXX wrong condition, but close enough
       {
@@ -224,8 +181,6 @@ void rosbasesink_set_property (GObject * object, guint property_id,
       {
         g_free(sink->init_caps);
         sink->init_caps = g_value_dup_string(value);
-        // XXX set up the image message checks and unpack the caps
-        // XXX return the init_caps in fixate(), and probably earlier than that
       }
       break;
 
@@ -250,18 +205,6 @@ void rosbasesink_get_property (GObject * object, guint property_id,
       g_value_set_string(value, sink->node_namespace);
       break;
 
-    case PROP_ROS_TOPIC:
-      g_value_set_string(value, sink->pub_topic);
-      break;
-
-    case PROP_ROS_FRAME_ID:
-      g_value_set_string(value, sink->frame_id);
-      break;
-
-    case PROP_ROS_ENCODING:
-      g_value_set_string(value, sink->encoding);
-      break;
-
     case PROP_INIT_CAPS:
       g_value_set_string(value, sink->init_caps);
       break;
@@ -270,28 +213,6 @@ void rosbasesink_get_property (GObject * object, guint property_id,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
   }
-}
-
-void rosbasesink_dispose (GObject * object)
-{
-  RosBaseSink *sink = GST_ROS_BASE_SINK (object);
-
-  GST_DEBUG_OBJECT (sink, "dispose");
-
-  /* clean up as possible.  may be called multiple times */
-
-  G_OBJECT_CLASS (rosbasesink_parent_class)->dispose (object);
-}
-
-void rosbasesink_finalize (GObject * object)
-{
-  RosBaseSink *sink = GST_ROS_BASE_SINK (object);
-
-  GST_DEBUG_OBJECT (sink, "finalize");
-
-  /* clean up object here */
-
-  G_OBJECT_CLASS (rosbasesink_parent_class)->finalize (object);
 }
 
 
@@ -345,6 +266,7 @@ static GstStateChangeReturn rosbasesink_change_state (GstElement * element, GstS
 static gboolean rosbasesink_open (RosBaseSink * sink)
 {
   RosBaseSinkClass *sink_class = GST_ROS_BASE_SINK_GET_CLASS (sink);
+  gboolean result = TRUE;
   GST_DEBUG_OBJECT (sink, "open");
 
   sink->ros_context = std::make_shared<rclcpp::Context>();
@@ -352,35 +274,42 @@ static gboolean rosbasesink_open (RosBaseSink * sink)
   rclcpp::NodeOptions opts = rclcpp::NodeOptions();
   opts.context(sink->ros_context); //set a context to generate the node in
   sink->node = std::make_shared<rclcpp::Node>(std::string(sink->node_name), std::string(sink->node_namespace), opts);
-  rclcpp::QoS qos = rclcpp::SensorDataQoS().reliable();  //XXX add a parameter for overrides
+  //rclcpp::QoS qos = rclcpp::SensorDataQoS().reliable();  //XXX add a parameter for overrides
   //XXX add an executor and get sink->node->spin() running on a thread so reconf callbacks respond
-  if(NULL != sink_class->open)
-  {
-    sink_class->open(sink, sink->pub_topic, qos);
-  }
-
+  
+  // allow sub-class to create publishers on sink->node
+  if(sink_class->open)
+    result = sink_class->open(sink);
+  
+  // XXX do something with result
   sink->logger = sink->node->get_logger();
   sink->clock = sink->node->get_clock();
-  return TRUE;
+  return result;
 }
 
 /* close the device */
 static gboolean rosbasesink_close (RosBaseSink * sink)
 {
   RosBaseSinkClass *sink_class = GST_ROS_BASE_SINK_GET_CLASS (sink);
+  gboolean result = TRUE;
 
   GST_DEBUG_OBJECT (sink, "close");
 
   sink->clock.reset();
-  if(NULL != sink_class->open)
-  {
-    sink_class->close(sink);
-  }
+
+  //allow sub-class to clean up before destroying ros context
+  if(sink_class->close)
+    result = sink_class->close(sink);
+  
+  // XXX do something with result
   sink->node.reset();
   sink->ros_context->shutdown("gst closing rosbasesink");
-  return TRUE;
+  return result;
 }
 
+
+/*
+XXX fixate only applies to pull mode, delete this chunk
 static GstCaps * rosbasesink_fixate (GstBaseSink * base_sink, GstCaps * caps)
 {
   //XXX check init_caps and fixate to that
@@ -394,15 +323,15 @@ static GstCaps * rosbasesink_fixate (GstBaseSink * base_sink, GstCaps * caps)
 
   s = gst_caps_get_structure (caps, 0);
 
-  /* fields for all formats */
+  // fields for all formats 
   gst_structure_fixate_field_nearest_int (s, "rate", 44100);
   gst_structure_fixate_field_nearest_int (s, "channels", 2);
   gst_structure_fixate_field_nearest_int (s, "width", 16);
 
-  /* fields for int */
+  // fields for int 
   if (gst_structure_has_field (s, "depth")) {
     gst_structure_get_int (s, "width", &width);
-    /* round width to nearest multiple of 8 for the depth */
+    // round width to nearest multiple of 8 for the depth
     depth = GST_ROUND_UP_8 (width);
     gst_structure_fixate_field_nearest_int (s, "depth", depth);
   }
@@ -415,15 +344,35 @@ static GstCaps * rosbasesink_fixate (GstBaseSink * base_sink, GstCaps * caps)
 
   return caps;
 }
+*/
 
 
-/* check the caps, register a node and open an publisher */
+// event triggered when caps change
 static gboolean rosbasesink_setcaps (GstBaseSink * base_sink, GstCaps * caps)
 {
+  gboolean result = FALSE;
 
-  return false;
+  RosBaseSink *sink = GST_ROS_BASE_SINK (base_sink);
+  RosBaseSinkClass *sink_class = GST_ROS_BASE_SINK_GET_CLASS (sink);
+
+  if(sink_class->set_caps)
+    result = sink_class->set_caps(sink, caps);
+  
+  return result;
 }
 
+// return a caps filter to gstreamer
+static GstCaps* rosbasesink_getcaps (GstBaseSink * base_sink, GstCaps * filter)
+{
+  gboolean result = FALSE;
+  RosBaseSink *sink = GST_ROS_BASE_SINK (base_sink);
+  RosBaseSinkClass *sink_class = GST_ROS_BASE_SINK_GET_CLASS (sink);
+
+  if(sink_class->get_caps)
+    sink_class->get_caps(sink, filter);
+  
+  return filter;
+}
 
 
 static GstFlowReturn rosbasesink_render (GstBaseSink * base_sink, GstBuffer * buf)
@@ -433,21 +382,19 @@ static GstFlowReturn rosbasesink_render (GstBaseSink * base_sink, GstBuffer * bu
   GstClockTimeDiff base_time;
 
   RosBaseSink *sink = GST_ROS_BASE_SINK (base_sink);
-  
   RosBaseSinkClass *sink_class = GST_ROS_BASE_SINK_GET_CLASS (sink);
 
   GST_DEBUG_OBJECT (sink, "render");
 
-  // XXX use the base sink clock synchronising features
+  // XXX look at the base sink clock synchronising features
   base_time = gst_element_get_base_time(GST_ELEMENT(sink));
   msg_time = rclcpp::Time(GST_BUFFER_PTS(buf) + base_time + sink->ros_clock_offset, sink->clock->get_clock_type());
 
   if(NULL != sink_class->render)
-  {
     return sink_class->render(sink, buf, msg_time);
-  }
-
-  RCLCPP_ERROR(sink->logger, "rosbasesink render function not set, dropping buffer");
+  
+  if(sink->node)
+    RCLCPP_WARN(sink->logger, "rosbasesink render function not set, dropping buffer");
 
   return GST_FLOW_OK;
 }

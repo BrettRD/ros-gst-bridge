@@ -45,7 +45,6 @@ struct _RosBaseSink
   GstBaseSink parent;
   gchar* node_name;
   gchar* node_namespace;
-  gchar* pub_topic;
 
   rclcpp::Context::SharedPtr ros_context;
   rclcpp::executor::Executor::SharedPtr ros_executor;
@@ -54,7 +53,6 @@ struct _RosBaseSink
   rclcpp::Clock::SharedPtr clock;
   GstClockTimeDiff ros_clock_offset;
 
-  gchar* init_caps; //a hack to allow skipping preroll
   rclcpp::QoS qos_override; //passed in to adjust pub qos
 
 };
@@ -70,7 +68,7 @@ struct _RosBaseSinkClass
    * called at gstbasesink->change_state()  GST_STATE_CHANGE_NULL_TO_READY
    * timers and reconf callbacks are currently broken, needs a new thread with an executor, patches welcome
    */
-  static gboolean (*open) (RosBaseSink * sink, gchar* pub_topic, rclcpp::QoS qos_override);
+  gboolean (*open) (RosBaseSink * sink);
 
 
   /*
@@ -78,19 +76,21 @@ struct _RosBaseSinkClass
    * called at gstbasesink->change_state()  GST_STATE_CHANGE_READY_TO_NULL
    * timers and reconf callbacks are currently broken, needs a new thread with an executor, patches welcome
    */
-  void (*close) (RosBaseSink * sink);
+  gboolean (*close) (RosBaseSink * sink);
 
 
   /*
-   * this is a step in caps negitation, send a pull request on this comment if you know what this really does
+   * gstreamer tells us what caps we should set up to deal with
+   * this may be called several times, including during playback?
    */
-  static gboolean (*setcaps) (RosBaseSink * sink, GstCaps * caps)
+  gboolean (*set_caps) (RosBaseSink * sink, GstCaps * caps)
 
 
   /*
-   * this is a step in caps negitation, send a pull request on this comment if you know what this really does
+   * gstreamer asks us for a caps filter for downstream to choose out of
+   *
    */
-  static GstCaps * (*fixate) (RosBaseSink * sink, GstCaps * caps)
+  GstCaps*  (*get_caps) (GstBaseSink *sink, GstCaps *filter);
 
 
   /*
