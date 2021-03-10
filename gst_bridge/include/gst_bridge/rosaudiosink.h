@@ -1,5 +1,5 @@
 /* GStreamer
- * Copyright (C) 2020 FIXME <fixme@example.com>
+ * Copyright (C) 2020-2021 Brett Downing <brettrd@brettrd.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public

@@ -1,5 +1,5 @@
 /* GStreamer
- * Copyright (C) 2020 FIXME <fixme@example.com>
+ * Copyright (C) 2020-2021 Brett Downing <brettrd@brettrd.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -83,14 +83,14 @@ struct _RosBaseSinkClass
    * gstreamer tells us what caps we should set up to deal with
    * this may be called several times, including during playback?
    */
-  gboolean (*set_caps) (RosBaseSink * sink, GstCaps * caps)
+  gboolean (*set_caps) (RosBaseSink * sink, GstCaps * caps);
 
 
   /*
    * gstreamer asks us for a caps filter for downstream to choose out of
    *
    */
-  GstCaps*  (*get_caps) (GstBaseSink *sink, GstCaps *filter);
+  GstCaps*  (*get_caps) (RosBaseSink *sink, GstCaps *filter);
 
 
   /*
@@ -98,19 +98,19 @@ struct _RosBaseSinkClass
    * msg_time is derived from buf and offset by rostime at pipeline playtime
    * rosbasesink will calculate msg_time, you can bypass that by using gstbasesink's render() instead
    */
-  static GstFlowReturn (*render) (RosBaseSink * base_sink, GstBuffer * buf, rclcpp::Time msg_time);
+  GstFlowReturn (*render) (RosBaseSink * base_sink, GstBuffer * buf, rclcpp::Time msg_time);
 
 
   /*
    * gstreamer wants to set a named property and rosbasesink didn't use it
    */
-  void (*set_property) (GObject * object, guint property_id, const GValue * value, GParamSpec * pspec)
+  void (*set_property) (GObject * object, guint property_id, const GValue * value, GParamSpec * pspec);
 
 
   /*
    * gstreamer wants to read a named property and rosbasesink doesn't have it
    */
-  static void (*get_property) (GObject * object, guint property_id, GValue * value, GParamSpec * pspec);
+  void (*get_property) (GObject * object, guint property_id, GValue * value, GParamSpec * pspec);
 
 
   // stick member function pointers here

@@ -1,5 +1,5 @@
 /* GStreamer
- * Copyright (C) 2020 BrettRD <brettrd@brettrd.com>
+ * Copyright (C) 2020-2021 Brett Downing <brettrd@brettrd.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -45,9 +45,9 @@ static void rosbasesink_get_property (GObject * object, guint property_id, GValu
 
 static GstStateChangeReturn rosbasesink_change_state (GstElement * element, GstStateChange transition);
 static void rosbasesink_init (RosBaseSink * rosbasesink);
-static GstCaps * rosbasesink_fixate (GstBaseSink * bsink, GstCaps * caps);
 
 static gboolean rosbasesink_setcaps (GstBaseSink * sink, GstCaps * caps);
+static GstCaps * rosbasesink_getcaps (GstBaseSink * sink, GstCaps * caps);
 static GstFlowReturn rosbasesink_render (GstBaseSink * sink, GstBuffer * buffer);
 
 
@@ -90,8 +90,6 @@ static void rosbasesink_class_init (RosBaseSinkClass * klass)
 
   object_class->set_property = rosbasesink_set_property;
   object_class->get_property = rosbasesink_get_property;
-  object_class->dispose = rosbasesink_dispose;
-  object_class->finalize = rosbasesink_finalize;
 
 
   /* Setting up pads and setting metadata should be moved to
@@ -137,7 +135,6 @@ static void rosbasesink_init (RosBaseSink * sink)
   // XXX set defaults elsewhere to keep gst-inspect consistent
   sink->node_name = g_strdup("gst_base_sink_node");
   sink->node_namespace = g_strdup("");
-  sink->init_caps =  g_strdup("");
 }
 
 void rosbasesink_set_property (GObject * object, guint property_id,
@@ -172,18 +169,6 @@ void rosbasesink_set_property (GObject * object, guint property_id,
       }
       break;
 
-    case PROP_INIT_CAPS:
-      if(sink->node)  // XXX wrong condition, but close enough
-      {
-        RCLCPP_ERROR(sink->logger, "can't change initial caps after init");
-      }
-      else
-      {
-        g_free(sink->init_caps);
-        sink->init_caps = g_value_dup_string(value);
-      }
-      break;
-
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -203,10 +188,6 @@ void rosbasesink_get_property (GObject * object, guint property_id,
 
     case PROP_ROS_NAMESPACE:
       g_value_set_string(value, sink->node_namespace);
-      break;
-
-    case PROP_INIT_CAPS:
-      g_value_set_string(value, sink->init_caps);
       break;
 
     default:
@@ -235,7 +216,6 @@ static GstStateChangeReturn rosbasesink_change_state (GstElement * element, GstS
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
     {
       sink->ros_clock_offset = gst_bridge::sample_clock_offset(GST_ELEMENT_CLOCK(sink), sink->clock);
-      sink->msg_seq_num = 0;
       break;
     }
     case GST_STATE_CHANGE_READY_TO_PAUSED:
@@ -348,6 +328,7 @@ static GstCaps * rosbasesink_fixate (GstBaseSink * base_sink, GstCaps * caps)
 
 
 // event triggered when caps change
+// XXX rosbasesink does not  need to shim into here
 static gboolean rosbasesink_setcaps (GstBaseSink * base_sink, GstCaps * caps)
 {
   gboolean result = FALSE;
@@ -364,7 +345,6 @@ static gboolean rosbasesink_setcaps (GstBaseSink * base_sink, GstCaps * caps)
 // return a caps filter to gstreamer
 static GstCaps* rosbasesink_getcaps (GstBaseSink * base_sink, GstCaps * filter)
 {
-  gboolean result = FALSE;
   RosBaseSink *sink = GST_ROS_BASE_SINK (base_sink);
   RosBaseSinkClass *sink_class = GST_ROS_BASE_SINK_GET_CLASS (sink);
 
@@ -377,7 +357,6 @@ static GstCaps* rosbasesink_getcaps (GstBaseSink * base_sink, GstCaps * filter)
 
 static GstFlowReturn rosbasesink_render (GstBaseSink * base_sink, GstBuffer * buf)
 {
-  GstMapInfo info;
   rclcpp::Time msg_time;
   GstClockTimeDiff base_time;
 
