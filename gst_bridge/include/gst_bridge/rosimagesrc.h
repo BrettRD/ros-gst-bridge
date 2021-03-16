@@ -23,17 +23,19 @@
 #include <gst/video/video-format.h>
 #include <gst/base/gstbasesrc.h>
 #include <gst_bridge/gst_bridge.h>
+#include <gst_bridge/rosbasesrc.h>
 
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 
-
 G_BEGIN_DECLS
 
 #define GST_TYPE_ROSIMAGESRC   (rosimagesrc_get_type())
 #define GST_ROSIMAGESRC(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROSIMAGESRC,Rosimagesrc))
+#define GST_ROSIMAGESRC_CAST(obj)        ((Rosimagesrc*)obj)
 #define GST_ROSIMAGESRC_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_ROSIMAGESRC,RosimagesrcClass))
+#define GST_ROSIMAGESRC_GET_CLASS(obj)    (G_TYPE_INSTANCE_GET_CLASS ((obj), GST_TYPE_ROSIMAGESRC, RosimagesrcClass))
 #define GST_IS_ROSIMAGESRC(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_ROSIMAGESRC))
 #define GST_IS_ROSIMAGESRC_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_ROSIMAGESRC))
 
@@ -42,9 +44,7 @@ typedef struct _RosimagesrcClass RosimagesrcClass;
 
 struct _Rosimagesrc
 {
-  GstBaseSrc parent;
-  gchar* node_name;
-  gchar* node_namespace;
+  RosBaseSrc parent;
   gchar* sub_topic;
   gchar* frame_id;
   gchar* encoding;
@@ -53,14 +53,8 @@ struct _Rosimagesrc
   bool msg_init;
   std::promise<sensor_msgs::msg::Image::ConstSharedPtr> new_msg;
 
-  rclcpp::Context::SharedPtr ros_context;
-  rclcpp::executor::Executor::SharedPtr ros_executor;
-  rclcpp::Node::SharedPtr node;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr sub;
-  rclcpp::Logger logger;
-  rclcpp::Clock::SharedPtr clock;
-  GstClockTimeDiff ros_clock_offset;
-
+  
   int height;
   int width;
   GstVideoFormat format;
@@ -70,7 +64,7 @@ struct _Rosimagesrc
 
 struct _RosimagesrcClass
 {
-  GstBaseSrcClass parent_class;
+  RosBaseSrcClass parent_class;
 
   // stick member function pointers here
   // along with member function pointers for signal handlers

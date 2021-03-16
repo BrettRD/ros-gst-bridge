@@ -28,7 +28,6 @@
 
 
 G_BEGIN_DECLS
-//XXX need to declare as virtual / subclassable
 #define GST_TYPE_ROS_BASE_SINK   (rosbasesink_get_type())
 #define GST_ROS_BASE_SINK(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROS_BASE_SINK,RosBaseSink))
 #define GST_ROS_BASE_SINK_CAST(obj)        ((RosBaseSink*)obj)
@@ -51,6 +50,7 @@ struct _RosBaseSink
   rclcpp::Node::SharedPtr node;
   rclcpp::Logger logger;
   rclcpp::Clock::SharedPtr clock;
+  rclcpp::Time stream_start;
   GstClockTimeDiff ros_clock_offset;
 
   rclcpp::QoS qos_override; //passed in to adjust pub qos
@@ -87,41 +87,12 @@ struct _RosBaseSinkClass
 
 
   /*
-   * gstreamer asks us for a caps filter for downstream to choose out of
-   *
-   */
-  GstCaps*  (*get_caps) (RosBaseSink * sink, GstCaps * filter);
-
-
-  /*
-   * gstreamer asks us for a caps filter for downstream to choose out of
-   *
-   */
-  gboolean (*query) (RosBaseSink * sink, GstQuery * query);
-
-
-  /*
    * publish the message
    * msg_time is derived from buf and offset by rostime at pipeline playtime
    * rosbasesink will calculate msg_time, you can bypass that by using gstbasesink's render() instead
    */
   GstFlowReturn (*render) (RosBaseSink * base_sink, GstBuffer * buf, rclcpp::Time msg_time);
 
-
-  /*
-   * gstreamer wants to set a named property and rosbasesink didn't use it
-   */
-  void (*set_property) (GObject * object, guint property_id, const GValue * value, GParamSpec * pspec);
-
-
-  /*
-   * gstreamer wants to read a named property and rosbasesink doesn't have it
-   */
-  void (*get_property) (GObject * object, guint property_id, GValue * value, GParamSpec * pspec);
-
-
-  // stick member function pointers here
-  // along with member function pointers for signal handlers
 };
 
 GType rosbasesink_get_type (void);

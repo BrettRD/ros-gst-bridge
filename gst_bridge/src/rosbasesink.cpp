@@ -65,15 +65,6 @@ enum
 };
 
 
-/* pad templates */
-
-static GstStaticPadTemplate rosbasesink_sink_template =
-GST_STATIC_PAD_TEMPLATE ("sink",
-    GST_PAD_SINK,
-    GST_PAD_ALWAYS,
-    GST_STATIC_CAPS (ROS_AUDIO_MSG_CAPS)
-    );
-
 /* class initialization */
 
 G_DEFINE_TYPE_WITH_CODE (RosBaseSink, rosbasesink, GST_TYPE_BASE_SINK,
@@ -88,12 +79,6 @@ static void rosbasesink_class_init (RosBaseSinkClass * klass)
 
   object_class->set_property = rosbasesink_set_property;
   object_class->get_property = rosbasesink_get_property;
-
-
-  /* Setting up pads and setting metadata should be moved to
-     base_class_init if you intend to subclass this class. */
-  gst_element_class_add_static_pad_template (element_class,
-      &rosbasesink_sink_template);
 
 
   gst_element_class_set_static_metadata (element_class,
@@ -207,7 +192,8 @@ static GstStateChangeReturn rosbasesink_change_state (GstElement * element, GstS
     }
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
     {
-      sink->ros_clock_offset = gst_bridge::sample_clock_offset(GST_ELEMENT_CLOCK(sink), sink->clock);
+      sink->stream_start = sink->clock->now();
+      sink->ros_clock_offset = gst_bridge::sample_clock_offset(GST_ELEMENT_CLOCK(sink), sink->stream_start);
       break;
     }
     case GST_STATE_CHANGE_READY_TO_PAUSED:

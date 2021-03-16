@@ -23,6 +23,7 @@
 #include <gst/audio/audio-format.h>
 #include <gst/base/gstbasesrc.h>
 #include <gst_bridge/gst_bridge.h>
+#include <gst_bridge/rosbasesrc.h>
 
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
@@ -42,9 +43,7 @@ typedef struct _RosaudiosrcClass RosaudiosrcClass;
 
 struct _Rosaudiosrc
 {
-  GstBaseSrc parent;
-  gchar* node_name;
-  gchar* node_namespace;
+  RosBaseSrc parent;
   gchar* sub_topic;
   gchar* frame_id;
   gchar* encoding;
@@ -53,13 +52,7 @@ struct _Rosaudiosrc
   bool msg_init;
   std::promise<audio_msgs::msg::Audio::ConstSharedPtr> new_msg;
 
-  rclcpp::Context::SharedPtr ros_context;
-  rclcpp::executor::Executor::SharedPtr ros_executor;
-  rclcpp::Node::SharedPtr node;
   rclcpp::Subscription<audio_msgs::msg::Audio>::SharedPtr sub;
-  rclcpp::Logger logger;
-  rclcpp::Clock::SharedPtr clock;
-  GstClockTimeDiff ros_clock_offset;
 
   GstAudioInfo audio_info;
   uint64_t msg_seq_num;
@@ -67,7 +60,7 @@ struct _Rosaudiosrc
 
 struct _RosaudiosrcClass
 {
-  GstBaseSrcClass parent_class;
+  RosBaseSrcClass parent_class;
 
   // stick member function pointers here
   // along with member function pointers for signal handlers

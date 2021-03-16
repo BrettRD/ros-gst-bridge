@@ -62,7 +62,7 @@ namespace gst_bridge
 {
 //measure the difference between ROS and GST time
 //raw sampling of the clocks seems to be stable within about 10uS
-GstClockTimeDiff sample_clock_offset(GstClock* gst_clock, rclcpp::Clock::SharedPtr ros_clock);
+GstClockTimeDiff sample_clock_offset(GstClock* gst_clock, rclcpp::Time stream_start);
 
 // convert between ROS and GST types
 GstVideoFormat getGstVideoFormat(const std::string & encoding);
