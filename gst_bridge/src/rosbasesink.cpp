@@ -46,9 +46,6 @@ static void rosbasesink_get_property (GObject * object, guint property_id, GValu
 static GstStateChangeReturn rosbasesink_change_state (GstElement * element, GstStateChange transition);
 static void rosbasesink_init (RosBaseSink * rosbasesink);
 
-static gboolean rosbasesink_setcaps (GstBaseSink * sink, GstCaps * caps);
-static GstCaps * rosbasesink_getcaps (GstBaseSink * sink, GstCaps * caps);
-static gboolean rosbasesink__query (GstBaseSink * sink, GstQuery * query);
 static GstFlowReturn rosbasesink_render (GstBaseSink * sink, GstBuffer * buffer);
 
 
@@ -87,7 +84,7 @@ static void rosbasesink_class_init (RosBaseSinkClass * klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GstElementClass *element_class = GST_ELEMENT_CLASS (klass);
-  GstBaseSinkClass *basesink_class = (GstBaseSinkClass *) klass;
+  GstBaseSinkClass *basesink_class = GST_BASE_SINK_CLASS (klass);
 
   object_class->set_property = rosbasesink_set_property;
   object_class->get_property = rosbasesink_get_property;
@@ -119,12 +116,6 @@ static void rosbasesink_class_init (RosBaseSinkClass * klass)
 
 
   element_class->change_state = GST_DEBUG_FUNCPTR (rosbasesink_change_state); //use state change events to open and close publishers
-  basesink_class->set_caps = GST_DEBUG_FUNCPTR (rosbasesink_setcaps);  //gstreamer informs us what caps we're using.
-  basesink_class->get_caps = GST_DEBUG_FUNCPTR (rosbasesink_getcaps);  //requests a set of caps to choose from
-  //basesink_class->event = GST_DEBUG_FUNCPTR (rosbasesink_event);  //flush events can cause discontinuities (flags exist in buffers)
-  //basesink_class->wait_event = GST_DEBUG_FUNCPTR (rosbasesink_wait_event); //eos events, finish rendering the output then return
-  //basesink_class->get_times = GST_DEBUG_FUNCPTR (rosbasesink_get_times); //asks us for start and stop times (?)
-  //basesink_class->preroll = GST_DEBUG_FUNCPTR (rosbasesink_preroll); //hands us the first buffer
   basesink_class->render = GST_DEBUG_FUNCPTR (rosbasesink_render); // gives us a buffer to forward
 
 }
@@ -286,89 +277,6 @@ static gboolean rosbasesink_close (RosBaseSink * sink)
   sink->node.reset();
   sink->ros_context->shutdown("gst closing rosbasesink");
   return result;
-}
-
-
-/*
-XXX fixate only applies to pull mode, delete this chunk
-static GstCaps * rosbasesink_fixate (GstBaseSink * base_sink, GstCaps * caps)
-{
-  //XXX check init_caps and fixate to that
-  GstStructure *s;
-  gint width, depth;
-  RosBaseSink *sink = GST_ROS_BASE_SINK (base_sink);
-
-  GST_DEBUG_OBJECT (sink, "fixate");
-
-  caps = gst_caps_make_writable (caps);
-
-  s = gst_caps_get_structure (caps, 0);
-
-  // fields for all formats 
-  gst_structure_fixate_field_nearest_int (s, "rate", 44100);
-  gst_structure_fixate_field_nearest_int (s, "channels", 2);
-  gst_structure_fixate_field_nearest_int (s, "width", 16);
-
-  // fields for int 
-  if (gst_structure_has_field (s, "depth")) {
-    gst_structure_get_int (s, "width", &width);
-    // round width to nearest multiple of 8 for the depth
-    depth = GST_ROUND_UP_8 (width);
-    gst_structure_fixate_field_nearest_int (s, "depth", depth);
-  }
-  if (gst_structure_has_field (s, "signed"))
-    gst_structure_fixate_field_boolean (s, "signed", TRUE);
-  if (gst_structure_has_field (s, "endianness"))
-    gst_structure_fixate_field_nearest_int (s, "endianness", G_BYTE_ORDER);
-
-  caps = GST_BASE_SINK_CLASS (rosbasesink_parent_class)->fixate (base_sink, caps);
-
-  return caps;
-}
-*/
-
-
-// event triggered when caps change
-// XXX rosbasesink does not  need to shim into here
-static gboolean rosbasesink_setcaps (GstBaseSink * base_sink, GstCaps * caps)
-{
-  gboolean result = FALSE;
-
-  RosBaseSink *sink = GST_ROS_BASE_SINK (base_sink);
-  RosBaseSinkClass *sink_class = GST_ROS_BASE_SINK_GET_CLASS (sink);
-
-  if(sink_class->set_caps)
-    result = sink_class->set_caps(sink, caps);
-  
-  return result;
-}
-
-// return a caps filter to gstreamer
-static GstCaps* rosbasesink_getcaps (GstBaseSink * base_sink, GstCaps * filter)
-{
-  RosBaseSink *sink = GST_ROS_BASE_SINK (base_sink);
-  RosBaseSinkClass *sink_class = GST_ROS_BASE_SINK_GET_CLASS (sink);
-
-  if(sink_class->get_caps)
-    sink_class->get_caps(sink, filter);
-  
-  return filter;
-}
-
-static gboolean
-gst_alsasink_query (GstBaseSink * base_sink, GstQuery * query)
-{
-  RosBaseSink *sink = GST_ROS_BASE_SINK (base_sink);
-  RosBaseSinkClass *sink_class = GST_ROS_BASE_SINK_GET_CLASS (sink);
-
-  gboolean res;
-
-  if (sink_class->query)
-    res = sink_class->query (sink, query);
-  else
-    res = FALSE;
-
-  return res;
 }
 
 static GstFlowReturn rosbasesink_render (GstBaseSink * base_sink, GstBuffer * buf)
