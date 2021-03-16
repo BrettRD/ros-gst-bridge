@@ -48,6 +48,7 @@ static void rosbasesink_init (RosBaseSink * rosbasesink);
 
 static gboolean rosbasesink_setcaps (GstBaseSink * sink, GstCaps * caps);
 static GstCaps * rosbasesink_getcaps (GstBaseSink * sink, GstCaps * caps);
+static gboolean rosbasesink__query (GstBaseSink * sink, GstQuery * query);
 static GstFlowReturn rosbasesink_render (GstBaseSink * sink, GstBuffer * buffer);
 
 
@@ -354,6 +355,21 @@ static GstCaps* rosbasesink_getcaps (GstBaseSink * base_sink, GstCaps * filter)
   return filter;
 }
 
+static gboolean
+gst_alsasink_query (GstBaseSink * base_sink, GstQuery * query)
+{
+  RosBaseSink *sink = GST_ROS_BASE_SINK (base_sink);
+  RosBaseSinkClass *sink_class = GST_ROS_BASE_SINK_GET_CLASS (sink);
+
+  gboolean res;
+
+  if (sink_class->query)
+    res = sink_class->query (sink, query);
+  else
+    res = FALSE;
+
+  return res;
+}
 
 static GstFlowReturn rosbasesink_render (GstBaseSink * base_sink, GstBuffer * buf)
 {

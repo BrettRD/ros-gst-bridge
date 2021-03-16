@@ -90,7 +90,14 @@ struct _RosBaseSinkClass
    * gstreamer asks us for a caps filter for downstream to choose out of
    *
    */
-  GstCaps*  (*get_caps) (RosBaseSink *sink, GstCaps *filter);
+  GstCaps*  (*get_caps) (RosBaseSink * sink, GstCaps * filter);
+
+
+  /*
+   * gstreamer asks us for a caps filter for downstream to choose out of
+   *
+   */
+  gboolean (*query) (RosBaseSink * sink, GstQuery * query);
 
 
   /*

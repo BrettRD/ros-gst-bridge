@@ -49,6 +49,8 @@ static gboolean rosaudiosink_open (RosBaseSink * sink);
 static gboolean rosaudiosink_close (RosBaseSink * sink);
 static GstCaps* rosaudiosink_getcaps (RosBaseSink * sink, GstCaps * filter);
 static gboolean rosaudiosink_setcaps (RosBaseSink * sink, GstCaps * caps);
+static gboolean rosaudiosink_query (RosBaseSink * sink, GstQuery * query);
+
 static GstFlowReturn rosaudiosink_render (RosBaseSink * sink, GstBuffer * buffer, rclcpp::Time msg_time);
 //XXX pretty sure query is required
 
@@ -129,6 +131,7 @@ static void rosaudiosink_class_init (RosaudiosinkClass * klass)
   //supply the calls ros base sink needs to negotiate upstream formats and manage the publisher
   ros_base_sink_class->set_caps = GST_DEBUG_FUNCPTR (rosaudiosink_setcaps);  //gstreamer informs us what caps we're using.
   ros_base_sink_class->get_caps = GST_DEBUG_FUNCPTR (rosaudiosink_getcaps);  //gstreamer asks what caps we can deal with
+  ros_base_sink_class->query = GST_DEBUG_FUNCPTR (rosaudiosink_query);  //gstreamer asks what caps we recommend
   ros_base_sink_class->open = GST_DEBUG_FUNCPTR (rosaudiosink_open);  //let the base sink know how we register publishers
   ros_base_sink_class->close = GST_DEBUG_FUNCPTR (rosaudiosink_close);  //let the base sink know how we destroy publishers
   ros_base_sink_class->render = GST_DEBUG_FUNCPTR (rosaudiosink_render); // gives us a buffer to package
@@ -279,7 +282,7 @@ static gboolean rosaudiosink_setcaps (RosBaseSink * ros_base_sink, GstCaps * cap
 
 static GstCaps* rosaudiosink_getcaps (RosBaseSink * ros_base_sink, GstCaps * filter)
 {
-  //Rosaudiosink *sink = GST_ROSAUDIOSINK (ros_base_sink);
+  Rosaudiosink *sink = GST_ROSAUDIOSINK (ros_base_sink);
 
   //this is called several times during caps negotiation to decide on a pipeline format
   // if we return NULL, the base sink will simply fetch our template caps and offer that selection to the src.
@@ -289,6 +292,14 @@ static GstCaps* rosaudiosink_getcaps (RosBaseSink * ros_base_sink, GstCaps * fil
 
   return filter;
 }
+
+static gboolean rosaudiosink_query (RosBaseSink * sink, GstQuery * query)
+{
+
+  return FALSE;
+}
+
+
 
 
 static GstFlowReturn rosaudiosink_render (RosBaseSink * ros_base_sink, GstBuffer * buf, rclcpp::Time msg_time)
@@ -310,8 +321,20 @@ static GstFlowReturn rosaudiosink_render (RosBaseSink * ros_base_sink, GstBuffer
   gst_buffer_map (buf, &info, GST_MAP_READ);
   msg.data.assign(info.data, info.data+info.size);
   msg.frames = info.size/GST_AUDIO_INFO_BPF(&(sink->audio_info));
-  msg.seq_num = sink->msg_seq_num;
-  sink->msg_seq_num += msg.frames;
+
+  if(GST_BUFFER_OFFSET_IS_VALID(buf))
+  {
+    msg.seq_num = GST_BUFFER_OFFSET(buf);
+    if(GST_BUFFER_OFFSET_END_IS_VALID(buf))
+      sink->msg_seq_num = GST_BUFFER_OFFSET_END(buf);
+    else
+      sink->msg_seq_num = GST_BUFFER_OFFSET(buf) + msg.frames;
+  }
+  else
+  {
+    msg.seq_num = sink->msg_seq_num;
+    sink->msg_seq_num += msg.frames;
+  }
 
   gst_buffer_unmap (buf, &info);
 

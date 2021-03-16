@@ -53,6 +53,7 @@ static gboolean rosimagesink_open (RosBaseSink * sink);
 static gboolean rosimagesink_close (RosBaseSink * sink);
 static GstCaps * rosimagesink_getcaps (RosBaseSink * base_sink, GstCaps * filter);
 static gboolean rosimagesink_setcaps (RosBaseSink * base_sink, GstCaps * caps);
+static gboolean rosimagesink_query (RosBaseSink * sink, GstQuery * query);
 static GstFlowReturn rosimagesink_render (RosBaseSink * base_sink, GstBuffer * buffer, rclcpp::Time msg_time);
 
 enum
@@ -133,6 +134,7 @@ static void rosimagesink_class_init (RosimagesinkClass * klass)
   //supply the calls ros base sink needs to negotiate upstream formats and manage the publisher
   ros_base_sink_class->set_caps = GST_DEBUG_FUNCPTR (rosimagesink_setcaps);  //gstreamer informs us what caps we're using.
   ros_base_sink_class->get_caps = GST_DEBUG_FUNCPTR (rosimagesink_getcaps);  //gstreamer asks what caps we can deal with
+  ros_base_sink_class->query = GST_DEBUG_FUNCPTR (rosimagesink_query);  //gstreamer asks what caps we recommend
   ros_base_sink_class->open = GST_DEBUG_FUNCPTR (rosimagesink_open);  //let the base sink know how we register publishers
   ros_base_sink_class->close = GST_DEBUG_FUNCPTR (rosimagesink_close);  //let the base sink know how we destroy publishers
   ros_base_sink_class->render = GST_DEBUG_FUNCPTR (rosimagesink_render); // gives us a buffer to package
@@ -332,7 +334,7 @@ static gboolean rosimagesink_setcaps (RosBaseSink * ros_base_sink, GstCaps * cap
 
 static GstCaps* rosimagesink_getcaps (RosBaseSink * ros_base_sink, GstCaps * filter)
 {
-  //Rosimagesink *sink = GST_ROSIMAGESINK (ros_base_sink);
+  Rosimagesink *sink = GST_ROSIMAGESINK (ros_base_sink);
 
   //this is called several times during caps negotiation to decide on a pipeline format
   // if we return NULL, the base sink will simply fetch our template caps and offer that selection to the src.
@@ -343,6 +345,11 @@ static GstCaps* rosimagesink_getcaps (RosBaseSink * ros_base_sink, GstCaps * fil
   return filter;
 }
 
+static gboolean rosimagesink_query (RosBaseSink * sink, GstQuery * query)
+{
+
+  return FALSE;
+}
 
 static GstFlowReturn rosimagesink_render (RosBaseSink * ros_base_sink, GstBuffer * buf, rclcpp::Time msg_time)
 {
