@@ -159,6 +159,9 @@ static void rosaudiosrc_init (Rosaudiosrc * src)
   src->init_caps = g_strdup("");
 
   src->msg_init = true;
+  src->msg_queue_max = 1;
+  // XXX why does queue segfault without expicit construction?
+  src->msg_queue = std::queue<audio_msgs::msg::Audio::ConstSharedPtr>();
 
   /* configure basesrc to be a live source */
   gst_base_src_set_live (GST_BASE_SRC (src), TRUE); // XXX revise this
@@ -553,29 +556,30 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
         GST_AUDIO_INFO_LAYOUT(&(src->audio_info)), msg->layout);
   }
 
-  src->new_msg.set_value(msg);
+  std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
+  src->msg_queue.push(msg);
+  while(src->msg_queue.size() > src->msg_queue_max)
+  {
+    src->msg_queue.pop();
+  }
+  src->msg_queue_cv.notify_one();
 }
 
 
 static audio_msgs::msg::Audio::ConstSharedPtr rosaudiosrc_wait_for_msg(Rosaudiosrc * src)
 {
-  RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (src);
+  //RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (src);
 
-  std::promise<audio_msgs::msg::Audio::ConstSharedPtr> new_msg;
-  src->new_msg = std::move(new_msg);
-  std::shared_future<audio_msgs::msg::Audio::ConstSharedPtr> fut(src->new_msg.get_future());
+  GST_DEBUG_OBJECT (src, "wait for msg");
 
-  rclcpp::FutureReturnCode ret;
-  
-  do
+  std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
+  while(src->msg_queue.empty())
   {
-    ret = ros_base_src->ros_executor->spin_until_future_complete(fut);
-    if(ret == rclcpp::FutureReturnCode::INTERRUPTED)
-    {
-      RCLCPP_INFO(ros_base_src->logger, "wait for cb got interrupted");
-    }
+    src->msg_queue_cv.wait(lck);
   }
-  while(ret != rclcpp::FutureReturnCode::SUCCESS);
+  auto msg = src->msg_queue.front();
+  src->msg_queue.pop();   // XXX we can stop dropping the first message during preroll now
 
-  return fut.get();
+  return msg;
+
 }

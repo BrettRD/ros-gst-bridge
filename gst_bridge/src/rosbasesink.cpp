@@ -51,6 +51,7 @@ static GstFlowReturn rosbasesink_render (GstBaseSink * sink, GstBuffer * buffer)
 
 static gboolean rosbasesink_open (RosBaseSink * sink);
 static gboolean rosbasesink_close (RosBaseSink * sink);
+static void spin_wrapper(RosBaseSink * sink);
 
 /*
   XXX provide a mechanism for ROS to provide a clock
@@ -229,19 +230,25 @@ static gboolean rosbasesink_open (RosBaseSink * sink)
 
   sink->ros_context = std::make_shared<rclcpp::Context>();
   sink->ros_context->init(0, NULL);    // XXX should expose the init arg list
-  rclcpp::NodeOptions opts = rclcpp::NodeOptions();
+  auto opts = rclcpp::NodeOptions();
   opts.context(sink->ros_context); //set a context to generate the node in
   sink->node = std::make_shared<rclcpp::Node>(std::string(sink->node_name), std::string(sink->node_namespace), opts);
-  //rclcpp::QoS qos = rclcpp::SensorDataQoS().reliable();  //XXX add a parameter for overrides
-  //XXX add an executor and get sink->node->spin() running on a thread so reconf callbacks respond
-  
+
+  auto ex_args = rclcpp::executor::ExecutorArgs();
+  ex_args.context = sink->ros_context;
+  sink->ros_executor = std::make_shared<rclcpp::executors::SingleThreadedExecutor>(ex_args);
+  sink->ros_executor->add_node(sink->node);
+
   // allow sub-class to create publishers on sink->node
   if(sink_class->open)
     result = sink_class->open(sink);
   
-  // XXX do something with result
+  
   sink->logger = sink->node->get_logger();
   sink->clock = sink->node->get_clock();
+
+  //sink->ros_executor->spin_some();
+  sink->spin_thread = std::thread{&spin_wrapper, sink};
   return result;
 }
 
@@ -260,10 +267,20 @@ static gboolean rosbasesink_close (RosBaseSink * sink)
     result = sink_class->close(sink);
   
   // XXX do something with result
+  //XXX executor
+  sink->ros_executor->cancel();
+  sink->spin_thread.join();
+
   sink->node.reset();
   sink->ros_context->shutdown("gst closing rosbasesink");
   return result;
 }
+
+static void spin_wrapper(RosBaseSink * sink)
+{
+  sink->ros_executor->spin();
+}
+
 
 static GstFlowReturn rosbasesink_render (GstBaseSink * base_sink, GstBuffer * buf)
 {

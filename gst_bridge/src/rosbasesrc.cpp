@@ -51,6 +51,7 @@ static void rosbasesrc_init (RosBaseSrc * src);
 
 static gboolean rosbasesrc_open (RosBaseSrc * src);
 static gboolean rosbasesrc_close (RosBaseSrc * src);
+static void spin_wrapper(RosBaseSrc * src);
 
 
 /*
@@ -246,7 +247,6 @@ static gboolean rosbasesrc_open (RosBaseSrc * src)
   opts.context(src->ros_context); //set a context to generate the node in
   src->node = std::make_shared<rclcpp::Node>(std::string(src->node_name), std::string(src->node_namespace), opts);
 
-  // A local ros context requires an executor to spin() on
   auto ex_args = rclcpp::executor::ExecutorArgs();
   ex_args.context = src->ros_context;
   src->ros_executor = std::make_shared<rclcpp::executors::SingleThreadedExecutor>(ex_args);
@@ -259,9 +259,7 @@ static gboolean rosbasesrc_open (RosBaseSrc * src)
   src->logger = src->node->get_logger();
   src->clock = src->node->get_clock();
 
-  //src->ros_executor->spin();
-  src->ros_executor->spin_some();
-  // XXX create a thread
+  src->spin_thread = std::thread{&spin_wrapper, src};
 
   return result;
 }
@@ -282,8 +280,15 @@ static gboolean rosbasesrc_close (RosBaseSrc * src)
 
   src->node.reset();
   //XXX executor
+  src->ros_executor->cancel();
+  src->spin_thread.join();
   src->ros_context->shutdown("gst closing rosbasesrc");
   return result;
+}
+
+static void spin_wrapper(RosBaseSrc * src)
+{
+  src->ros_executor->spin();
 }
 
 

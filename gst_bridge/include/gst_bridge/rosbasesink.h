@@ -52,8 +52,7 @@ struct _RosBaseSink
   rclcpp::Clock::SharedPtr clock;
   rclcpp::Time stream_start;
   GstClockTimeDiff ros_clock_offset;
-
-  rclcpp::QoS qos_override; //passed in to adjust pub qos
+  std::thread spin_thread;
 
 };
 

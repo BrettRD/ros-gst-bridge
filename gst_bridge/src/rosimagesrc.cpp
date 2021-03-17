@@ -159,6 +159,9 @@ static void rosimagesrc_init (Rosimagesrc * src)
   src->init_caps = g_strdup("");
 
   src->msg_init = true;
+  src->msg_queue_max = 1;
+  // XXX why does queue segfault without expicit construction?
+  src->msg_queue = std::queue<sensor_msgs::msg::Image::ConstSharedPtr>();
 
   /* configure basesrc to be a live source */
   gst_base_src_set_live (GST_BASE_SRC (src), TRUE);
@@ -543,29 +546,27 @@ static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::Const
     
   }
 
-  src->new_msg.set_value(msg);
+  std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
+  src->msg_queue.push(msg);
+  while(src->msg_queue.size() > src->msg_queue_max)
+  {
+    src->msg_queue.pop();
+  }
+  src->msg_queue_cv.notify_one();
 }
 
 
 static sensor_msgs::msg::Image::ConstSharedPtr rosimagesrc_wait_for_msg(Rosimagesrc * src)
 {
-  RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (src);
+  //RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (src);
 
-  std::promise<sensor_msgs::msg::Image::ConstSharedPtr> new_msg;
-  src->new_msg = std::move(new_msg);
-  std::shared_future<sensor_msgs::msg::Image::ConstSharedPtr> fut(src->new_msg.get_future());
-
-  rclcpp::FutureReturnCode ret;
-  
-  do
+  std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
+  while(src->msg_queue.empty())
   {
-    ret = ros_base_src->ros_executor->spin_until_future_complete(fut);
-    if(ret == rclcpp::FutureReturnCode::INTERRUPTED)
-    {
-      RCLCPP_INFO(ros_base_src->logger, "wait for cb got interrupted");
-    }
+    src->msg_queue_cv.wait(lck);
   }
-  while(ret != rclcpp::FutureReturnCode::SUCCESS);
+  auto msg = src->msg_queue.front();
+  src->msg_queue.pop();   // XXX we can stop dropping the first message during preroll now
 
-  return fut.get();
+  return msg;
 }

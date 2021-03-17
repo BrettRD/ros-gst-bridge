@@ -28,7 +28,9 @@
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
 #include <audio_msgs/msg/audio.hpp>
-
+#include <queue>  // std::queue
+#include <mutex>  // std::mutex, std::unique_lock
+#include <condition_variable> // std::condition_variable
 
 G_BEGIN_DECLS
 
@@ -50,7 +52,12 @@ struct _Rosaudiosrc
   gchar* init_caps;
 
   bool msg_init;
-  std::promise<audio_msgs::msg::Audio::ConstSharedPtr> new_msg;
+
+  // XXX this is too much boilerplate.
+  size_t msg_queue_max;
+  std::queue<audio_msgs::msg::Audio::ConstSharedPtr> msg_queue;
+  std::mutex msg_queue_mtx;
+  std::condition_variable msg_queue_cv;
 
   rclcpp::Subscription<audio_msgs::msg::Audio>::SharedPtr sub;
 

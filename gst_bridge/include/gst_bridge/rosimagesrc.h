@@ -28,6 +28,9 @@
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <queue>  // std::queue
+#include <mutex>  // std::mutex, std::unique_lock
+#include <condition_variable> // std::condition_variable
 
 G_BEGIN_DECLS
 
@@ -51,7 +54,12 @@ struct _Rosimagesrc
   gchar* init_caps;
 
   bool msg_init;
-  std::promise<sensor_msgs::msg::Image::ConstSharedPtr> new_msg;
+
+  // XXX this is too much boilerplate.
+  size_t msg_queue_max;
+  std::queue<sensor_msgs::msg::Image::ConstSharedPtr> msg_queue;
+  std::mutex msg_queue_mtx;
+  std::condition_variable msg_queue_cv;
 
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr sub;
   

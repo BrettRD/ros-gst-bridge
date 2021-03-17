@@ -51,6 +51,7 @@ struct _RosBaseSrc
   rclcpp::Logger logger;
   rclcpp::Clock::SharedPtr clock;
   rclcpp::Time stream_start;
+  std::thread spin_thread;
   GstClockTimeDiff ros_clock_offset;
 
 };
