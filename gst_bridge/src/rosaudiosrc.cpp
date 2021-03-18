@@ -498,6 +498,10 @@ static GstFlowReturn rosaudiosrc_create (GstBaseSrc * gst_base_src, guint64 offs
   }
 
   auto msg = rosaudiosrc_wait_for_msg(src);
+  { //scope the mutex lock
+    std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
+    src->msg_queue.pop();
+  }
   // XXX check sequence number and pad the buffer
 
   length = msg->data.size();
@@ -567,6 +571,7 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
   while(src->msg_queue.size() > src->msg_queue_max)
   {
     src->msg_queue.pop();
+    RCLCPP_WARN(ros_base_src->logger, "dropping message");
   }
   src->msg_queue_cv.notify_one();
 }
@@ -584,7 +589,6 @@ static audio_msgs::msg::Audio::ConstSharedPtr rosaudiosrc_wait_for_msg(Rosaudios
     src->msg_queue_cv.wait(lck);
   }
   auto msg = src->msg_queue.front();
-  src->msg_queue.pop();   // XXX we can stop dropping the first message during preroll now
 
   return msg;
 
