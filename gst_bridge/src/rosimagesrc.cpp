@@ -339,7 +339,15 @@ static gboolean rosimagesrc_close (RosBaseSrc * ros_base_src)
 
   GST_DEBUG_OBJECT (src, "close");
 
+  //XXX dereference is as close as foxy gets to unsubscribe
   src->sub.reset();
+  //empty the queue
+  std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
+  while(src->msg_queue.size() > 0)
+  {
+    src->msg_queue.pop();
+  }
+
   return TRUE;
 }
 
@@ -490,6 +498,8 @@ static GstFlowReturn rosimagesrc_create (GstBaseSrc * base_src, guint64 offset, 
 
   auto msg = rosimagesrc_wait_for_msg(src);
 
+  // XXX check message contains anything
+
   length = msg->data.size();
   if (*buf == NULL) {
     /* downstream did not provide us with a buffer to fill, allocate one
@@ -509,6 +519,7 @@ static GstFlowReturn rosimagesrc_create (GstBaseSrc * base_src, guint64 offset, 
   if(length != size)
     GST_DEBUG_OBJECT (src, "size mismatch, %ld, %d", length, size);
 
+  // XXX check the buffer exists, and check info.size > length
   gst_buffer_map (*buf, &info, GST_MAP_READ);
   info.size = length;
   memcpy(info.data, msg->data.data(), length);

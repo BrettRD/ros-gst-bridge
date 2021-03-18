@@ -201,6 +201,7 @@ static GstStateChangeReturn rosbasesrc_change_state (GstElement * element, GstSt
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
     {
       // XXX stream_start override 
+      // XXX flush subscription queues
       src->stream_start = src->clock->now();
       src->ros_clock_offset = gst_bridge::sample_clock_offset(GST_ELEMENT_CLOCK(src), src->stream_start);
       break;
@@ -278,11 +279,16 @@ static gboolean rosbasesrc_close (RosBaseSrc * src)
   if(src_class->close)
     result = src_class->close(src);
 
-  src->node.reset();
-  //XXX executor
+  //stop the executor
   src->ros_executor->cancel();
   src->spin_thread.join();
   src->ros_context->shutdown("gst closing rosbasesrc");
+
+  //release anything held by shared pointer
+  src->ros_context.reset();
+  src->ros_executor.reset();
+  src->node.reset();
+  src->clock.reset();
   return result;
 }
 

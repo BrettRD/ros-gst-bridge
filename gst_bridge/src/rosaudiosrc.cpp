@@ -314,6 +314,12 @@ static gboolean rosaudiosrc_close (RosBaseSrc * ros_base_src)
   GST_DEBUG_OBJECT (src, "close");
 
   src->sub.reset();
+  std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
+  while(src->msg_queue.size() > 0)
+  {
+    src->msg_queue.pop();
+  }
+
   return TRUE;
 }
 
