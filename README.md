@@ -11,7 +11,9 @@ It should be easy to pass data between GStreamer and ROS without loss of informa
 ### gst_bridge
 A ROS2 package containing a GStreamer plugin, and simple format conversions (similar goal to cv-bridge).
 The GStreamer plugin has source and sink elements that appear on the ROS graph as independent ROS nodes.
-These nodes can be configured by passing parameters via the GStreamer pipeline, and can be assigned names, namespaces, and frame_ids.  These nodes can also be launched using gst-launch, or instantiated in pipelines inside other applications.
+These nodes can be configured by passing parameters via the GStreamer pipeline, and can be assigned names, namespaces, and frame_ids.  These nodes can also be launched using gst-launch, or instantiated in pipelines inside other applications.  
+Currently implemented are `rosaudiosink`, `rosaudiosrc`, `rosimagesink`, and `rosimagesrc`
+Inspect them with `gst-inspect-1.0 --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rosaudiosink`
 
 ### gst_pipeline
 A ROS2 package with a collection of python scripts that handle gstreamer pipeline generation within a ROS node.
@@ -38,8 +40,8 @@ A gstreamer pipeline can comfortably manage multiple independent streams, so onl
 
 The sources and sinks should be implemented as gstreamer elements for a couple of reasons.\
 GStreamer elements are intended to be compact and versatile, this encourages reduction of code complexity.
-Ros elements would allow any GStreamer capable application to interact directly with ROS.  `gst-launch 'rosimagesrc topic="image_raw" ! gamma gamma=2.0 ! rosimagesink topic="image_gamma_corrected'` executed from the command line would apply a gamma correction to an image topic.
-GStreamer is able to pre-allocate memory from down-stream elements and pass it upstream, enabling sink elements to benefit from the ROS zero-copy API.
+Ros elements would allow any GStreamer capable application to interact directly with ROS.  `gst-launch --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ 'rosimagesrc topic="image_raw" ! gamma gamma=2.0 ! rosimagesink topic="image_gamma_corrected'` executed from the command line would apply a gamma correction to an image topic.
+
 
 It is possible to build this using the gstreamer appsrc/appsink API, but it requires re-implementation of the whole plugin architecture that GStreamer implements so well.
 audio-common and gs-cam have good examples of the gstreamer appsrc/appsink API.  
@@ -50,3 +52,4 @@ audio-common and gs-cam have good examples of the gstreamer appsrc/appsink API.
 * Pipeline elements should optionally provide a clock source to ROS, to allow the use of pipeline time generated from an external hardware clock.
 * Image format equivalences between GStreamer and ROS need more testing
 * Examples of pipelines that control element parameters from ROS topics
+* exploration of allocator APIs so that gstreamer can preallocate buffers from the downstream DDS

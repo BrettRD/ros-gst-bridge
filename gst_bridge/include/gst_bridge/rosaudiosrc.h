@@ -23,11 +23,14 @@
 #include <gst/audio/audio-format.h>
 #include <gst/base/gstbasesrc.h>
 #include <gst_bridge/gst_bridge.h>
+#include <gst_bridge/rosbasesrc.h>
 
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
 #include <audio_msgs/msg/audio.hpp>
-
+#include <queue>  // std::queue
+#include <mutex>  // std::mutex, std::unique_lock
+#include <condition_variable> // std::condition_variable
 
 G_BEGIN_DECLS
 
@@ -42,24 +45,21 @@ typedef struct _RosaudiosrcClass RosaudiosrcClass;
 
 struct _Rosaudiosrc
 {
-  GstBaseSrc parent;
-  gchar* node_name;
-  gchar* node_namespace;
+  RosBaseSrc parent;
   gchar* sub_topic;
   gchar* frame_id;
   gchar* encoding;
   gchar* init_caps;
 
   bool msg_init;
-  std::promise<audio_msgs::msg::Audio::ConstSharedPtr> new_msg;
 
-  rclcpp::Context::SharedPtr ros_context;
-  rclcpp::executor::Executor::SharedPtr ros_executor;
-  rclcpp::Node::SharedPtr node;
+  // XXX this is too much boilerplate.
+  size_t msg_queue_max;
+  std::queue<audio_msgs::msg::Audio::ConstSharedPtr> msg_queue;
+  std::mutex msg_queue_mtx;
+  std::condition_variable msg_queue_cv;
+
   rclcpp::Subscription<audio_msgs::msg::Audio>::SharedPtr sub;
-  rclcpp::Logger logger;
-  rclcpp::Clock::SharedPtr clock;
-  GstClockTimeDiff ros_clock_offset;
 
   GstAudioInfo audio_info;
   uint64_t msg_seq_num;
@@ -67,7 +67,7 @@ struct _Rosaudiosrc
 
 struct _RosaudiosrcClass
 {
-  GstBaseSrcClass parent_class;
+  RosBaseSrcClass parent_class;
 
   // stick member function pointers here
   // along with member function pointers for signal handlers

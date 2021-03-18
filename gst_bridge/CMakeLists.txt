@@ -60,6 +60,8 @@ find_package(builtin_interfaces REQUIRED)
 add_library(rosgstbridge SHARED
   src/rosgstbridgeplugin.cpp 
   src/gst_bridge.cpp
+  src/rosbasesink.cpp
+  src/rosbasesrc.cpp
   src/rosaudiosink.cpp
   src/rosimagesink.cpp
   src/rosaudiosrc.cpp

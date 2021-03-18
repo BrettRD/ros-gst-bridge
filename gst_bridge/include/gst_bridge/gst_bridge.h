@@ -18,7 +18,14 @@
 #include <audio_msgs/msg/audio.hpp>
 
 #define GST_BRIDGE_GST_VIDEO_FORMAT_LIST "{ GRAY8, GRAY16_LE, RGB, BGR, RGBA, BGRA }"
-#define GST_BRIDGE_GST_AUDIO_FORMAT_LIST "S16LE"    // "Any"
+#define GST_BRIDGE_GST_AUDIO_FORMAT_LIST "{ S8, U8, S16LE, U16LE, S32LE, U32LE, F32LE, F64LE }"    // only well behaved formats
+
+// The following audio formats are theoretically ok, but might be more throuble than they're worth.
+// 
+// these formats need endian conversion on popular platforms
+//     S16BE, U16BE, S24_32BE, U24_32BE, S32BE, U32BE, S24BE, U24BE, S20BE, U20BE, S18BE, U18BE, F32BE, F64BE
+// these formats have odd packing and need thorough testing
+//     S24_32LE, U24_32LE, S24LE, U24LE, S20LE, U20LE, S18LE, U18LE, 
 
 
 #define ROS_IMAGE_MSG_CAPS                            \
@@ -45,12 +52,17 @@
   "alignment = (string) nal, "                        \
   "profile = (string) { constrained-baseline, baseline, main, high }"
 
+// XXX support source from "text/plain" for pocketsphinx
+// XXX support sink to "text/x-raw,{ (string)pango-markup, (string)utf8 }" for textoverlay
+// XXX support src and sink "ANY" like filesink and filesrc, (emit a stamped byte string, with a gst caps string as meta)
+
+
 
 namespace gst_bridge
 {
 //measure the difference between ROS and GST time
 //raw sampling of the clocks seems to be stable within about 10uS
-GstClockTimeDiff sample_clock_offset(GstClock* gst_clock, rclcpp::Clock::SharedPtr ros_clock);
+GstClockTimeDiff sample_clock_offset(GstClock* gst_clock, rclcpp::Time stream_start);
 
 // convert between ROS and GST types
 GstVideoFormat getGstVideoFormat(const std::string & encoding);

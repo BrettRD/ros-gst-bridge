@@ -1,5 +1,5 @@
 /* GStreamer
- * Copyright (C) 2020 FIXME <fixme@example.com>
+ * Copyright (C) 2020-2021 Brett Downing <brettrd@brettrd.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,6 +23,7 @@
 #include <gst/video/video-format.h>
 #include <gst/base/gstbasesink.h>
 #include <gst_bridge/gst_bridge.h>
+#include <gst_bridge/rosbasesink.h>
 
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
@@ -42,20 +43,14 @@ typedef struct _RosimagesinkClass RosimagesinkClass;
 
 struct _Rosimagesink
 {
-  GstBaseSink parent;
-  gchar* node_name;
-  gchar* node_namespace;
+  RosBaseSink parent;
+
   gchar* pub_topic;
   gchar* frame_id;
   gchar* encoding; //image topic encoding string
   gchar* init_caps; //optional caps override (used for limited apis)
 
-  rclcpp::Context::SharedPtr ros_context;
-  rclcpp::Node::SharedPtr node;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub;
-  rclcpp::Logger logger;
-  rclcpp::Clock::SharedPtr clock;
-  GstClockTimeDiff ros_clock_offset;
 
   int height;
   int width;
@@ -66,7 +61,7 @@ struct _Rosimagesink
 
 struct _RosimagesinkClass
 {
-  GstBaseSinkClass parent_class;
+  RosBaseSinkClass parent_class;
 
   // stick member function pointers here
   // along with member function pointers for signal handlers
