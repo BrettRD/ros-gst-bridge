@@ -131,7 +131,7 @@ void rosbasesrc_set_property (GObject * object, guint property_id,
     case PROP_ROS_NAME:
       if(src->node)
       {
-        RCLCPP_ERROR(src->logger, "can't change node name once openned");
+        RCLCPP_ERROR(src->logger, "can't change node name once opened");
       }
       else
       {
@@ -143,7 +143,7 @@ void rosbasesrc_set_property (GObject * object, guint property_id,
     case PROP_ROS_NAMESPACE:
       if(src->node)
       {
-        RCLCPP_ERROR(src->logger, "can't change node namespace once openned");
+        RCLCPP_ERROR(src->logger, "can't change node namespace once opened");
       }
       else
       {
@@ -155,7 +155,7 @@ void rosbasesrc_set_property (GObject * object, guint property_id,
     case PROP_ROS_START_TIME:
       if(src->node)
       {
-        RCLCPP_ERROR(src->logger, "can't change start_time once openned");
+        RCLCPP_ERROR(src->logger, "can't change start_time once opened");
       }
       else
       {
