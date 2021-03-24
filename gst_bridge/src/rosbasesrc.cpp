@@ -64,8 +64,7 @@ enum
   PROP_0,
   PROP_ROS_NAME,
   PROP_ROS_NAMESPACE,
-    // XXX stream_start override
-
+  PROP_ROS_START_TIME,
 };
 
 /* class initialization */
@@ -78,7 +77,7 @@ static void rosbasesrc_class_init (RosBaseSrcClass * klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GstElementClass *element_class = GST_ELEMENT_CLASS (klass);
-  GstBaseSrcClass *basesrc_class = (GstBaseSrcClass *) klass;
+  //GstBaseSrcClass *basesrc_class = (GstBaseSrcClass *) klass;
 
   object_class->set_property = rosbasesrc_set_property;
   object_class->get_property = rosbasesrc_get_property;
@@ -101,6 +100,11 @@ static void rosbasesrc_class_init (RosBaseSrcClass * klass)
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
+  g_object_class_install_property (object_class, PROP_ROS_START_TIME,
+      g_param_spec_uint64 ("ros-start-time", "ros-start-time", "ROS time (nanoseconds) of the first message",
+      0, (guint64)(-1), GST_CLOCK_TIME_NONE,
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
 
   element_class->change_state = GST_DEBUG_FUNCPTR (rosbasesrc_change_state); //use state change events to open and close subscribers
 
@@ -113,6 +117,7 @@ static void rosbasesrc_init (RosBaseSrc * src)
 {
   src->node_name = g_strdup("ros_base_src_node");
   src->node_namespace = g_strdup("");
+  src->stream_start_prop = GST_CLOCK_TIME_NONE;
 }
 
 void rosbasesrc_set_property (GObject * object, guint property_id,
@@ -126,7 +131,7 @@ void rosbasesrc_set_property (GObject * object, guint property_id,
     case PROP_ROS_NAME:
       if(src->node)
       {
-        RCLCPP_ERROR(src->logger, "can't change node name once openned");
+        RCLCPP_ERROR(src->logger, "can't change node name once opened");
       }
       else
       {
@@ -138,7 +143,7 @@ void rosbasesrc_set_property (GObject * object, guint property_id,
     case PROP_ROS_NAMESPACE:
       if(src->node)
       {
-        RCLCPP_ERROR(src->logger, "can't change node namespace once openned");
+        RCLCPP_ERROR(src->logger, "can't change node namespace once opened");
       }
       else
       {
@@ -147,8 +152,16 @@ void rosbasesrc_set_property (GObject * object, guint property_id,
       }
       break;
 
-    // XXX stream_start override
-
+    case PROP_ROS_START_TIME:
+      if(src->node)
+      {
+        RCLCPP_ERROR(src->logger, "can't change start_time once opened");
+      }
+      else
+      {
+        src->stream_start_prop = g_value_get_uint64(value);
+      }
+      break;
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -172,8 +185,11 @@ void rosbasesrc_get_property (GObject * object, guint property_id,
       g_value_set_string(value, src->node_namespace);
       break;
 
-    // XXX stream_start override
-
+    case PROP_ROS_START_TIME:
+      g_value_set_uint64(value, src->stream_start.nanoseconds());
+      // XXX this allows inspection via props,
+      //      but may cause confusion because it does not show the actual prop
+      break;
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -200,13 +216,23 @@ static GstStateChangeReturn rosbasesrc_change_state (GstElement * element, GstSt
     }
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
     {
-      // XXX stream_start override 
-      // XXX flush subscription queues
-      src->stream_start = src->clock->now();
+      if(GST_CLOCK_TIME_IS_VALID(src->stream_start_prop))
+      {
+        src->stream_start = rclcpp::Time(
+          src->stream_start_prop, src->clock->get_clock_type());
+        RCLCPP_INFO(src->logger, "stream_start overridden to %ld", src->stream_start.nanoseconds());
+      }
+      else
+      {
+        src->stream_start = src->clock->now();
+        RCLCPP_INFO(src->logger, "stream_start at %ld", src->stream_start.nanoseconds());
+      }
+
       src->ros_clock_offset = gst_bridge::sample_clock_offset(GST_ELEMENT_CLOCK(src), src->stream_start);
       break;
     }
     case GST_STATE_CHANGE_READY_TO_PAUSED:
+    //XXX stop the subscription
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
     case GST_STATE_CHANGE_PAUSED_TO_READY:
     default:

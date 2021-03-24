@@ -63,6 +63,7 @@ enum
   PROP_0,
   PROP_ROS_NAME,
   PROP_ROS_NAMESPACE,
+  PROP_ROS_START_TIME,
 };
 
 
@@ -100,6 +101,11 @@ static void rosbasesink_class_init (RosBaseSinkClass * klass)
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
+  g_object_class_install_property (object_class, PROP_ROS_START_TIME,
+      g_param_spec_uint64 ("ros-start-time", "ros-start-time", "ROS time (nanoseconds) of the first message",
+      0, (guint64)(-1), GST_CLOCK_TIME_NONE,
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
 
   element_class->change_state = GST_DEBUG_FUNCPTR (rosbasesink_change_state); //use state change events to open and close publishers
   basesink_class->render = GST_DEBUG_FUNCPTR (rosbasesink_render); // gives us a buffer to forward
@@ -108,11 +114,9 @@ static void rosbasesink_class_init (RosBaseSinkClass * klass)
 
 static void rosbasesink_init (RosBaseSink * sink)
 {
-  // Don't register the node or the publisher just yet,
-  // wait for rosbasesink_open()
-  // XXX set defaults elsewhere to keep gst-inspect consistent
   sink->node_name = g_strdup("gst_base_sink_node");
   sink->node_namespace = g_strdup("");
+  sink->stream_start_prop = GST_CLOCK_TIME_NONE;
 }
 
 void rosbasesink_set_property (GObject * object, guint property_id,
@@ -126,7 +130,7 @@ void rosbasesink_set_property (GObject * object, guint property_id,
     case PROP_ROS_NAME:
       if(sink->node)
       {
-        RCLCPP_ERROR(sink->logger, "can't change node name once openned");
+        RCLCPP_ERROR(sink->logger, "can't change node name once opened");
       }
       else
       {
@@ -138,12 +142,23 @@ void rosbasesink_set_property (GObject * object, guint property_id,
     case PROP_ROS_NAMESPACE:
       if(sink->node)
       {
-        RCLCPP_ERROR(sink->logger, "can't change node namespace once openned");
+        RCLCPP_ERROR(sink->logger, "can't change node namespace once opened");
       }
       else
       {
         g_free(sink->node_namespace);
         sink->node_namespace = g_value_dup_string(value);
+      }
+      break;
+
+    case PROP_ROS_START_TIME:
+      if(sink->node)
+      {
+        RCLCPP_ERROR(sink->logger, "can't change start_time once opened");
+      }
+      else
+      {
+        sink->stream_start_prop = g_value_get_uint64(value);
       }
       break;
 
@@ -166,6 +181,12 @@ void rosbasesink_get_property (GObject * object, guint property_id,
 
     case PROP_ROS_NAMESPACE:
       g_value_set_string(value, sink->node_namespace);
+      break;
+
+    case PROP_ROS_START_TIME:
+      g_value_set_uint64(value, sink->stream_start.nanoseconds());
+      // XXX this allows inspection via props,
+      //      but may cause confusion because it does not show the actual prop
       break;
 
     default:
@@ -193,7 +214,18 @@ static GstStateChangeReturn rosbasesink_change_state (GstElement * element, GstS
     }
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
     {
-      sink->stream_start = sink->clock->now();
+      if(GST_CLOCK_TIME_IS_VALID(sink->stream_start_prop))
+      {
+        sink->stream_start = rclcpp::Time(
+          sink->stream_start_prop, sink->clock->get_clock_type());
+        RCLCPP_INFO(sink->logger, "stream_start overridden to %ld", sink->stream_start.nanoseconds());
+      }
+      else
+      {
+        sink->stream_start = sink->clock->now();
+        RCLCPP_INFO(sink->logger, "stream_start at %ld", sink->stream_start.nanoseconds());
+      }
+
       sink->ros_clock_offset = gst_bridge::sample_clock_offset(GST_ELEMENT_CLOCK(sink), sink->stream_start);
       break;
     }

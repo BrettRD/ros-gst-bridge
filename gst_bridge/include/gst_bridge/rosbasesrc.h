@@ -50,10 +50,12 @@ struct _RosBaseSrc
   rclcpp::Node::SharedPtr node;
   rclcpp::Logger logger;
   rclcpp::Clock::SharedPtr clock;
-  rclcpp::Time stream_start;
-  std::thread spin_thread;
-  GstClockTimeDiff ros_clock_offset;
 
+  std::thread spin_thread;
+
+  rclcpp::Time stream_start;
+  rcl_time_point_value_t stream_start_prop; //uint64_t, equiv to GST_TYPE_CLOCK_TIME
+  GstClockTimeDiff ros_clock_offset;
 };
 
 struct _RosBaseSrcClass

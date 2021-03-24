@@ -146,7 +146,7 @@ void rosaudiosink_set_property (GObject * object, guint property_id,
     case PROP_ROS_TOPIC:
       if(ros_base_sink->node)
       {
-        RCLCPP_ERROR(ros_base_sink->logger, "can't change topic name once openned");
+        RCLCPP_ERROR(ros_base_sink->logger, "can't change topic name once opened");
         // XXX try harder
       }
       else

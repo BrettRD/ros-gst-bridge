@@ -149,7 +149,7 @@ void rosimagesink_set_property (GObject * object, guint property_id,
     case PROP_ROS_TOPIC:
       if(ros_base_sink->node)
       {
-        RCLCPP_ERROR(ros_base_sink->logger, "can't change topic name once openned");
+        RCLCPP_ERROR(ros_base_sink->logger, "can't change topic name once opened");
       }
       else
       {
@@ -282,14 +282,14 @@ static gboolean rosimagesink_setcaps (GstBaseSink * gst_base_sink, GstCaps * cap
       depth = depth/8;
       RCLCPP_ERROR(ros_base_sink->logger, "low bits per pixel");
     }
-
-    //endianness = format_info->endianness;
+    endianness = GST_VIDEO_FORMAT_INFO_IS_LE(format_info) ? G_LITTLE_ENDIAN : G_BIG_ENDIAN;
   }
   else
   {
     RCLCPP_ERROR(ros_base_sink->logger, "setcaps missing format");
     if(!gst_structure_get_int (caps_struct, "endianness", &endianness))
-        RCLCPP_ERROR(ros_base_sink->logger, "setcaps missing endianness");
+      RCLCPP_ERROR(ros_base_sink->logger, "setcaps missing endianness");
+    return false;
   }
 
 
