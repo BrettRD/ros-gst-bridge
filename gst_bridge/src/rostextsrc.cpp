@@ -91,7 +91,7 @@ static void rostextsrc_class_init (RostextsrcClass * klass)
 
   ros_base_src_class->open = GST_DEBUG_FUNCPTR (rostextsrc_open);  //let the base sink know how we register publishers
   ros_base_src_class->close = GST_DEBUG_FUNCPTR (rostextsrc_close);  //let the base sink know how we destroy publishers
-  
+
   basesrc_class->create = GST_DEBUG_FUNCPTR(rostextsrc_create);
   basesrc_class->get_caps = GST_DEBUG_FUNCPTR (rostextsrc_getcaps);  //return caps within the filter
   basesrc_class->query = GST_DEBUG_FUNCPTR(rostextsrc_query);  //set the scheduling modes
@@ -212,8 +212,8 @@ static GstCaps * rostextsrc_fixate (GstBaseSrc * base_src, GstCaps * caps)
 {
   RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (base_src);
 
-  GstStructure *s;
-  gint width, depth;
+  // GstStructure *s;
+  // gint width, depth;
 
   Rostextsrc *src = GST_ROSTEXTSRC (base_src);
 
@@ -221,6 +221,7 @@ static GstCaps * rostextsrc_fixate (GstBaseSrc * base_src, GstCaps * caps)
 
   caps = gst_caps_make_writable (caps);
 
+#if 0
   s = gst_caps_get_structure (caps, 0);
 
   /* fields for int */
@@ -234,11 +235,12 @@ static GstCaps * rostextsrc_fixate (GstBaseSrc * base_src, GstCaps * caps)
     gst_structure_fixate_field_boolean (s, "signed", TRUE);
   if (gst_structure_has_field (s, "endianness"))
     gst_structure_fixate_field_nearest_int (s, "endianness", G_BYTE_ORDER);
+#endif
 
   caps = GST_BASE_SRC_CLASS (rostextsrc_parent_class)->fixate (base_src, caps);
 
   if(ros_base_src->node)
-    RCLCPP_INFO(ros_base_src->logger, "preparing video with caps '%s'",
+    RCLCPP_INFO(ros_base_src->logger, "rostextsrc_fixate returns caps '%s'",
       gst_caps_to_string(caps));
 
   return caps;
@@ -247,15 +249,21 @@ static GstCaps * rostextsrc_fixate (GstBaseSrc * base_src, GstCaps * caps)
 /* return valid caps to parent class*/
 static GstCaps* rostextsrc_getcaps (GstBaseSrc * base_src, GstCaps * /* filter */)
 {
+  RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (base_src);
+
   GstCaps * caps;
 
   Rostextsrc *src = GST_ROSTEXTSRC (base_src);
 
-  GST_DEBUG_OBJECT (src, "getcaps always returns nullptr !!!!");
+  GST_DEBUG_OBJECT (src, "getcaps always returns text/x-raw format: utf8");
 
   caps = gst_caps_new_simple ("text/x-raw",
-    "format", G_TYPE_STRING, "{ pango-markup, utf8 }",
+    "format", G_TYPE_STRING, "utf8",
     NULL);
+
+  if(ros_base_src->node)
+    RCLCPP_INFO(ros_base_src->logger, "rostextsrc_getcaps returns caps '%s'",
+      gst_caps_to_string(caps));
 
   return caps;
 }
@@ -360,7 +368,7 @@ static void rostextsrc_sub_cb(Rostextsrc * src, std_msgs::msg::String::ConstShar
 {
   RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (src);
   GST_DEBUG_OBJECT (src, "ros cb called");
-  RCLCPP_DEBUG(ros_base_src->logger, "ros cb called");
+  RCLCPP_DEBUG(ros_base_src->logger, "ros cb called with %s", msg->data.c_str());
 
   std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
   src->msg_queue.push(msg);
