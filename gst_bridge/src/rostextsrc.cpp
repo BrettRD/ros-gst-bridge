@@ -357,9 +357,14 @@ static GstFlowReturn rostextsrc_create (GstBaseSrc * base_src, guint64 offset, g
   gst_buffer_unmap (*buf, &info);
 
   base_time = gst_element_get_base_time(GST_ELEMENT(src));
-  // String message does not have a header, use node->now()
+  // String message does not have a header, use node->now() TODO call now() in the cb and save in the queue
   // GST_BUFFER_PTS (*buf) = rclcpp::Time(msg->header.stamp).nanoseconds() - ros_base_src->ros_clock_offset - base_time;
   GST_BUFFER_PTS (*buf) = ros_base_src->node->now().nanoseconds() - ros_base_src->ros_clock_offset - base_time;
+  GST_BUFFER_DURATION (*buf) = 1000000000L;  // TODO ?
+
+  GST_DEBUG_OBJECT (src, "Sending text '%s', %" GST_TIME_FORMAT " + %"
+    GST_TIME_FORMAT, msg->data.c_str(), GST_TIME_ARGS (GST_BUFFER_PTS (*buf)),
+    GST_TIME_ARGS (GST_BUFFER_DURATION (*buf)));
 
   return ret;
 }
