@@ -49,7 +49,8 @@ enum
 static GstStaticPadTemplate rostextsrc_src_template = GST_STATIC_PAD_TEMPLATE ("src",
   GST_PAD_SRC,
   GST_PAD_ALWAYS,
-  GST_STATIC_CAPS ("text/x-raw, format= { pango-markup, utf8 }")
+  //GST_STATIC_CAPS ("text/x-raw, format= { pango-markup, utf8, plain }")
+  GST_STATIC_CAPS ("image/svg+xml; image/svg; text/plain; text/x-raw, format= { pango-markup, utf8} ")
 );
 
 
@@ -93,9 +94,7 @@ static void rostextsrc_class_init (RostextsrcClass * klass)
   ros_base_src_class->close = GST_DEBUG_FUNCPTR (rostextsrc_close);  //let the base sink know how we destroy publishers
 
   basesrc_class->create = GST_DEBUG_FUNCPTR(rostextsrc_create);
-  basesrc_class->get_caps = GST_DEBUG_FUNCPTR (rostextsrc_getcaps);  //return caps within the filter
   basesrc_class->query = GST_DEBUG_FUNCPTR(rostextsrc_query);  //set the scheduling modes
-  basesrc_class->fixate = GST_DEBUG_FUNCPTR (rostextsrc_fixate); //set caps fields to our preferred values (if possible)
 }
 
 static void rostextsrc_init (Rostextsrc * src)
@@ -206,69 +205,6 @@ static gboolean rostextsrc_close (RosBaseSrc * ros_base_src)
   return TRUE;
 }
 
-
-// TODO what does this do? Do I need this?
-static GstCaps * rostextsrc_fixate (GstBaseSrc * base_src, GstCaps * caps)
-{
-  RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (base_src);
-
-  // GstStructure *s;
-  // gint width, depth;
-
-  Rostextsrc *src = GST_ROSTEXTSRC (base_src);
-
-  GST_DEBUG_OBJECT (src, "fixate");
-
-  caps = gst_caps_make_writable (caps);
-
-#if 0
-  s = gst_caps_get_structure (caps, 0);
-
-  /* fields for int */
-  if (gst_structure_has_field (s, "depth")) {
-    gst_structure_get_int (s, "width", &width);
-    /* round width to nearest multiple of 8 for the depth */
-    depth = GST_ROUND_UP_8 (width);
-    gst_structure_fixate_field_nearest_int (s, "depth", depth);
-  }
-  if (gst_structure_has_field (s, "signed"))
-    gst_structure_fixate_field_boolean (s, "signed", TRUE);
-  if (gst_structure_has_field (s, "endianness"))
-    gst_structure_fixate_field_nearest_int (s, "endianness", G_BYTE_ORDER);
-#endif
-
-  caps = GST_BASE_SRC_CLASS (rostextsrc_parent_class)->fixate (base_src, caps);
-
-  if(ros_base_src->node)
-    RCLCPP_INFO(ros_base_src->logger, "rostextsrc_fixate returns caps '%s'",
-      gst_caps_to_string(caps));
-
-  return caps;
-}
-
-/* return valid caps to parent class*/
-static GstCaps* rostextsrc_getcaps (GstBaseSrc * base_src, GstCaps * /* filter */)
-{
-  RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (base_src);
-
-  GstCaps * caps;
-
-  Rostextsrc *src = GST_ROSTEXTSRC (base_src);
-
-  GST_DEBUG_OBJECT (src, "getcaps always returns text/x-raw format: utf8");
-
-  caps = gst_caps_new_simple ("text/x-raw",
-    "format", G_TYPE_STRING, "utf8",
-    NULL);
-
-  if(ros_base_src->node)
-    RCLCPP_INFO(ros_base_src->logger, "rostextsrc_getcaps returns caps '%s'",
-      gst_caps_to_string(caps));
-
-  return caps;
-}
-
-
 static gboolean rostextsrc_query (GstBaseSrc * base_src, GstQuery * query)
 {
   gboolean ret;
@@ -360,7 +296,11 @@ static GstFlowReturn rostextsrc_create (GstBaseSrc * base_src, guint64 offset, g
   // String message does not have a header, use node->now() TODO call now() in the cb and save in the queue
   // GST_BUFFER_PTS (*buf) = rclcpp::Time(msg->header.stamp).nanoseconds() - ros_base_src->ros_clock_offset - base_time;
   GST_BUFFER_PTS (*buf) = ros_base_src->node->now().nanoseconds() - ros_base_src->ros_clock_offset - base_time;
-  GST_BUFFER_DURATION (*buf) = 1000000000L;  // TODO ?
+  
+  // TODO explore configurable message types
+  //GST_BUFFER_DURATION (*buf) = GST_CLOCK_TIME_NONE;
+  //GST_BUFFER_DURATION (*buf) = 0;
+  GST_BUFFER_DURATION (*buf) = 1000000000L;
 
   GST_DEBUG_OBJECT (src, "Sending text '%s', %" GST_TIME_FORMAT " + %"
     GST_TIME_FORMAT, msg->data.c_str(), GST_TIME_ARGS (GST_BUFFER_PTS (*buf)),
