@@ -17,6 +17,11 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# Emulate colcon in CLion
+if($ENV{CLION_IDE})
+  set(audio_msgs_DIR "${PROJECT_SOURCE_DIR}/../../../install/audio_msgs/share/audio_msgs/cmake")
+endif()
+
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -67,6 +72,7 @@ add_library(rosgstbridge SHARED
   src/rosimagesink.cpp
   src/rosaudiosrc.cpp
   src/rosimagesrc.cpp
+  src/rostextsrc.cpp
   )
 
 
