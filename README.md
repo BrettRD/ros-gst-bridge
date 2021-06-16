@@ -1,7 +1,7 @@
 # ros-gst-bridge
 A bidirectional, ROS to GStreamer bridge
 
-ROS is great for running exquisitely weird processes on video streams.\
+ROS is great for running exquisitely weird processes on data streams.\
 GStreamer is great for running complex pipelines with conversions between common formats.
 
 It should be easy to pass data between GStreamer and ROS without loss of information.
@@ -42,7 +42,6 @@ The sources and sinks should be implemented as gstreamer elements for a couple o
 GStreamer elements are intended to be compact and versatile, this encourages reduction of code complexity.
 Ros elements would allow any GStreamer capable application to interact directly with ROS.  `gst-launch --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ 'rosimagesrc topic="image_raw" ! gamma gamma=2.0 ! rosimagesink topic="image_gamma_corrected'` executed from the command line would apply a gamma correction to an image topic.
 
-
 It is possible to build this using the gstreamer appsrc/appsink API, but it requires re-implementation of the whole plugin architecture that GStreamer implements so well.
 audio-common and gs-cam have good examples of the gstreamer appsrc/appsink API.  
 
@@ -50,6 +49,12 @@ audio-common and gs-cam have good examples of the gstreamer appsrc/appsink API.
 ## Remaining work
 * Pipeline elements should optionally provide a clock source to GStreamer, to allow the use of ROS sim-time.
 * Pipeline elements should optionally provide a clock source to ROS, to allow the use of pipeline time generated from an external hardware clock.
-* Image format equivalences between GStreamer and ROS need more testing
-* Examples of pipelines that control element parameters from ROS topics
 * exploration of allocator APIs so that gstreamer can preallocate buffers from the downstream DDS
+
+
+## Examples
+* render a ros std_msgs String message onto a ros sensor_msgs Image  
+  `gst-launch-1.0 --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rostextsrc ! textrender ! videoconvert ! rosimagesink`
+* apply a gamma correction to an image topic  
+  `gst-launch --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ 'rosimagesrc topic="image_raw" ! gamma gamma=2.0 ! rosimagesink topic="image_gamma_corrected'`
+* your applications here!

@@ -50,6 +50,7 @@
 #include <gst_bridge/rosimagesink.h>
 #include <gst_bridge/rosaudiosrc.h>
 #include <gst_bridge/rosimagesrc.h>
+#include <gst_bridge/rostextsrc.h>
 
 
 static gboolean
@@ -70,6 +71,9 @@ plugin_init (GstPlugin * plugin)
 
   gst_element_register (plugin, "rosimagesrc", GST_RANK_NONE,
       GST_TYPE_ROSIMAGESRC);
+
+  gst_element_register (plugin, "rostextsrc", GST_RANK_NONE,
+    GST_TYPE_ROSTEXTSRC);
 
 
   return true;
