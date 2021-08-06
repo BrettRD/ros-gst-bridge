@@ -27,11 +27,11 @@ A message class for transporting raw audio data with metadata equivalent to sens
 ## Design goals:
 * ROS Messages and GStreamer caps should not lose metadata like timestamps.
 * ROS sim-time and pipeline clocks must be translatable. (accelerated simulations should drive accelerated pipelines)
-* A new message format for Audio messages permitting accurate time stamps, flexible number formats, multiple channels, and flexible sample packing.
-* bridge nodes should be gstreamer bins, not ROS nodes running appsink. (this reduces code complexity, improves pipeline efficiency, and allows ROS2 borrowed messages to be passed through the pipeline to facilitate zero-copy publishing)
+* A new message format for Audio messages permitting accurate time stamps, flexible formats, multiple channels, and flexible sample packing.
+* Bridge nodes should be gstreamer bins, not ROS nodes running appsink.
 * A ROS node should hold the pipeline and handle pipeline events, allowing use of ros launch and parameters.
 * The pipeline node should be extensible to allow complex event handling like WebRTC signalling.
-
+* ROS2 should be useable as an inter-process communication channel
 
 ## Architecture:
 GStreamer is able to run multiple streams in parallel and has an effective threading system. 
@@ -57,4 +57,10 @@ audio-common and gs-cam have good examples of the gstreamer appsrc/appsink API.
   `gst-launch-1.0 --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rostextsrc ! textrender ! videoconvert ! rosimagesink`
 * apply a gamma correction to an image topic  
   `gst-launch --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ 'rosimagesrc topic="image_raw" ! gamma gamma=2.0 ! rosimagesink topic="image_gamma_corrected'`
-* your applications here!
+* *your applications here!*
+
+
+## Licenses
+* gst_pipeline: LGPLv3, depends on gstreamer (LGPLv2.1+)
+* gst_bridge: LGPLv3, depends on gstreamer (LGPLv2.1+)
+* audio_msgs: Apache 2
