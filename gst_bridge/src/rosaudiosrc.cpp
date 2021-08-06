@@ -1,20 +1,19 @@
-/* GStreamer
+/* gst_bridge
  * Copyright (C) 2020-2021 Brett Downing <brettrd@brettrd.com>
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * version 3 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Suite 500,
- * Boston, MA 02110-1335, USA.
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 /**
  * SECTION:element-rosaudiosrc
@@ -178,7 +177,7 @@ void rosaudiosrc_set_property (GObject * object, guint property_id,
 {
   Rosaudiosrc *src = GST_ROSAUDIOSRC (object);
   RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (object);
-  
+
   GST_DEBUG_OBJECT (src, "set_property");
 
   switch (property_id)
@@ -368,7 +367,7 @@ static GstCaps * rosaudiosrc_fixate (GstBaseSrc * gst_base_src, GstCaps * caps)
 
 
 
-/* 
+/*
  * decide on caps
  * may have to wait for a first message to figure out how many channels and what encoding
  */
@@ -385,7 +384,7 @@ static gboolean rosaudiosrc_negotiate (GstBaseSrc * gst_base_src)
 
 
 /* return valid caps to parent class*/
-// XXX need to provide the range of possible values 
+// XXX need to provide the range of possible values
 static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * gst_base_src, GstCaps * filter)
 {
   RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (gst_base_src);
@@ -405,7 +404,7 @@ static GstCaps* rosaudiosrc_getcaps (GstBaseSrc * gst_base_src, GstCaps * filter
 
   if(ros_base_src->node)
       RCLCPP_INFO(ros_base_src->logger, "getcaps with filter '%s'", gst_caps_to_string(filter));
-  
+
   // if init_caps is not set, we wait for the first message
   // if init_caps is set, we don't wait
   if(0 == g_strcmp0(src->init_caps, ""))
@@ -507,7 +506,7 @@ static GstFlowReturn rosaudiosrc_create (GstBaseSrc * gst_base_src, guint64 offs
   length = msg->data.size();
   if (*buf == NULL) {
     /* downstream did not provide us with a buffer to fill, allocate one
-     * ourselves 
+     * ourselves
      * XXX pass the vector memory on directly */
     ret = GST_BASE_SRC_CLASS (rosaudiosrc_parent_class)->alloc (gst_base_src, offset, length, &res_buf);
     if (G_UNLIKELY (ret != GST_FLOW_OK))

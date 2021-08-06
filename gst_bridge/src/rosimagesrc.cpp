@@ -1,21 +1,21 @@
-/* GStreamer
- * Copyright (C) 2020 FIXME <fixme@example.com>
+/* gst_bridge
+ * Copyright (C) 2020-2021 Brett Downing <brettrd@brettrd.com>
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * version 3 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Suite 500,
- * Boston, MA 02110-1335, USA.
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
+
 /**
  * SECTION:element-rosimagesrc
  *
@@ -334,7 +334,7 @@ static gboolean rosimagesrc_open (RosBaseSrc * ros_base_src)
 
 /* close the device */
 static gboolean rosimagesrc_close (RosBaseSrc * ros_base_src)
-{ 
+{
   Rosimagesrc *src = GST_ROSIMAGESRC (ros_base_src);
 
   GST_DEBUG_OBJECT (src, "close");
@@ -507,7 +507,7 @@ static GstFlowReturn rosimagesrc_create (GstBaseSrc * base_src, guint64 offset, 
   length = msg->data.size();
   if (*buf == NULL) {
     /* downstream did not provide us with a buffer to fill, allocate one
-     * ourselves 
+     * ourselves
      * XXX pass the vector memory on directly */
     ret = GST_BASE_SRC_CLASS (rosimagesrc_parent_class)->alloc (base_src, offset, length, &res_buf);
     if (G_UNLIKELY (ret != GST_FLOW_OK))
@@ -558,7 +558,7 @@ static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::Const
       RCLCPP_ERROR(ros_base_src->logger, "image format changed during playback, endianness %d != %d", src->endianness, (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN));
     if(!(0 == g_strcmp0(src->encoding, msg->encoding.c_str())))
       RCLCPP_ERROR(ros_base_src->logger, "image format changed during playback, encoding %s != %s", src->encoding, msg->encoding.c_str());
-    
+
   }
 
   std::unique_lock<std::mutex> lck(src->msg_queue_mtx);

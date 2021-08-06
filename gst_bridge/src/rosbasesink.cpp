@@ -1,21 +1,21 @@
-/* GStreamer
+/* gst_bridge
  * Copyright (C) 2020-2021 Brett Downing <brettrd@brettrd.com>
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * version 3 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Suite 500,
- * Boston, MA 02110-1335, USA.
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
+
 /**
  * SECTION:element-gstrosbasesink
  *
@@ -274,8 +274,8 @@ static gboolean rosbasesink_open (RosBaseSink * sink)
   // allow sub-class to create publishers on sink->node
   if(sink_class->open)
     result = sink_class->open(sink);
-  
-  
+
+
   sink->logger = sink->node->get_logger();
   sink->clock = sink->node->get_clock();
 
@@ -297,7 +297,7 @@ static gboolean rosbasesink_close (RosBaseSink * sink)
   //allow sub-class to clean up before destroying ros context
   if(sink_class->close)
     result = sink_class->close(sink);
-  
+
   // XXX do something with result
   //XXX executor
   sink->ros_executor->cancel();
@@ -330,7 +330,7 @@ static GstFlowReturn rosbasesink_render (GstBaseSink * base_sink, GstBuffer * bu
 
   if(NULL != sink_class->render)
     return sink_class->render(sink, buf, msg_time);
-  
+
   if(sink->node)
     RCLCPP_WARN(sink->logger, "rosbasesink render function not set, dropping buffer");
 

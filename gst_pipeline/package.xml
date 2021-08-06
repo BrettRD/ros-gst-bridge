@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>Run GStreamer pipelines in ROS</description>
   <maintainer email="brettrd@brettrd.com">brettrd</maintainer>
-  <license>TODO: License declaration</license>
+  <license>LGPLv3</license>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

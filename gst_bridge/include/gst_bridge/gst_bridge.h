@@ -1,7 +1,20 @@
-/*
-(BSD License) to go with ROS2
-
-*/
+/* gst_bridge
+ * Copyright (C) 2020-2021 Brett Downing <brettrd@brettrd.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
 
 #ifndef GST_BRIDGE__GST_BRIDGE_H_
 #define GST_BRIDGE__GST_BRIDGE_H_
@@ -20,12 +33,12 @@
 #define GST_BRIDGE_GST_VIDEO_FORMAT_LIST "{ GRAY8, GRAY16_LE, RGB, BGR, RGBA, BGRA }"
 #define GST_BRIDGE_GST_AUDIO_FORMAT_LIST "{ S8, U8, S16LE, U16LE, S32LE, U32LE, F32LE, F64LE }"    // only well behaved formats
 
-// The following audio formats are theoretically ok, but might be more throuble than they're worth.
-// 
+// The following audio formats are theoretically ok, but might be more trouble than they're worth.
+//
 // these formats need endian conversion on popular platforms
 //     S16BE, U16BE, S24_32BE, U24_32BE, S32BE, U32BE, S24BE, U24BE, S20BE, U20BE, S18BE, U18BE, F32BE, F64BE
 // these formats have odd packing and need thorough testing
-//     S24_32LE, U24_32LE, S24LE, U24LE, S20LE, U20LE, S18LE, U18LE, 
+//     S24_32LE, U24_32LE, S24LE, U24LE, S20LE, U20LE, S18LE, U18LE,
 
 
 #define ROS_IMAGE_MSG_CAPS                            \

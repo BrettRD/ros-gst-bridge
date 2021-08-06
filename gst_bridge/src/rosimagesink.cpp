@@ -1,20 +1,19 @@
-/* GStreamer
+/* gst_bridge
  * Copyright (C) 2020-2021 Brett Downing <brettrd@brettrd.com>
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * version 3 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Suite 500,
- * Boston, MA 02110-1335, USA.
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 /**
  * SECTION:element-gstrosimagesink
@@ -315,7 +314,7 @@ static GstFlowReturn rosimagesink_render (RosBaseSink * ros_base_sink, GstBuffer
   msg.header.frame_id = sink->frame_id;
 
   //auto msg = sink->pub->borrow_loaned_message();
-  //msg.get().width = 
+  //msg.get().width =
 
   //fill the blanks
   msg.width = sink->width;
@@ -323,7 +322,7 @@ static GstFlowReturn rosimagesink_render (RosBaseSink * ros_base_sink, GstBuffer
   msg.encoding = sink->encoding;
   msg.is_bigendian = (sink->endianness == G_BIG_ENDIAN);
   msg.step = sink->step;
-  
+
   gst_buffer_map (buf, &info, GST_MAP_READ);
   msg.data.assign(info.data, info.data+info.size);
   gst_buffer_unmap (buf, &info);
