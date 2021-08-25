@@ -214,6 +214,7 @@ void rosimagesrc_set_property (GObject * object, guint property_id,
   }
 }
 
+
 void rosimagesrc_get_property (GObject * object, guint property_id,
     GValue * value, GParamSpec * pspec)
 {
@@ -243,7 +244,15 @@ void rosimagesrc_get_property (GObject * object, guint property_id,
       break;
   }
 }
-
+static int isLittleEndian() {
+    // we can just use system's default
+    int d = 0x5;
+    char *ptr = (char *)&d;
+    if (*ptr == 0) {
+        return 0; // not little endian
+    }
+    return 1; // little endian
+}
 static void rosimagesrc_set_msg_props_from_caps_string(Rosimagesrc * src, gchar * caps_string)
 {
   int width;
@@ -268,7 +277,7 @@ static void rosimagesrc_set_msg_props_from_caps_string(Rosimagesrc * src, gchar 
   GstVideoFormat format = gst_video_format_from_string (format_str);
 
   step = gst_video_format_get_info(format)->pixel_stride[0];
-  endianness = G_LITTLE_ENDIAN;  // XXX pull this from somewhere
+  endianness = isLittleEndian() ? G_LITTLE_ENDIAN: G_BIG_ENDIAN; 
 
   // XXX this check is redundant right now, we should allow overrides by making ros-encoding READWRITE
   if(0 == g_strcmp0(src->encoding, ""))
