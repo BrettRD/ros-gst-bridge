@@ -273,7 +273,7 @@ static gboolean rosbasesrc_open (RosBaseSrc * src)
   opts.context(src->ros_context); //set a context to generate the node in
   src->node = std::make_shared<rclcpp::Node>(std::string(src->node_name), std::string(src->node_namespace), opts);
 
-  auto ex_args = rclcpp::executor::ExecutorArgs();
+  auto ex_args = rclcpp::ExecutorOptions();
   ex_args.context = src->ros_context;
   src->ros_executor = std::make_shared<rclcpp::executors::SingleThreadedExecutor>(ex_args);
   src->ros_executor->add_node(src->node);

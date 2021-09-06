@@ -45,7 +45,7 @@ struct _RosBaseSrc
   gchar* node_namespace;
 
   rclcpp::Context::SharedPtr ros_context;
-  rclcpp::executor::Executor::SharedPtr ros_executor;
+  rclcpp::Executor::SharedPtr ros_executor;
   rclcpp::Node::SharedPtr node;
   rclcpp::Logger logger;
   rclcpp::Clock::SharedPtr clock;

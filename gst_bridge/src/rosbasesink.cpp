@@ -266,7 +266,7 @@ static gboolean rosbasesink_open (RosBaseSink * sink)
   opts.context(sink->ros_context); //set a context to generate the node in
   sink->node = std::make_shared<rclcpp::Node>(std::string(sink->node_name), std::string(sink->node_namespace), opts);
 
-  auto ex_args = rclcpp::executor::ExecutorArgs();
+  auto ex_args = rclcpp::ExecutorOptions();
   ex_args.context = sink->ros_context;
   sink->ros_executor = std::make_shared<rclcpp::executors::SingleThreadedExecutor>(ex_args);
   sink->ros_executor->add_node(sink->node);
