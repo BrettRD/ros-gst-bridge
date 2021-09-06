@@ -12,26 +12,26 @@ It should be easy to pass data between GStreamer and ROS without loss of informa
 A ROS2 package containing a GStreamer plugin, and simple format conversions (similar goal to cv-bridge).
 The GStreamer plugin has source and sink elements that appear on the ROS graph as independent ROS nodes.
 These nodes can be configured by passing parameters via the GStreamer pipeline, and can be assigned names, namespaces, and frame_ids.  These nodes can also be launched using gst-launch, or instantiated in pipelines inside other applications.  
-Currently implemented are `rosaudiosink`, `rosaudiosrc`, `rosimagesink`, and `rosimagesrc`
+Currently implemented are `rosaudiosink`, `rosaudiosrc`, `rosimagesink`, `rosimagesrc`, and `rostextsrc`
 Inspect them with `gst-inspect-1.0 --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rosaudiosink`
 
 ### gst_pipeline
 A ROS2 package with a collection of python scripts that handle gstreamer pipeline generation within a ROS node.
 Simplebin takes a gst-launch style pipeline descriptor and assembles basic but extremely versatile pipelines.
 This collection includes a modular WebRTC signalling system and pipeline handler making it easier to get data to a browser.
+gst_pipeline exposes properties of gstreamer elements as parameters of the ROS2 node hosting the pipeline, allowing you to tune your pipeline on the fly.
 
 ### audio_msgs
 A message class for transporting raw audio data with metadata equivalent to sensor_msgs/image
-(this is likely to change)
 
 ## Design goals:
 * ROS Messages and GStreamer caps should not lose metadata like timestamps.
 * ROS sim-time and pipeline clocks must be translatable. (accelerated simulations should drive accelerated pipelines)
-* A new message format for Audio messages permitting accurate time stamps, flexible number formats, multiple channels, and flexible sample packing.
-* bridge nodes should be gstreamer bins, not ROS nodes running appsink. (this reduces code complexity, improves pipeline efficiency, and allows ROS2 borrowed messages to be passed through the pipeline to facilitate zero-copy publishing)
+* A new message format for Audio messages permitting accurate time stamps, flexible formats, multiple channels, and flexible sample packing.
+* Bridge nodes should be gstreamer bins, not ROS nodes running appsink.
 * A ROS node should hold the pipeline and handle pipeline events, allowing use of ros launch and parameters.
 * The pipeline node should be extensible to allow complex event handling like WebRTC signalling.
-
+* ROS2 should be useable as an inter-process communication channel
 
 ## Architecture:
 GStreamer is able to run multiple streams in parallel and has an effective threading system. 
@@ -57,4 +57,22 @@ audio-common and gs-cam have good examples of the gstreamer appsrc/appsink API.
   `gst-launch-1.0 --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rostextsrc ! textrender ! videoconvert ! rosimagesink`
 * apply a gamma correction to an image topic  
   `gst-launch --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ 'rosimagesrc topic="image_raw" ! gamma gamma=2.0 ! rosimagesink topic="image_gamma_corrected'`
-* your applications here!
+* stream a raspberry pi camera over UDP and expose the H264 bitrate as an adjustable ROS2 param
+```
+raspicam_udp.config.yaml
+/**:
+  ros__parameters:
+    simple_bins:
+      - 'raspicam_udp'
+    raspicam_udp:
+      descr: 'rpicamsrc bitrate=10000000 preview=0 ! video/x-h264,width=640,height=480,framereate=10/1,profile=high ! h264parse ! rtph264pay config-interval=1 pt=96 ! udpsink host=host.local port=5000'
+    gst_plugins_required:
+      - 'rpicamsrc'
+```
+* *your applications here!*
+
+
+## Licenses
+* gst_pipeline: LGPLv3, depends on gstreamer (LGPLv2.1+)
+* gst_bridge: LGPLv3, depends on gstreamer (LGPLv2.1+)
+* audio_msgs: Apache 2
