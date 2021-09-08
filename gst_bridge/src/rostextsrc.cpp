@@ -49,8 +49,6 @@ static gboolean rostextsrc_close (RosBaseSrc * ros_base_src);
 
 static GstFlowReturn rostextsrc_create (GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer **buf);
 static gboolean rostextsrc_query (GstBaseSrc * base_src, GstQuery * query);
-static GstCaps* rostextsrc_getcaps (GstBaseSrc * base_src, GstCaps * filter);  //set our caps preferences
-static GstCaps * rostextsrc_fixate (GstBaseSrc * base_src, GstCaps * caps);
 
 static void rostextsrc_sub_cb(Rostextsrc * src, std_msgs::msg::String::ConstSharedPtr msg);
 static std_msgs::msg::String::ConstSharedPtr rostextsrc_wait_for_msg(Rostextsrc * src);
@@ -68,8 +66,7 @@ enum
 static GstStaticPadTemplate rostextsrc_src_template = GST_STATIC_PAD_TEMPLATE ("src",
   GST_PAD_SRC,
   GST_PAD_ALWAYS,
-  //GST_STATIC_CAPS ("text/x-raw, format= { pango-markup, utf8, plain }")
-  GST_STATIC_CAPS ("image/svg+xml; image/svg; text/plain; text/x-raw, format= { pango-markup, utf8} ")
+  GST_STATIC_CAPS (ROS_TEXT_MSG_CAPS)
 );
 
 

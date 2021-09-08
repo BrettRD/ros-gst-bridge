@@ -55,6 +55,10 @@
   "channels = " GST_AUDIO_CHANNELS_RANGE ","          \
   "layout = interleaved"
 
+#define ROS_TEXT_MSG_CAPS                             \
+  "image/svg+xml; image/svg; text/plain; text/x-raw, "\
+  "format= { pango-markup, utf8} "
+
 //support rpicamsrc compressed feeds over DDS?
 #define H264_CAPS                                     \
   "video/x-h264, "                                    \

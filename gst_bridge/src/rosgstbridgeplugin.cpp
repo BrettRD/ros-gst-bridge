@@ -23,6 +23,7 @@
 #include <gst/gst.h>
 #include <gst_bridge/rosaudiosink.h>
 #include <gst_bridge/rosimagesink.h>
+#include <gst_bridge/rostextsink.h>
 #include <gst_bridge/rosaudiosrc.h>
 #include <gst_bridge/rosimagesrc.h>
 #include <gst_bridge/rostextsrc.h>
@@ -40,6 +41,9 @@ plugin_init (GstPlugin * plugin)
 
   gst_element_register (plugin, "rosimagesink", GST_RANK_NONE,
       GST_TYPE_ROSIMAGESINK);
+
+  gst_element_register (plugin, "rostextsink", GST_RANK_NONE,
+      GST_TYPE_ROSTEXTSINK);
 
   gst_element_register (plugin, "rosaudiosrc", GST_RANK_NONE,
       GST_TYPE_ROSAUDIOSRC);
@@ -72,5 +76,5 @@ GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
     rosgstbridge,
     "ROS topic bridge elements",
-    plugin_init, VERSION, "LGPLv3", PACKAGE_NAME, GST_PACKAGE_ORIGIN)
+    plugin_init, VERSION, "LGPL", PACKAGE_NAME, GST_PACKAGE_ORIGIN)
 
