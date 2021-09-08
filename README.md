@@ -12,7 +12,7 @@ It should be easy to pass data between GStreamer and ROS without loss of informa
 A ROS2 package containing a GStreamer plugin, and simple format conversions (similar goal to cv-bridge).
 The GStreamer plugin has source and sink elements that appear on the ROS graph as independent ROS nodes.
 These nodes can be configured by passing parameters via the GStreamer pipeline, and can be assigned names, namespaces, and frame_ids.  These nodes can also be launched using gst-launch, or instantiated in pipelines inside other applications.  
-Currently implemented are `rosaudiosink`, `rosaudiosrc`, `rosimagesink`, `rosimagesrc`, and `rostextsrc`
+Currently implemented are `rosaudiosink`, `rosaudiosrc`, `rosimagesink`, `rosimagesrc`, `rostextsink`, and `rostextsrc`
 Inspect them with `gst-inspect-1.0 --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rosaudiosink`
 
 ### gst_pipeline
@@ -69,6 +69,8 @@ raspicam_udp.config.yaml
     gst_plugins_required:
       - 'rpicamsrc'
 ```
+* speech recognition as ros string messages
+  `gst-launch-1.0 --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ autoaudiosrc ! audioconvert ! audioresample ! pocketsphinx ! queue ! rostextsink`
 * *your applications here!*
 
 
