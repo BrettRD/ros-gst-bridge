@@ -1,8 +1,8 @@
 # ros-gst-bridge
 A bidirectional, ROS to GStreamer bridge
 
-ROS is great for running exquisitely weird processes on data streams.\
-GStreamer is great for running complex pipelines with conversions between common formats.
+[ROS](https://www.ros.org/) is great for running exquisitely weird processes on data streams.\
+[GStreamer](https://gstreamer.freedesktop.org/documentation/) is great for running complex pipelines with conversions between common formats.
 
 It should be easy to pass data between GStreamer and ROS without loss of information.
 
