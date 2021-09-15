@@ -74,6 +74,15 @@ raspicam_udp.config.yaml
 * *your applications here!*
 
 
+## Building
+These packages build with [`colcon build`](https://docs.ros.org/en/galactic/Tutorials/Colcon-Tutorial.html) as part of your ROS2 install.\
+Simply clone this repo under the `src/` folder of your ROS2 workspace and call `colcon build` on the workspace.\
+The gstreamer elements are all built into the same plugin under `install/gst_bridge/lib/gst_bridge/librosgstbridge.so`\
+The gstreamer plugin is dynamically linked against your ROS2 installation, so make sure your [environment](https://docs.ros.org/en/galactic/Installation/Ubuntu-Install-Debians.html#environment-setup) is set up before using the plugin.
+Sourcing (not executing) `. install/setup.bash` from the workspace the plugin was built in, will also set up your environment correctly.
+If you inspect the plugin `gst-inspect-1.0` without your environment set up, it will fail missing shared objects.
+
+
 ## Licenses
 * gst_pipeline: LGPLv3, depends on gstreamer (LGPLv2.1+)
 * gst_bridge: LGPLv3, depends on gstreamer (LGPLv2.1+)
