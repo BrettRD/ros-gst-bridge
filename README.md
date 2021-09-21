@@ -91,8 +91,8 @@ The gstreamer plugin is dynamically linked against your ROS2 installation, so ma
 
 This package requires software that might not already be installed on your host, so run the following in your ROS2 workspace.
 ```
-`rosdep update`
-`rosdep install --from-paths ~/galactic_ws/src/ --ignore-src -r -y`
+rosdep update
+rosdep install --from-paths ~/galactic_ws/src/ --ignore-src -r -y
 ```
 
 Then you should be able to build the packages with [`colcon build`](https://docs.ros.org/en/galactic/Tutorials/Colcon-Tutorial.html).
