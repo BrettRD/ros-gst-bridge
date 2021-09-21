@@ -75,11 +75,35 @@ raspicam_udp.config.yaml
 
 
 ## Building
-These packages build with [`colcon build`](https://docs.ros.org/en/galactic/Tutorials/Colcon-Tutorial.html) as part of your ROS2 install.\
-Simply clone this repo under the `src/` folder of your ROS2 workspace and call `colcon build` on the workspace.\
-The gstreamer elements are all built into the same plugin under `install/gst_bridge/lib/gst_bridge/librosgstbridge.so`\
-The gstreamer plugin is dynamically linked against your ROS2 installation, so make sure your [environment](https://docs.ros.org/en/galactic/Installation/Ubuntu-Install-Debians.html#environment-setup) is set up before using the plugin.
-Sourcing (not executing) `. install/setup.bash` from the workspace the plugin was built in, will also set up your environment correctly.
+Install ROS 2 ([instructions for Ubuntu](https://docs.ros.org/en/galactic/Installation/Ubuntu-Install-Debians.html))
+
+Make sure you have the colcon toolchain installed
+* rosdep ([instructions for Ubuntu](http://wiki.ros.org/rosdep#Installing_rosdep))
+* colcon (do not forget the extensions) ([instructions for Ubuntu](https://colcon.readthedocs.io/en/released/user/installation.html#using-debian-packages))
+
+`sudo rosdep init` if it has not already been done on this host.
+
+If you do not yet have a ROS2 workspace, create one ( e.g. `mkdir ~/galactic_ws/src` )
+
+Clone this repo under the `src/` folder of your ROS2 workspace ( `git clone https://github.com/BrettRD/ros-gst-bridge.git ~/galactic_ws/src/ros-gst-bridge` )
+
+The gstreamer plugin is dynamically linked against your ROS2 installation, so make sure your [environment](https://docs.ros.org/en/galactic/Installation/Ubuntu-Install-Debians.html#environment-setup) is set up before using the plugin: ( `source /opt/ros/galactic/setup.bash` )
+
+This package requires software that might not already be installed on your host, so run the following in your ROS2 workspace.
+```
+`rosdep update`
+`rosdep install --from-paths ~/galactic_ws/src/ --ignore-src -r -y`
+```
+
+Then you should be able to build the packages with [`colcon build`](https://docs.ros.org/en/galactic/Tutorials/Colcon-Tutorial.html).
+
+The gstreamer elements are all built into the same plugin under `install/gst_bridge/lib/gst_bridge/librosgstbridge.so` .
+If you still have your ROS2 environment active (from `/opt/ros/galactic/setup.bash`) you should be able to `gst-inspect-1.0 install/gst_bridge/lib/gst_bridge/librosgstbridge.so` to get a list of the elements provided by the library.
+
+Sourcing (not executing) `source install/setup.bash` from the workspace the plugin was built in, will also set up your environment correctly.
+
+You can get details about a specific element using a command like `source ~/galactic_ws/src/install/setup.bash; GST_PLUGIN_PATH=$COLCON_PREFIX_PATH/gst_bridge/lib/gst_bridge gst-inspect-1.0 rosimagesrc`
+
 If you inspect the plugin `gst-inspect-1.0` without your environment set up, it will fail missing shared objects.
 
 
