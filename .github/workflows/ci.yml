@@ -3,6 +3,7 @@ name: CI gst_bridge
 on:
   pull_request:
     branches: [ ros2 ]
+  push:
   #schedule:
   #  # Run once per month to detect broken dependencies.
   #  - cron: '43 15 23 * *'
