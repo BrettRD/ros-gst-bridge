@@ -30,7 +30,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: ros-tooling/setup-ros@0.2.1
       with:
-        use-ros2-testing: {{ matrix.use_ros_testing }}
+        use-ros2-testing: ${{ matrix.use_ros_testing }}
         required-ros-distributions: ${{ matrix.ros_distribution }}
     - uses : ros-tooling/action-ros-ci@0.2.1
       with:
