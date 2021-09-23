@@ -1,0 +1,38 @@
+name: CI gst_bridge
+
+on:
+  pull_request:
+    branches: [ ros2 ]
+  push:
+  #schedule:
+  #  # Run once per month to detect broken dependencies.
+  #  - cron: '43 15 23 * *'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-20.04 ]
+        ros_distribution: [ foxy, galactic, rolling ]
+        include:
+          - ros_distribution: foxy
+            use_ros_testing: false
+          - ros_distribution: galactic
+            use_ros_testing: false
+          - ros_distribution: rolling
+            use_ros_testing: true
+
+    container:
+      image: ubuntu:focal
+    steps:
+    - uses: actions/checkout@v2
+    - uses: ros-tooling/setup-ros@0.2.1
+      with:
+        use-ros2-testing: ${{ matrix.use_ros_testing }}
+        required-ros-distributions: ${{ matrix.ros_distribution }}
+    - uses : ros-tooling/action-ros-ci@0.2.1
+      with:
+        package-name: "audio_msgs gst_bridge gst_pipeline"
+        target-ros2-distro: ${{ matrix.ros_distribution }}
