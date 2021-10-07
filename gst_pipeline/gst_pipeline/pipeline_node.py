@@ -4,16 +4,8 @@ gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib, GObject
 
 import rclpy
-from rclpy.node import Node
-
-import std_msgs
-import diagnostic_updater
-import diagnostic_msgs
 
 from gst_pipeline.pipeline import Pipeline
-from gst_pipeline.simplebin import Simplebin
-from gst_pipeline.webrtc_pipes import webrtc_pipes
-from gst_pipeline.webrtc_transport_ws import webrtc_transport_ws
 
 import os
 
@@ -78,9 +70,13 @@ def build_simple_bins_from_params(pipe_node):
       (simple_bins_list, []),
     ]
   )
-  for name in pipe_node.get_parameter(simple_bins_list).value:
-    simple_segment = Simplebin(pipe_node, name, param_prefix=name)
-    pipe_node.add_section(simple_segment)
+  simple_bins_names = pipe_node.get_parameter(simple_bins_list).value
+  if simple_bins_names:
+    from gst_pipeline.simplebin import Simplebin
+
+    for name in simple_bins_names:
+      simple_segment = Simplebin(pipe_node, name, param_prefix=name)
+      pipe_node.add_section(simple_segment)
 
 
 
@@ -94,31 +90,35 @@ def build_webrtc_bins(pipe_node, loop):
       (webrtc_bins_list, []),
     ]
   )
-  for name in pipe_node.get_parameter(webrtc_bins_list).value:
-    pipe_node.declare_parameters(
-      namespace='',
-      parameters=[
-        (name + '.' + 'signalling', None)
-      ]
-    )
-    webrtc_transport = None
-    signalling = pipe_node.get_parameter(name + '.' + 'signalling').value
-    
-    if 'webrtc_transport_ws' == signalling:
-      pipe_node.get_logger().error("building websockets signalling client for " + name)
-      webrtc_transport = webrtc_transport_ws(pipe_node, loop, param_prefix=name)
-    
-    elif 'webrtc_transport_ros' == signalling:
-      #webrtc_transport = webrtc_transport_ros(pipe_node, loop, param_prefix=name)
-      pipe_node.get_logger().error("the ros topic transport for webrtc hasn't been built yet")
-    
-    else:
-      pipe_node.get_logger().error("webrtc requires a signalling system, none selected")
+  webrtc_bins_names = pipe_node.get_parameter(webrtc_bins_list).value
+  if webrtc_bins_names:
+    from gst_pipeline.webrtc_pipes import webrtc_pipes
+    from gst_pipeline.webrtc_transport_ws import webrtc_transport_ws
+    for name in webrtc_bins_names:
+      pipe_node.declare_parameters(
+        namespace='',
+        parameters=[
+          (name + '.' + 'signalling', None)
+        ]
+      )
+      webrtc_transport = None
+      signalling = pipe_node.get_parameter(name + '.' + 'signalling').value
 
-    ## connect to the signalling server before trying to negotiate links
-    webrtc_segment = webrtc_pipes(pipe_node, name, webrtc_transport, param_prefix=name)
-    webrtc_transport.connect()
-    pipe_node.add_section(webrtc_segment)
+      if 'webrtc_transport_ws' == signalling:
+        pipe_node.get_logger().error("building websockets signalling client for " + name)
+        webrtc_transport = webrtc_transport_ws(pipe_node, loop, param_prefix=name)
+
+      elif 'webrtc_transport_ros' == signalling:
+        #webrtc_transport = webrtc_transport_ros(pipe_node, loop, param_prefix=name)
+        pipe_node.get_logger().error("the ros topic transport for webrtc hasn't been built yet")
+
+      else:
+        pipe_node.get_logger().error("webrtc requires a signalling system, none selected")
+
+      ## connect to the signalling server before trying to negotiate links
+      webrtc_segment = webrtc_pipes(pipe_node, name, webrtc_transport, param_prefix=name)
+      webrtc_transport.connect()
+      pipe_node.add_section(webrtc_segment)
 
 
 
