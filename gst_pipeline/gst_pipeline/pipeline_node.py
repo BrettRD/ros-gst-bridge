@@ -6,6 +6,8 @@ from gi.repository import Gst, GLib, GObject
 import rclpy
 
 from gst_pipeline.pipeline import Pipeline
+from rcl_interfaces.msg import ParameterDescriptor
+from rcl_interfaces.msg import ParameterType
 
 import os
 
@@ -21,6 +23,15 @@ import asyncio_glib
 simple_bins_list = 'simple_bins'
 webrtc_bins_list = 'webrtc_bins'
 
+
+
+# XXX this is an awful hack to deal with broken param type mappings in galactic.
+# https://github.com/ros2/rclpy/issues/829#issuecomment-937517881
+rosdistro=os.environ['ROS_DISTRO']
+if rosdistro == 'galactic':
+  distro_dynamic_typing={'dynamic_typing':True}
+else:
+  distro_dynamic_typing={}
 
 
 
@@ -67,7 +78,12 @@ def build_simple_bins_from_params(pipe_node):
   pipe_node.declare_parameters(
     namespace='',
     parameters=[
-      (simple_bins_list, []),
+      (simple_bins_list, [], ParameterDescriptor(
+        name=simple_bins_list,
+        type=ParameterType.PARAMETER_STRING_ARRAY,
+        **distro_dynamic_typing
+        )
+      ),
     ]
   )
   simple_bins_names = pipe_node.get_parameter(simple_bins_list).value
@@ -87,7 +103,12 @@ def build_webrtc_bins(pipe_node, loop):
   pipe_node.declare_parameters(
     namespace='',
     parameters=[
-      (webrtc_bins_list, []),
+      (webrtc_bins_list, [], ParameterDescriptor(
+        name=webrtc_bins_list,
+        type=ParameterType.PARAMETER_STRING_ARRAY,
+        **distro_dynamic_typing
+        )
+      ),
     ]
   )
   webrtc_bins_names = pipe_node.get_parameter(webrtc_bins_list).value

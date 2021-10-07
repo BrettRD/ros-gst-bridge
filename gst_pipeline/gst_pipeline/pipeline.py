@@ -5,6 +5,9 @@ from gi.repository import Gst, GLib, GObject
 
 import rclpy
 from rclpy.node import Node
+from rclpy.parameter import Parameter
+from rcl_interfaces.msg import ParameterDescriptor
+from rcl_interfaces.msg import ParameterType
 
 import std_msgs
 import diagnostic_updater
@@ -12,9 +15,21 @@ import diagnostic_msgs
 
 import asyncio
 
-import os
 
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
+
+
+
+import os
+
+# XXX this is an awful hack to deal with broken param type mappings in galactic.
+# https://github.com/ros2/rclpy/issues/829#issuecomment-937517881
+rosdistro=os.environ['ROS_DISTRO']
+if rosdistro == 'galactic':
+  distro_dynamic_typing={'dynamic_typing':True}
+else:
+  distro_dynamic_typing={}
+
 
 
 class Pipeline(Node):
@@ -65,16 +80,31 @@ class Pipeline(Node):
     self.declare_parameters(
       namespace=param_prefix,
       parameters=[
-        (param_prefix + 'gst_plugin_paths', []),
-        (param_prefix + 'gst_plugins_required', []),
-        (param_prefix + 'gst_plugin_ros_packages', []),
+        (param_prefix + 'gst_plugin_paths', [], ParameterDescriptor(
+          name='gst_plugin_paths',
+          type=ParameterType.PARAMETER_STRING_ARRAY,
+          **distro_dynamic_typing,
+          )
+        ),
+        (param_prefix + 'gst_plugins_required', [], ParameterDescriptor(
+          name='gst_plugins_required',
+          type=ParameterType.PARAMETER_STRING_ARRAY,
+          **distro_dynamic_typing,
+          )
+        ),
+        (param_prefix + 'gst_plugin_ros_packages', [], ParameterDescriptor(
+          name='gst_plugin_ros_packages',
+          type=ParameterType.PARAMETER_STRING_ARRAY,
+          **distro_dynamic_typing,
+          )
+        ),
       ]
     )
     paths =         self.get_parameter(param_prefix + 'gst_plugin_paths').value
     plugins =       self.get_parameter(param_prefix + 'gst_plugins_required').value
     packages = []
     package_list =  self.get_parameter(param_prefix + 'gst_plugin_ros_packages').value
-    
+
     for pack in package_list:
       subdir = self.declare_parameter(param_prefix + 'gst_plugin_ros_package_subdirs.' + pack).value
       if subdir == None:
