@@ -1,12 +1,30 @@
+/* gst_bridge
+ * Copyright (C) 2020-2021 Brett Downing <brettrd@brettrd.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+
 #include <gst_bridge/gst_bridge.h>
 
 namespace gst_bridge
 {
 
-GstClockTimeDiff sample_clock_offset(GstClock* gst_clock, rclcpp::Clock::SharedPtr ros_clock)
+GstClockTimeDiff sample_clock_offset(GstClock* gst_clock, rclcpp::Time stream_start)
 {
   GstClockTime g_time = gst_clock_get_time (gst_clock); //gst time now
-  GstClockTime r_time = ros_clock->now().nanoseconds();  //ros time now
+  GstClockTime r_time = stream_start.nanoseconds();  //ros time now
   return r_time - g_time;  //instantaneous offset between ros and gst
 }
 

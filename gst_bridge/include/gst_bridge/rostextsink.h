@@ -16,49 +16,41 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef _GST_ROSIMAGESINK_H_
-#define _GST_ROSIMAGESINK_H_
+#ifndef _GST_ROSTEXTSINK_H_
+#define _GST_ROSTEXTSINK_H_
 
-#include <gst/video/video-format.h>
 #include <gst/base/gstbasesink.h>
 #include <gst_bridge/gst_bridge.h>
 #include <gst_bridge/rosbasesink.h>
 
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/image.hpp>
+#include <std_msgs/msg/string.hpp>
 
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_ROSIMAGESINK   (rosimagesink_get_type())
-#define GST_ROSIMAGESINK(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROSIMAGESINK,Rosimagesink))
-#define GST_ROSIMAGESINK_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_ROSIMAGESINK,RosimagesinkClass))
-#define GST_IS_ROSIMAGESINK(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_ROSIMAGESINK))
-#define GST_IS_ROSIMAGESINK_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_ROSIMAGESINK))
+#define GST_TYPE_ROSTEXTSINK   (rostextsink_get_type())
+#define GST_ROSTEXTSINK(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROSTEXTSINK,Rostextsink))
+#define GST_ROSTEXTSINK_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_ROSTEXTSINK,RostextsinkClass))
+#define GST_IS_ROSTEXTSINK(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_ROSTEXTSINK))
+#define GST_IS_ROSTEXTSINK_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_ROSTEXTSINK))
 
-typedef struct _Rosimagesink Rosimagesink;
-typedef struct _RosimagesinkClass RosimagesinkClass;
+typedef struct _Rostextsink Rostextsink;
+typedef struct _RostextsinkClass RostextsinkClass;
 
-struct _Rosimagesink
+struct _Rostextsink
 {
   RosBaseSink parent;
 
   gchar* pub_topic;
-  gchar* frame_id;
-  gchar* encoding; //image topic encoding string
-  gchar* init_caps; //optional caps override (used for limited apis)
 
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub;
 
-  int height;
-  int width;
-
-  size_t step;   //bytes per pixel
-  gint endianness;
+  uint64_t msg_seq_num;
 };
 
-struct _RosimagesinkClass
+struct _RostextsinkClass
 {
   RosBaseSinkClass parent_class;
 
@@ -66,7 +58,7 @@ struct _RosimagesinkClass
   // along with member function pointers for signal handlers
 };
 
-GType rosimagesink_get_type (void);
+GType rostextsink_get_type (void);
 
 G_END_DECLS
 

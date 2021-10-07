@@ -1,19 +1,25 @@
 cmake_minimum_required(VERSION 3.5)
 project(gst_bridge)
 
+set(CMAKE_BUILD_TYPE RelWithDebInfo)
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
 endif()
 
-# Default to C++14
+# Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+# Emulate colcon in CLion
+if($ENV{CLION_IDE})
+  set(audio_msgs_DIR "${PROJECT_SOURCE_DIR}/../../../install/audio_msgs/share/audio_msgs/cmake")
 endif()
 
 
@@ -58,12 +64,16 @@ find_package(builtin_interfaces REQUIRED)
 # the install location needs to be found by gst-inspect
 
 add_library(rosgstbridge SHARED
-  src/rosgstbridgeplugin.cpp 
+  src/rosgstbridgeplugin.cpp
   src/gst_bridge.cpp
+  src/rosbasesink.cpp
+  src/rosbasesrc.cpp
   src/rosaudiosink.cpp
   src/rosimagesink.cpp
+  src/rostextsink.cpp
   src/rosaudiosrc.cpp
   src/rosimagesrc.cpp
+  src/rostextsrc.cpp
   )
 
 
@@ -78,22 +88,25 @@ target_include_directories(rosgstbridge PRIVATE
   ${audio_msgs_INCLUDE_DIRS}
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
-  ${GSTREAMER_INCLUDE_DIRS}
   ${GLIB_INCLUDE_DIRS}
   ${GOBJECT_INCLUDE_DIR}
+  ${GSTREAMER_INCLUDE_DIRS}
+  ${GSTREAMER_BASE_INCLUDE_DIRS}
+  ${GST_INCLUDE_DIRS}
 )
 
 target_link_libraries(rosgstbridge PUBLIC
   ${rclcpp_LIBRARIES}
   ${sensor_msgs_LIBRARIES}
   ${audio_msgs_LIBRARIES}
-  ${GSTREAMER_LIBRARIES}
   ${GLIB_LIBRARIES}
   ${GLIB_GIO_LIBRARIES}
+  ${GSTREAMER_LIBRARIES}
   ${GSTREAMER_AUDIO_LIBRARIES}
   ${GSTREAMER_APP_LIBRARIES}
   ${GSTREAMER_VIDEO_LIBRARIES}
   ${GSTREAMER_BASE_LIBRARIES}
+  ${GST_LIBRARIES}
 )
 
 
@@ -107,20 +120,24 @@ target_include_directories(gst_bridge PUBLIC
   ${audio_msgs_INCLUDE_DIRS}
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
-  ${GSTREAMER_INCLUDE_DIRS}
   ${GLIB_INCLUDE_DIRS}
   ${GOBJECT_INCLUDE_DIR}
+  ${GSTREAMER_INCLUDE_DIRS}
+  ${GSTREAMER_BASE_INCLUDE_DIRS}
+  ${GST_INCLUDE_DIRS}
 )
 target_link_libraries(gst_bridge PUBLIC
   ${rclcpp_LIBRARIES}
   ${sensor_msgs_LIBRARIES}
   ${audio_msgs_LIBRARIES}
-  ${GSTREAMER_LIBRARIES}
   ${GLIB_LIBRARIES}
   ${GLIB_GIO_LIBRARIES}
+  ${GSTREAMER_LIBRARIES}
   ${GSTREAMER_AUDIO_LIBRARIES}
   ${GSTREAMER_APP_LIBRARIES}
   ${GSTREAMER_VIDEO_LIBRARIES}
+  ${GSTREAMER_BASE_LIBRARIES}
+  ${GST_LIBRARIES}
 )
 
 
@@ -145,7 +162,7 @@ install(TARGETS ${PROJECT_NAME}
   RUNTIME DESTINATION bin)
 
 # note the nonstandard install location for the gst plugin
-install(TARGETS rosgstbridge 
+install(TARGETS rosgstbridge
   DESTINATION lib/${PROJECT_NAME}
 )
 

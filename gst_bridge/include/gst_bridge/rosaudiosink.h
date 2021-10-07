@@ -1,20 +1,19 @@
-/* GStreamer
- * Copyright (C) 2020 FIXME <fixme@example.com>
+/* gst_bridge
+ * Copyright (C) 2020-2021 Brett Downing <brettrd@brettrd.com>
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * version 3 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #ifndef _GST_ROSAUDIOSINK_H_
@@ -23,6 +22,7 @@
 #include <gst/audio/audio-format.h>
 #include <gst/base/gstbasesink.h>
 #include <gst_bridge/gst_bridge.h>
+#include <gst_bridge/rosbasesink.h>
 
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
@@ -42,31 +42,22 @@ typedef struct _RosaudiosinkClass RosaudiosinkClass;
 
 struct _Rosaudiosink
 {
-  GstBaseSink parent;
-  gchar* node_name;
-  gchar* node_namespace;
+  RosBaseSink parent;
+
   gchar* pub_topic;
-
-  rclcpp::Context::SharedPtr ros_context;
-  rclcpp::executor::Executor::SharedPtr ros_executor;
-  rclcpp::Node::SharedPtr node;
-  rclcpp::Logger logger;
-  rclcpp::Clock::SharedPtr clock;
-  GstClockTimeDiff ros_clock_offset;
-
-  rclcpp::Publisher<audio_msgs::msg::Audio>::SharedPtr pub;
-
   gchar* frame_id;
   gchar* encoding; //msg encoding override string (for hacking)
   gchar* init_caps; //a hack to allow skipping preroll
 
+  rclcpp::Publisher<audio_msgs::msg::Audio>::SharedPtr pub;
+
   GstAudioInfo audio_info;
-  
+  uint64_t msg_seq_num;
 };
 
 struct _RosaudiosinkClass
 {
-  GstBaseSinkClass parent_class;
+  RosBaseSinkClass parent_class;
 
   // stick member function pointers here
   // along with member function pointers for signal handlers
