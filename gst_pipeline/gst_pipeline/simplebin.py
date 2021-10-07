@@ -2,14 +2,23 @@ import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib, GObject
 
-import rclpy
-from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rcl_interfaces.msg import SetParametersResult
+from rcl_interfaces.msg import ParameterDescriptor
+from rcl_interfaces.msg import ParameterType
 
-import std_msgs
 import diagnostic_updater
 import diagnostic_msgs
+
+
+# XXX this is an awful hack to deal with broken param type mappings in galactic.
+# https://github.com/ros2/rclpy/issues/829#issuecomment-937517881
+import os
+rosdistro=os.environ['ROS_DISTRO']
+if rosdistro == 'galactic':
+  distro_dynamic_typing={'dynamic_typing':True}
+else:
+  distro_dynamic_typing={}
 
 
 # create a gstreamer playbin using gst-launch style syntax,
@@ -132,7 +141,12 @@ class Simplebin:
     self.node.declare_parameters(
       namespace='',
       parameters=[
-          (param_prefix + 'descr', None)
+          (param_prefix + 'descr', None, ParameterDescriptor(
+              name=param_prefix + 'descr',
+              type=ParameterType.PARAMETER_STRING,
+              **distro_dynamic_typing
+              )
+          ),
         ]
       )
     bin_description = self.node.get_parameter(param_prefix + 'descr').value
