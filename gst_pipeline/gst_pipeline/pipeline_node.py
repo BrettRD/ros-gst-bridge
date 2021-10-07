@@ -11,7 +11,6 @@ from rcl_interfaces.msg import ParameterType
 
 import os
 
-from ament_index_python.packages import get_package_share_directory, get_package_prefix
 
 
 import asyncio

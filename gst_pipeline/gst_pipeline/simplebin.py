@@ -2,14 +2,11 @@ import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib, GObject
 
-import rclpy
-from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rcl_interfaces.msg import SetParametersResult
 from rcl_interfaces.msg import ParameterDescriptor
 from rcl_interfaces.msg import ParameterType
 
-import std_msgs
 import diagnostic_updater
 import diagnostic_msgs
 
