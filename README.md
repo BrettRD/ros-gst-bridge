@@ -40,7 +40,7 @@ A gstreamer pipeline can comfortably manage multiple independent streams, so onl
 
 The sources and sinks should be implemented as gstreamer elements for a couple of reasons.\
 GStreamer elements are intended to be compact and versatile, this encourages reduction of code complexity.
-Ros elements would allow any GStreamer capable application to interact directly with ROS.  `gst-launch --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ 'rosimagesrc topic="image_raw" ! gamma gamma=2.0 ! rosimagesink topic="image_gamma_corrected'` executed from the command line would apply a gamma correction to an image topic.
+Ros elements would allow any GStreamer capable application to interact directly with ROS.  `gst-launch --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rosimagesrc ros-topic="image_raw" ! gamma gamma=2.0 ! rosimagesink ros-topic="image_gamma_corrected"` executed from the command line would apply a gamma correction to an image topic.
 
 It is possible to build this using the gstreamer appsrc/appsink API, but it requires re-implementation of the whole plugin architecture that GStreamer implements so well.
 audio-common and gs-cam have good examples of the gstreamer appsrc/appsink API.  
