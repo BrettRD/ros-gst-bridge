@@ -56,7 +56,7 @@ audio-common and gs-cam have good examples of the gstreamer appsrc/appsink API.
 * render a ros std_msgs String message onto a ros sensor_msgs Image  
   `gst-launch-1.0 --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rostextsrc ! textrender ! videoconvert ! rosimagesink`
 * apply a gamma correction to an image topic  
-  `gst-launch --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ 'rosimagesrc topic="image_raw" ! gamma gamma=2.0 ! rosimagesink topic="image_gamma_corrected'`
+  `gst-launch --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rosimagesrc ros-topic="image_raw" ! gamma gamma=2.0 ! rosimagesink ros-topic="image_gamma_corrected"`
 * stream a raspberry pi camera over UDP and expose the H264 bitrate as an adjustable ROS2 param
 ```
 raspicam_udp.config.yaml
