@@ -11,13 +11,13 @@ It should be easy to pass data between GStreamer and ROS without loss of informa
 ### gst_bridge
 A ROS2 package containing a GStreamer plugin, and simple format conversions (similar goal to cv-bridge).
 The GStreamer plugin has source and sink elements that appear on the ROS graph as independent ROS nodes.
-These nodes can be configured by passing parameters via the GStreamer pipeline, and can be assigned names, namespaces, and frame_ids.  These nodes can also be launched using gst-launch, or instantiated in pipelines inside other applications.  
+These nodes can be configured by passing parameters via the GStreamer pipeline, and can be assigned names, namespaces, and frame_ids.  These nodes can also be launched using gst-launch-1.0, or instantiated in pipelines inside other applications.  
 Currently implemented are `rosaudiosink`, `rosaudiosrc`, `rosimagesink`, `rosimagesrc`, `rostextsink`, and `rostextsrc`
 Inspect them with `gst-inspect-1.0 --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rosaudiosink`
 
 ### gst_pipeline
 A ROS2 package with a collection of python scripts that handle gstreamer pipeline generation within a ROS node.
-Simplebin takes a gst-launch style pipeline descriptor and assembles basic but extremely versatile pipelines.
+Simplebin takes a gst-launch-1.0 style pipeline descriptor and assembles basic but extremely versatile pipelines.
 This collection includes a modular WebRTC signalling system and pipeline handler making it easier to get data to a browser.
 gst_pipeline exposes properties of gstreamer elements as parameters of the ROS2 node hosting the pipeline, allowing you to tune your pipeline on the fly.
 
@@ -40,7 +40,7 @@ A gstreamer pipeline can comfortably manage multiple independent streams, so onl
 
 The sources and sinks should be implemented as gstreamer elements for a couple of reasons.\
 GStreamer elements are intended to be compact and versatile, this encourages reduction of code complexity.
-Ros elements would allow any GStreamer capable application to interact directly with ROS.  `gst-launch --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rosimagesrc ros-topic="image_raw" ! gamma gamma=2.0 ! rosimagesink ros-topic="image_gamma_corrected"` executed from the command line would apply a gamma correction to an image topic.
+Ros elements would allow any GStreamer capable application to interact directly with ROS.  `gst-launch-1.0 --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rosimagesrc ros-topic="image_raw" ! gamma gamma=2.0 ! rosimagesink ros-topic="image_gamma_corrected"` executed from the command line would apply a gamma correction to an image topic.
 
 It is possible to build this using the gstreamer appsrc/appsink API, but it requires re-implementation of the whole plugin architecture that GStreamer implements so well.
 audio-common and gs-cam have good examples of the gstreamer appsrc/appsink API.  
@@ -56,7 +56,7 @@ audio-common and gs-cam have good examples of the gstreamer appsrc/appsink API.
 * render a ros std_msgs String message onto a ros sensor_msgs Image  
   `gst-launch-1.0 --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rostextsrc ! textrender ! videoconvert ! rosimagesink`
 * apply a gamma correction to an image topic  
-  `gst-launch --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rosimagesrc ros-topic="image_raw" ! gamma gamma=2.0 ! rosimagesink ros-topic="image_gamma_corrected"`
+  `gst-launch-1.0 --gst-plugin-path=install/gst_bridge/lib/gst_bridge/ rosimagesrc ros-topic="image_raw" ! gamma gamma=2.0 ! rosimagesink ros-topic="image_gamma_corrected"`
 * stream a raspberry pi camera over UDP and expose the H264 bitrate as an adjustable ROS2 param
 ```
 raspicam_udp.config.yaml
