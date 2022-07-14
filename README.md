@@ -107,6 +107,32 @@ You can get details about a specific element using a command like `source ~/gala
 
 If you inspect the plugin `gst-inspect-1.0` without your environment set up, it will fail missing shared objects.
 
+## Building (Windows)
+Install ROS 2 ([instructions for Windows (Humble)](https://docs.ros.org/en/humble/Installation/Windows-Install-Binary.html))
+
+Install GStreamer ([official prebuilt](https://gstreamer.freedesktop.org/download/))  
+You'll need both the runtime and developmental installers for MSVC 64-bit.  It's best to select "Complete" during both installations.
+
+Add GStreamer bin dir to Path (e.g. `C:\gstreamer\1.0\msvc_x86_64\bin` ) 
+
+Open a `x64 Native Tools Command Prompt for VS 2019 Command Prompt`
+
+If you do not yet have a ROS2 workspace, create one ( e.g. `mkdir \dev_ws\src` )
+
+Clone this repo under the src/ folder of your ROS2 workspace ( `git clone https://github.com/BrettRD/ros-gst-bridge.git \dev_ws\src\ros-gst-bridge` )
+
+The ros tools colcon needs to know about your system version of ros, so make sure your environment is set up now: ( `call \dev\ros2_humble\local_setup.bat` )
+
+Navigate to your workspace (e.g. `cd \dev_ws`)
+
+On Windows, ROS 2 packages are generally built with `--merge-install` due to file path limits.
+```
+colcon build --merge-install
+```
+If `--merge-install` is used, to run the examples the `--gst-plugin-path` needs to changed to `--gst-plugin-path=install/lib/gst_bridge/`
+* Example - Generate test video and publish as ROS sensor_msgs /image  
+`gst-launch-1.0 --gst-plugin-path=install/lib/gst_bridge/ videotestsrc ! videoconvert ! rosimagesink ros-topic="image"`
+
 
 ## Licenses
 * gst_pipeline: LGPLv3, depends on gstreamer (LGPLv2.1+)
