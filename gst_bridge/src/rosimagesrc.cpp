@@ -56,7 +56,7 @@ static GstCaps * rosimagesrc_fixate (GstBaseSrc * base_src, GstCaps * caps);
 
 
 static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::ConstSharedPtr msg);
-static sensor_msgs::msg::Image::ConstSharedPtr rosimagesrc_wait_for_msg(Rosimagesrc * src);
+static std::pair<sensor_msgs::msg::Image::ConstSharedPtr, GstClockTime> rosimagesrc_wait_for_msg(Rosimagesrc * src);
 
 
 static void rosimagesrc_set_msg_props_from_caps_string(Rosimagesrc * src, gchar * caps_string);
@@ -161,7 +161,7 @@ static void rosimagesrc_init (Rosimagesrc * src)
   src->msg_init = true;
   src->msg_queue_max = 1;
   // XXX why does queue segfault without expicit construction?
-  src->msg_queue = std::queue<sensor_msgs::msg::Image::ConstSharedPtr>();
+  src->msg_queue = std::queue<std::pair<sensor_msgs::msg::Image::ConstSharedPtr, GstClockTime> >();
 
   /* configure basesrc to be a live source */
   gst_base_src_set_live (GST_BASE_SRC (src), TRUE);
@@ -395,7 +395,9 @@ static GstCaps* rosimagesrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
 
   const gchar * format_str;
   GstVideoFormat format_enum;
-  static sensor_msgs::msg::Image::ConstSharedPtr msg;
+  sensor_msgs::msg::Image::ConstSharedPtr msg;
+  GstClockTime msg_arrival_time;
+
   GstCaps * caps;
 
   Rosimagesrc *src = GST_ROSIMAGESRC (base_src);
@@ -416,7 +418,9 @@ static GstCaps* rosimagesrc_getcaps (GstBaseSrc * base_src, GstCaps * filter)
     }
     GST_DEBUG_OBJECT (src, "getcaps with node ready, waiting for message");
     RCLCPP_INFO(ros_base_src->logger, "waiting for first message");
-    msg = rosimagesrc_wait_for_msg(src);  // XXX need to fix API, the action happens in a side-effect
+    auto msg_pair = rosimagesrc_wait_for_msg(src);  // XXX need to fix API, the action happens in a side-effect
+    msg = msg_pair.first;
+    msg_arrival_time = msg_pair.second;
 
     format_enum = gst_bridge::getGstVideoFormat(std::string(src->encoding));
     format_str = gst_video_format_to_string(format_enum);
@@ -485,6 +489,9 @@ static GstFlowReturn rosimagesrc_create (GstBaseSrc * base_src, guint64 offset, 
   GstFlowReturn ret = GST_FLOW_OK;
   GstBuffer *res_buf;
 
+  sensor_msgs::msg::Image::ConstSharedPtr msg;
+  GstClockTime msg_arrival_time;
+
   GST_DEBUG_OBJECT (src, "create");
 
   if(!ros_base_src->node)
@@ -496,10 +503,16 @@ static GstFlowReturn rosimagesrc_create (GstBaseSrc * base_src, guint64 offset, 
     GST_DEBUG_OBJECT (src, "ros image creating buffer before receiving first message");
   }
 
-  auto msg = rosimagesrc_wait_for_msg(src);
+  auto msg_pair = rosimagesrc_wait_for_msg(src);
   { //scope the mutex lock
     std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
     src->msg_queue.pop();   // XXX we can stop dropping the first message during preroll now
+  }
+  msg = msg_pair.first;
+  msg_arrival_time = msg_pair.second;
+
+  if(msg_arrival_time == GST_CLOCK_TIME_NONE){
+    msg_arrival_time = gst_element_get_base_time(GST_ELEMENT(src));
   }
 
   // XXX check message contains anything
@@ -530,24 +543,37 @@ static GstFlowReturn rosimagesrc_create (GstBaseSrc * base_src, guint64 offset, 
   gst_buffer_unmap (*buf, &info);
 
   base_time = gst_element_get_base_time(GST_ELEMENT(src));
-  GST_BUFFER_PTS (*buf) = rclcpp::Time(msg->header.stamp).nanoseconds() - ros_base_src->ros_clock_offset - base_time;
-
+  if(ros_base_src->ros_ignore_timestamp){
+    GST_BUFFER_PTS (*buf) = 
+      msg_arrival_time -
+      base_time;
+  }
+  else{
+    GST_BUFFER_PTS (*buf) = 
+      rclcpp::Time(msg->header.stamp).nanoseconds() -
+      ros_base_src->ros_clock_offset -
+      base_time;
+  }
   return ret;
 }
 
 static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::ConstSharedPtr msg)
 {
   RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (src);
+  GstClockTime arrival_time;
   //GST_DEBUG_OBJECT (src, "ros cb called");
   //RCLCPP_DEBUG(ros_base_src->logger, "ros cb called");
 
   //fetch caps from the first msg, check on subsequent
   if(src->msg_init)
   {
+    //gst_element_get_base_time(GST_ELEMENT(src));
+    arrival_time = GST_CLOCK_TIME_NONE; 
     rosimagesrc_set_msg_props_from_msg(src, msg);
   }
   else
   {
+    arrival_time = gst_clock_get_time (GST_ELEMENT_CLOCK(src));
     if(!(src->step == msg->step / msg->width))
       RCLCPP_ERROR(ros_base_src->logger, "image format changed during playback, step %d != %d", src->step, msg->step/msg->width);
     if(!(src->height == (int) msg->height))
@@ -560,9 +586,8 @@ static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::Const
       RCLCPP_ERROR(ros_base_src->logger, "image format changed during playback, encoding %s != %s", src->encoding, msg->encoding.c_str());
 
   }
-
   std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
-  src->msg_queue.push(msg);
+  src->msg_queue.push(std::make_pair(msg, arrival_time));
   while(src->msg_queue.size() > src->msg_queue_max)
   {
     src->msg_queue.pop();
@@ -572,7 +597,7 @@ static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::Const
 }
 
 
-static sensor_msgs::msg::Image::ConstSharedPtr rosimagesrc_wait_for_msg(Rosimagesrc * src)
+static std::pair<sensor_msgs::msg::Image::ConstSharedPtr, GstClockTime> rosimagesrc_wait_for_msg(Rosimagesrc * src)
 {
   //RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (src);
 
@@ -581,7 +606,7 @@ static sensor_msgs::msg::Image::ConstSharedPtr rosimagesrc_wait_for_msg(Rosimage
   {
     src->msg_queue_cv.wait(lck);
   }
-  auto msg = src->msg_queue.front();
+  auto msg_pair = src->msg_queue.front();
 
-  return msg;
+  return msg_pair;
 }

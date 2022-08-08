@@ -64,6 +64,7 @@ enum
   PROP_ROS_NAME,
   PROP_ROS_NAMESPACE,
   PROP_ROS_START_TIME,
+  PROP_ROS_IGNORE_TIMESTAMP,
 };
 
 /* class initialization */
@@ -104,6 +105,13 @@ static void rosbasesrc_class_init (RosBaseSrcClass * klass)
       0, (guint64)(-1), GST_CLOCK_TIME_NONE,
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
+
+  g_object_class_install_property (object_class, PROP_ROS_IGNORE_TIMESTAMP,
+      g_param_spec_boolean ("ros-ignore-timestamp", "ros-ignore-timestamp", "use the message arrival time instead of the message timestamp (not recommended)",
+      false,
+      (GParamFlags) G_PARAM_READWRITE)
+  );
+
 
   element_class->change_state = GST_DEBUG_FUNCPTR (rosbasesrc_change_state); //use state change events to open and close subscribers
 
@@ -162,6 +170,17 @@ void rosbasesrc_set_property (GObject * object, guint property_id,
       }
       break;
 
+    case PROP_ROS_IGNORE_TIMESTAMP:
+      if(src->node)
+      {
+        RCLCPP_ERROR(src->logger, "can't change time settings once opened");
+      }
+      else
+      {
+        src->ros_ignore_timestamp = g_value_get_boolean(value);
+      }
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -188,6 +207,10 @@ void rosbasesrc_get_property (GObject * object, guint property_id,
       g_value_set_uint64(value, src->stream_start.nanoseconds());
       // XXX this allows inspection via props,
       //      but may cause confusion because it does not show the actual prop
+      break;
+
+    case PROP_ROS_IGNORE_TIMESTAMP:
+      g_value_set_boolean(value, src->ros_ignore_timestamp);
       break;
 
     default:

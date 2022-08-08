@@ -43,6 +43,7 @@ struct _RosBaseSrc
   GstBaseSrc parent;
   gchar* node_name;
   gchar* node_namespace;
+  bool ros_ignore_timestamp;
 
   rclcpp::Context::SharedPtr ros_context;
   rclcpp::Executor::SharedPtr ros_executor;
