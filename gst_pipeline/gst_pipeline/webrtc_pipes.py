@@ -204,8 +204,24 @@ class webrtc_pipes:
     # XXX using Ghost Pads has a small performace penalty, can we link the pads directly?
     sink_bin = Gst.parse_bin_from_description(sink_bin_descr, True)
     self.bin.add(sink_bin)
-    element.link(sink_bin)
     sink_bin.sync_state_with_parent()
+    element.link(sink_bin)
+
+    sink_bin_pad_iter = sink_bin.iterate_pads()
+    src_pad = None
+    while True:
+      result, test_pad = sink_bin_pad_iter.next()
+      if result == Gst.IteratorResult.DONE:
+        break
+      if test_pad.get_peer() == None:
+        src_pad = test_pad
+        self.node.get_logger().error(f' XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX found dangling pad {test_pad.name}')
+
+
+    if src_pad != None:
+      target_element = self.bin.get_by_name_recurse_up("src_swap")
+      src_pad.add_probe(Gst.PadProbeType.IDLE, self.probe_cb, target_element)
+
 
     if not sink_bin.sync_state_with_parent():
       self.node.get_logger().error('could not synchonise new sink')
@@ -216,6 +232,26 @@ class webrtc_pipes:
       elif name.startswith('audio'):
         self.node.get_logger().debug('synchonised new audio sink')
         self.audio_sink_built = True
+
+
+
+  def probe_cb(self, pad, info, target_element):
+    # this next bit may need to go in a probe_cb
+    target_srcpad = target_element.get_static_pad('src')
+    dest_sinkpad = target_srcpad.get_peer()
+
+    target_srcpad.unlink(dest_sinkpad)
+    self.bin.remove(target_element)
+    GLib.idle_add(self.dispose_src_cb, target_element)
+    pad.link(dest_sinkpad)
+
+    return Gst.PadProbeReturn.REMOVE
+
+
+  def dispose_src_cb(self, src):
+    src.set_state(Gst.State.NULL)
+
+
 
 
   def on_incoming_stream(self, element, pad):

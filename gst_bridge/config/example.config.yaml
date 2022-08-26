@@ -34,12 +34,12 @@ gst_pipeline_node:
     # List the gstreamer bins to generate, and provide descriptions later #
     #######################################################################
 
-    simple_bins:
-      - audio_test
-      - video_test
+    #simple_bins:
+    #  - audio_test
+    #  - video_test
 
-    #webrtc_bins:
-    #  - webrtc_example_bin
+    webrtc_bins:
+      - webrtc_example_bin
 
     #######################################################################
     # describe the gstreamer bins listed above                            #
@@ -66,10 +66,19 @@ gst_pipeline_node:
     webrtc_example_bin:
       stun_server: 'stun://stun.l.google.com:19302'
       element_name: 'sendrecv'  # the name of the webrtc element in the middle of the pipeline, appears in diagnostics
-      audio_src_bin_descr: ' audiotestsrc volume=0.3 is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay ! application/x-rtp,media=audio,encoding-name=OPUS,payload=96 ! queue '
-      video_src_bin_descr: ' videotestsrc is-live=true pattern=ball ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay ! application/x-rtp,media=video,encoding-name=VP8,payload=97 ! queue '
-      video_sink_bin_descr: ' queue ! videoconvert ! ximagesink'
-      audio_sink_bin_descr: ' queue ! alsasink '
+
+      # normal operation
+      #audio_src_bin_descr: ' audiotestsrc volume=0.3 is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay ! application/x-rtp,media=audio,encoding-name=OPUS,payload=96 ! queue '
+      #video_src_bin_descr: ' videotestsrc is-live=true pattern=ball ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay ! application/x-rtp,media=video,encoding-name=VP8,payload=97 ! queue '
+      #video_sink_bin_descr: ' queue ! videoconvert ! ximagesink'
+      #audio_sink_bin_descr: ' queue ! alsasink '
+
+      # Demonstrates removing the first element from video_src_bin_descr when video_sink_bin_descr has a dangling src pad - this is very dirty code
+      audio_src_bin_descr: ' audiotestsrc volume=0.0 is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay ! application/x-rtp,media=audio,encoding-name=OPUS,payload=96 ! queue '
+      video_src_bin_descr: ' videotestsrc pattern=ball name=src_swap ! videoconvert ! queue ! agingtv ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay ! application/x-rtp,media=video,encoding-name=VP8,payload=97 ! queue '
+      video_sink_bin_descr: ' queue ! videoconvert '  # ! ximagesink '
+      audio_sink_bin_descr: ' queue ! fakesink '
+
       # select the signalling protocol handler, then declare properties for it.
 
       signalling: webrtc_transport_ws
