@@ -118,7 +118,11 @@ def build_webrtc_bins(pipe_node, loop):
       pipe_node.declare_parameters(
         namespace='',
         parameters=[
-          (name + '.' + 'signalling', None)
+          (name + '.' + 'signalling', None, ParameterDescriptor(
+            name= name + '.' + 'signalling',
+            type=ParameterType.PARAMETER_STRING,
+            **distro_dynamic_typing,
+          ))
         ]
       )
       webrtc_transport = None

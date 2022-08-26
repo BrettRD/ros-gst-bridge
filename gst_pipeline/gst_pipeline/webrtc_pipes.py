@@ -16,6 +16,18 @@ import diagnostic_msgs
 
 from gst_pipeline.webrtc_sigchan import webrtc_sigchan
 
+from rclpy.parameter import Parameter
+from rcl_interfaces.msg import ParameterDescriptor
+from rcl_interfaces.msg import ParameterType
+
+# XXX this is an awful hack to deal with broken param type mappings in galactic.
+# https://github.com/ros2/rclpy/issues/829#issuecomment-937517881
+import os
+rosdistro=os.environ['ROS_DISTRO']
+if rosdistro == 'galactic':
+  distro_dynamic_typing={'dynamic_typing':True}
+else:
+  distro_dynamic_typing={}
 
 #XXX collect some of these from ros parameter server
 default_stun_server = 'stun://stun.l.google.com:19302'
@@ -77,12 +89,36 @@ class webrtc_pipes:
     self.node.declare_parameters(
       namespace='',
       parameters=[
-        (param_prefix + 'stun_server', None),
-        (param_prefix + 'element_name', None),
-        (param_prefix + 'audio_src_bin_descr', None),
-        (param_prefix + 'video_src_bin_descr', None),
-        (param_prefix + 'video_sink_bin_descr', None),
-        (param_prefix + 'audio_sink_bin_descr', None)
+        (param_prefix + 'stun_server', None, ParameterDescriptor(
+          name=param_prefix + 'stun_server',
+          type=ParameterType.PARAMETER_STRING,
+          **distro_dynamic_typing
+          )),
+        (param_prefix + 'element_name', None, ParameterDescriptor(
+          name=param_prefix + 'element_name',
+          type=ParameterType.PARAMETER_STRING,
+          **distro_dynamic_typing
+          )),
+        (param_prefix + 'audio_src_bin_descr', None, ParameterDescriptor(
+          name=param_prefix + 'audio_src_bin_descr',
+          type=ParameterType.PARAMETER_STRING,
+          **distro_dynamic_typing
+          )),
+        (param_prefix + 'video_src_bin_descr', None, ParameterDescriptor(
+          name=param_prefix + 'video_src_bin_descr',
+          type=ParameterType.PARAMETER_STRING,
+          **distro_dynamic_typing
+          )),
+        (param_prefix + 'video_sink_bin_descr', None, ParameterDescriptor(
+          name=param_prefix + 'video_sink_bin_descr',
+          type=ParameterType.PARAMETER_STRING,
+          **distro_dynamic_typing
+          )),
+        (param_prefix + 'audio_sink_bin_descr', None, ParameterDescriptor(
+          name=param_prefix + 'audio_sink_bin_descr',
+          type=ParameterType.PARAMETER_STRING,
+          **distro_dynamic_typing
+          ))
         #('signalling', None) # always pass the signalling protocol handler by argument
       ]
     )

@@ -22,6 +22,20 @@ from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 
 from gst_pipeline.webrtc_sigchan import parse_WebRTCSDPType
 
+from rclpy.parameter import Parameter
+from rcl_interfaces.msg import ParameterDescriptor
+from rcl_interfaces.msg import ParameterType
+
+# XXX this is an awful hack to deal with broken param type mappings in galactic.
+# https://github.com/ros2/rclpy/issues/829#issuecomment-937517881
+import os
+rosdistro=os.environ['ROS_DISTRO']
+if rosdistro == 'galactic':
+  distro_dynamic_typing={'dynamic_typing':True}
+else:
+  distro_dynamic_typing={}
+
+
 node_id_param = 'node_id'
 peer_id_param = 'peer_id'
 server_param = 'server'
@@ -75,11 +89,36 @@ class webrtc_transport_ws:
     self.node.declare_parameters(
       namespace='',
       parameters=[
-        (param_prefix + 'signalling_server', ''),
-        (param_prefix + 'node_id', 0),
-        (param_prefix + 'peer_id', 0),
-        (param_prefix + 'offer', True),
-        (param_prefix + 'autodial', True)
+        (param_prefix + 'signalling_server', '', ParameterDescriptor(
+          name=param_prefix + 'signalling_server',
+          type=ParameterType.PARAMETER_STRING,
+          **distro_dynamic_typing
+          )
+        ),
+        (param_prefix + 'node_id', 0, ParameterDescriptor(
+          name=param_prefix + 'node_id',
+          type=ParameterType.PARAMETER_INTEGER,
+          **distro_dynamic_typing
+          )
+        ),
+        (param_prefix + 'peer_id', 0, ParameterDescriptor(
+          name=param_prefix + 'peer_id',
+          type=ParameterType.PARAMETER_INTEGER,
+          **distro_dynamic_typing
+          )
+        ),
+        (param_prefix + 'offer', True, ParameterDescriptor(
+          name=param_prefix + 'offer',
+          type=ParameterType.PARAMETER_BOOL,
+          **distro_dynamic_typing
+          )
+        ),
+        (param_prefix + 'autodial', True, ParameterDescriptor(
+          name=param_prefix + 'autodial',
+          type=ParameterType.PARAMETER_BOOL,
+          **distro_dynamic_typing
+          )
+        )
       ]
     )
     server =    self.node.get_parameter(param_prefix + 'signalling_server').value
