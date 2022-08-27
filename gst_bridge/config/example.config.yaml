@@ -75,7 +75,7 @@ gst_pipeline_node:
 
       # Demonstrates removing the first element from video_src_bin_descr when video_sink_bin_descr has a dangling src pad - this is very dirty code
       audio_src_bin_descr: ' audiotestsrc volume=0.0 is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay ! application/x-rtp,media=audio,encoding-name=OPUS,payload=96 ! queue '
-      video_src_bin_descr: ' videotestsrc pattern=ball name=src_swap ! videoconvert ! queue ! agingtv ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay ! application/x-rtp,media=video,encoding-name=VP8,payload=97 ! queue '
+      video_src_bin_descr: ' videotestsrc pattern=ball name=src_swap ! videoconvert ! queue ! agingtv ! videoconvert ! tee name=chewed ! queue! videoconvert ! rosimagesink  chewed. ! queue ! vp8enc deadline=1 ! rtpvp8pay ! application/x-rtp,media=video,encoding-name=VP8,payload=97 ! queue '
       video_sink_bin_descr: ' queue ! videoconvert '  # ! ximagesink '
       audio_sink_bin_descr: ' queue ! fakesink '
 
