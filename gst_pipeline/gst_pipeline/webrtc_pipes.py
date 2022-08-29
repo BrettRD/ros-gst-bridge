@@ -240,10 +240,16 @@ class webrtc_pipes:
     target_srcpad = target_element.get_static_pad('src')
     dest_sinkpad = target_srcpad.get_peer()
 
+    # this debug output needs a parameter toggle
+    Gst.debug_bin_to_dot_file(self.bin, Gst.DebugGraphDetails.ALL, "pipes_before")
+
     target_srcpad.unlink(dest_sinkpad)
     self.bin.remove(target_element)
     GLib.idle_add(self.dispose_src_cb, target_element)
     pad.link(dest_sinkpad)
+
+    # this debug output needs a parameter toggle
+    Gst.debug_bin_to_dot_file(self.bin, Gst.DebugGraphDetails.ALL, "pipes_after")
 
     return Gst.PadProbeReturn.REMOVE
 
