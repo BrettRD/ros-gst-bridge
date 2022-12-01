@@ -32,12 +32,14 @@ GstClockTimeDiff sample_clock_offset(GstClock* gst_clock, rclcpp::Time stream_st
 // convert between ROS and GST types, only fully transparent mappings
 GstVideoFormat getGstVideoFormat(const std::string & encoding)
 {
-  if (encoding == sensor_msgs::image_encodings::MONO8)  {return GST_VIDEO_FORMAT_GRAY8;}
-  if (encoding == sensor_msgs::image_encodings::MONO16) {return GST_VIDEO_FORMAT_GRAY16_LE;}
-  if (encoding == sensor_msgs::image_encodings::RGB8)   {return GST_VIDEO_FORMAT_RGB;}
-  if (encoding == sensor_msgs::image_encodings::BGR8)   {return GST_VIDEO_FORMAT_BGR;}
-  if (encoding == sensor_msgs::image_encodings::RGBA8)  {return GST_VIDEO_FORMAT_RGBA;}
-  if (encoding == sensor_msgs::image_encodings::BGRA8)  {return GST_VIDEO_FORMAT_BGRA;}
+  if (encoding == sensor_msgs::image_encodings::MONO8)       {return GST_VIDEO_FORMAT_GRAY8;}
+  if (encoding == sensor_msgs::image_encodings::MONO16)      {return GST_VIDEO_FORMAT_GRAY16_LE;}
+  if (encoding == sensor_msgs::image_encodings::RGB8)        {return GST_VIDEO_FORMAT_RGB;}
+  if (encoding == sensor_msgs::image_encodings::BGR8)        {return GST_VIDEO_FORMAT_BGR;}
+  if (encoding == sensor_msgs::image_encodings::RGBA8)       {return GST_VIDEO_FORMAT_RGBA;}
+  if (encoding == sensor_msgs::image_encodings::BGRA8)       {return GST_VIDEO_FORMAT_BGRA;}
+  if (encoding == sensor_msgs::image_encodings::YUV422)      {return GST_VIDEO_FORMAT_UYVY;}
+  if (encoding == sensor_msgs::image_encodings::YUV422_YUY2) {return GST_VIDEO_FORMAT_YUY2;}
   return GST_VIDEO_FORMAT_UNKNOWN;
 }
 
@@ -49,6 +51,8 @@ std::string getRosEncoding(GstVideoFormat format)
   if (format == GST_VIDEO_FORMAT_BGR)       {return sensor_msgs::image_encodings::BGR8;}
   if (format == GST_VIDEO_FORMAT_RGBA)      {return sensor_msgs::image_encodings::RGBA8;}
   if (format == GST_VIDEO_FORMAT_BGRA)      {return sensor_msgs::image_encodings::BGRA8;}
+  if (format == GST_VIDEO_FORMAT_UYVY)      {return sensor_msgs::image_encodings::YUV422;}
+  if (format == GST_VIDEO_FORMAT_YUY2)      {return sensor_msgs::image_encodings::YUV422_YUY2;}
   return "unknown";
 }
 
