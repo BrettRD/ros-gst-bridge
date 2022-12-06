@@ -30,7 +30,7 @@
 #include <sensor_msgs/image_encodings.hpp>
 #include <audio_msgs/msg/audio.hpp>
 
-#define GST_BRIDGE_GST_VIDEO_FORMAT_LIST "{ GRAY8, GRAY16_LE, RGB, BGR, RGBA, BGRA }"
+#define GST_BRIDGE_GST_VIDEO_FORMAT_LIST "{ GRAY8, GRAY16_LE, RGB, BGR, RGBA, BGRA, UYVY, YUY2 }"
 #define GST_BRIDGE_GST_AUDIO_FORMAT_LIST "{ S8, U8, S16LE, U16LE, S32LE, U32LE, F32LE, F64LE }"    // only well behaved formats
 
 // The following audio formats are theoretically ok, but might be more trouble than they're worth.
