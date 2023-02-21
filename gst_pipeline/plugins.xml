@@ -1,0 +1,15 @@
+<library path="gstpipes_plugins">
+
+  <class type="gst_pipes::gst_pipes_appsrc" base_class_type="gst_pipes::gst_pipes_plugin">
+    <description>
+    A class that connects subscription callbacks to an appsrc in a GStreamer pipeline.
+    </description>
+  </class>
+
+  <class type="gst_pipes::gst_pipes_appsink" base_class_type="gst_pipes::gst_pipes_plugin">
+    <description>
+    A class that connects publish calls to appsink callbacks in a GStreamer pipeline.
+    </description>
+  </class>
+
+</library>

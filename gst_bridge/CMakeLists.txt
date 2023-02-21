@@ -167,6 +167,12 @@ install(TARGETS rosgstbridge
   DESTINATION lib/${PROJECT_NAME}
 )
 
+ament_export_dependencies(
+  rclcpp
+  audio_msgs
+  sensor_msgs
+)
+
 ament_package(
   CONFIG_EXTRAS
 )
