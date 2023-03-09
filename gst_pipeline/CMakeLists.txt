@@ -56,59 +56,32 @@ add_library(gstpipes SHARED
   #src/gst_pipes_plugins.cpp
 )
 
-
-target_include_directories(gstpipes
-  PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-    ${gst_bridge_INCLUDE_DIRS}
-    #${audio_msgs_INCLUDE_DIRS}
-    #${rclcpp_INCLUDE_DIRS}
-    ${pluginlib_INCLUDE_DIRS}
-    #${sensor_msgs_INCLUDE_DIRS}
+ament_target_dependencies(gstpipes
+  gst_bridge
+  pluginlib
+  rcl
+  rclcpp
+  rclcpp_components
+  sensor_msgs
+  GSTREAMER
 )
 
-target_link_libraries(gstpipes
-  PUBLIC
-    class_loader::class_loader
-    ${pluginlib_TARGETS}
-    ${rclcpp_components_LIBRARIES}
-    ${gst_bridge_LIBRARIES}
-    #rclcpp::rclcpp
-    PkgConfig::GSTREAMER
-    PkgConfig::GST_APP
-    )
-
-
-  add_library(gstpipes_plugins SHARED
-    src/gst_pipes_plugins.cpp
-  )
-
-  target_include_directories(gstpipes_plugins PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-    ${gst_bridge_INCLUDE_DIRS}
-    #${rclcpp_INCLUDE_DIRS}
-    ${pluginlib_INCLUDE_DIRS}
-    ${TinyXML2_INCLUDE_DIRS}
+add_library(gstpipes_plugins SHARED
+  src/gst_pipes_plugins.cpp
 )
 
-target_link_libraries(gstpipes_plugins
-  PUBLIC
-    #class_loader::class_loader
-    #${pluginlib_LIBRARIES}
-    #${sensor_msgs_LIBRARIES}
-    ${gst_bridge_LIBRARIES}
-    #rclcpp::rclcpp
-    PkgConfig::GSTREAMER
-    PkgConfig::GST_APP
-    #${TinyXML2_LIBRARIES}
-  )
-
+ament_target_dependencies(gstpipes_plugins
+  gst_bridge
+  pluginlib
+  rcl
+  rclcpp
+  sensor_msgs
+  GSTREAMER
+)
 
 
 rclcpp_components_register_node(
-  gstpipes 
+  gstpipes
   PLUGIN "gst_pipes::gst_pipes"
   EXECUTABLE gst_pipes_node
   )
