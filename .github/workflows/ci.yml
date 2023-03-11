@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-20.04, ubuntu-22.04 ]
+        os: [ ubuntu-22.04 ]
         ros_distribution: [ foxy, galactic, humble, rolling ]
         include:
           - ros_distribution: foxy
@@ -34,12 +34,12 @@ jobs:
       image: ${{ matrix.docker_image }}
     steps:
     - name: setup ROS environment
-      uses: ros-tooling/setup-ros@0.6
+      uses: ros-tooling/setup-ros@v0.6
       with:
         use-ros2-testing: ${{ matrix.use_ros_testing }}
         required-ros-distributions: ${{ matrix.ros_distribution }}
     - name: build and test
-      uses : ros-tooling/action-ros-ci@0.2
+      uses: ros-tooling/action-ros-ci@v0.2
       with:
         package-name: "audio_msgs gst_bridge gst_pipeline"
         target-ros2-distro: ${{ matrix.ros_distribution }}
