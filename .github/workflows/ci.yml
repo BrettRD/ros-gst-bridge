@@ -6,6 +6,7 @@ on:
   #schedule:
   #  # Run once per month to detect broken dependencies.
   #  - cron: '43 15 23 * *'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -13,25 +14,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-20.04 ]
-        ros_distribution: [ foxy, galactic, rolling ]
+        os: [ ubuntu-20.04, ubuntu-22.04 ]
+        ros_distribution: [ foxy, galactic, humble, rolling ]
         include:
           - ros_distribution: foxy
-            use_ros_testing: false
+            docker_image: ubuntu:focal
+            use_ros_testing: true
           - ros_distribution: galactic
-            use_ros_testing: false
+            docker_image: ubuntu:focal
+            use_ros_testing: true
+          - ros_distribution: humble
+            docker_image: ubuntu:jammy
+            use_ros_testing: true
           - ros_distribution: rolling
+            docker_image: ubuntu:jammy
             use_ros_testing: true
 
     container:
-      image: ubuntu:focal
+      image: ${{ matrix.docker_image }}
     steps:
-    - uses: actions/checkout@v2
-    - uses: ros-tooling/setup-ros@0.2.1
+    - name: setup ROS environment
+      uses: ros-tooling/setup-ros@0.6
       with:
         use-ros2-testing: ${{ matrix.use_ros_testing }}
         required-ros-distributions: ${{ matrix.ros_distribution }}
-    - uses : ros-tooling/action-ros-ci@0.2.1
+    - name: build and test
+      uses : ros-tooling/action-ros-ci@0.2
       with:
         package-name: "audio_msgs gst_bridge gst_pipeline"
         target-ros2-distro: ${{ matrix.ros_distribution }}
