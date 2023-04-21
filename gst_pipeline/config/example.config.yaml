@@ -8,7 +8,7 @@ gst_pipes_node:
 
     #pipeline_base_descr: "appsrc name='mysrc' ! appsink name='mysink'"
     #pipeline_base_descr: ""
-    pipeline_base_descr: "fakesrc ! fakesink"
+    pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! ximagesink name=mysink"
 
     ros_plugin_names:
       - "appsrc_handler"

@@ -16,6 +16,11 @@ This node loads via ros_components, and exposes node interfaces to a
 plugins are expected to load their config from the node interface,
   search for relevant gst elements from the pipeline,
   and connect parsers to relevant bus messages
+
+This node should iterate through all elements and expose their
+  properties as parameters where sensible type mappings exist,
+  and run a diagnostic updater with information about the pipeline.
+
 */
 
 
@@ -29,7 +34,7 @@ gst_pipes::gst_pipes(const rclcpp::NodeOptions & options):
 {
 
   // get gstreamer ready
-  // XXX check gstreamer args for easy functionality
+  // XXX can gstreamer args add easy functionality?
   gst_init(nullptr, nullptr);
 
   RCLCPP_INFO(
@@ -41,7 +46,7 @@ gst_pipes::gst_pipes(const rclcpp::NodeOptions & options):
 
 
   // validate and load the gstreamer plugin paths
-
+  // XXX add a helper version that asks colcon where packages put their libs
   declare_parameter("gst_plugin_paths", gst_plugin_paths_,
     descr("paths to look for gstreamer plugins", true));
   gst_plugin_paths_ = get_parameter(
@@ -137,15 +142,24 @@ gst_pipes::gst_pipes(const rclcpp::NodeOptions & options):
   }
   else
   {
+    RCLCPP_INFO(get_logger(),
+      "instantiating a pipeline using description '%s'",
+      gst_pipeline_base_descr_.c_str()
+    );
+
     pipeline_ = gst_parse_launch(gst_pipeline_base_descr_.c_str(), &error);
     if (!pipeline_) {
       RCLCPP_FATAL(get_logger(), error->message);
       //return false;
     }
+
+
   }
 
-  // XXX Connect to the pipeline clock using a pipeline context variable
-
+  // XXX Connect to the pipeline clock
+  // XXX Measure the ros clock offset and add a GstContext to the pipeline
+  //     Plugins (both here and inside the pipeline) should refer to 
+  //     the pipeline's GstContext
 
   node_interface_collection node_if = {
     get_node_base_interface(),
@@ -162,8 +176,42 @@ gst_pipes::gst_pipes(const rclcpp::NodeOptions & options):
   }
 
 
-  // optionally wait for play/pause event (probably a subscription or service call)
 
+  // #### start the pipeline ####
+
+  GstStateChangeReturn state_return;
+  state_return = gst_element_set_state(pipeline_, GST_STATE_READY);
+
+  if(GST_STATE_CHANGE_FAILURE != state_return)
+  {
+    state_return = gst_element_set_state(pipeline_, GST_STATE_PAUSED);
+    // XXX Sanity-check that the rosimagesink doesn't just play here
+    if(GST_STATE_CHANGE_FAILURE != state_return)
+    {
+      // XXX add a play_automatically param defaulting to true
+      state_return = gst_element_set_state(pipeline_, GST_STATE_PLAYING);
+
+      if(GST_STATE_CHANGE_FAILURE != state_return)
+      {
+        RCLCPP_INFO(get_logger(), "Pipeline running");
+
+
+
+      }
+      else
+      {
+        RCLCPP_FATAL(get_logger(), "Failed to play stream");
+      }
+    }
+    else
+    {
+      RCLCPP_FATAL(get_logger(), "Failed to pause stream");
+    }
+  }
+  else
+  {
+    RCLCPP_FATAL(get_logger(), "Failed to ready stream");
+  }
 
 }
 

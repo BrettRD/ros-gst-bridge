@@ -38,7 +38,7 @@ class gst_pipes_appsink : public gst_pipes_plugin
   // the name of the target element in the pipeline
   std::string appsink_name_;
   // a pointer to the appsink in the pipeline
-  GstElement * sink;
+  GstElement * sink_;
 
 };
 
@@ -62,7 +62,7 @@ class gst_pipes_appsrc : public gst_pipes_plugin
   // the name of the target element in the pipeline
   std::string appsrc_name_;
   // a pointer to the appsrc in the pipeline
-  GstElement * src;
+  GstElement * src_;
 };
 
 

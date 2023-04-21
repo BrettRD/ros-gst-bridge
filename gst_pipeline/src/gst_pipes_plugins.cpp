@@ -5,7 +5,14 @@
 appsrc and appsink elements are handled by classes that bind callbacks to
   both the gstreamer elements, and the ros node interface.
 
-aravissrc will benefit from a plugin that exposes gig-e values
+appsrc and appsink essentailly re-implement rosimagesrc and rosimagesink,
+  but going through rclcpp and binding directly to the node interface allows
+  gst_pipes to be a composable node, and perform zero-copy messaging through
+  its pluginlib plugins.
+
+
+aravissrc will benefit from a plugin that exposes
+  gig-e values as parameters and services
 
 webrtc may need a complex plugin that dynamically re-configures the pipeline.
 
@@ -33,15 +40,40 @@ namespace gst_pipes
       descr("the name of the appsink element inside the pipeline", true)
     ).get<std::string>();
 
-    RCLCPP_INFO(
-      node_if.log->get_logger(),
-      "Binding gst_pipes_appsink '%s' to gstreamer element '%s'",
-      name_.c_str(),
-      appsink_name_.c_str()
-    );
 
-    // XXX search for the element in pipeline_
+    if (GST_IS_BIN(pipeline_))
+    {
 
+      sink_ = gst_bin_get_by_name(GST_BIN_CAST(pipeline_), appsink_name_.c_str());
+      if(sink_)
+      {
+        RCLCPP_INFO(
+          node_if.log->get_logger(),
+          "plugin gst_pipes_appsink '%s' found '%s'",
+          name_.c_str(),
+          appsink_name_.c_str()
+        );
+      }
+
+
+      else
+      {
+        RCLCPP_ERROR(
+          node_if.log->get_logger(),
+          "plugin gst_pipes_appsink '%s' failed to locate a gstreamer element called '%s'",
+          name_.c_str(),
+          appsink_name_.c_str()
+        );
+      }
+    }
+    else
+    {
+      RCLCPP_ERROR(
+        node_if.log->get_logger(),
+        "plugin gst_pipes_appsink '%s' received invalid pipeline in initialisation",
+        name_.c_str()
+      );
+    }
   }
 
   void gst_pipes_appsink::frame_cb(/* ideally the gstreamer buffer*/)
@@ -67,15 +99,40 @@ namespace gst_pipes
       descr("the name of the appsrc element inside the pipeline", true)
     ).get<std::string>();
 
-    RCLCPP_INFO(
-      node_if.log->get_logger(),
-      "Binding gst_pipes_appsrc '%s' to gstreamer element '%s'",
-      name_.c_str(),
-      appsrc_name_.c_str()
-    );
 
-    // XXX search for the element in pipeline_
+    if (GST_IS_BIN(pipeline_))
+    {
 
+      src_ = gst_bin_get_by_name(GST_BIN_CAST(pipeline_), appsrc_name_.c_str());
+      if(src_)
+      {
+        RCLCPP_INFO(
+          node_if.log->get_logger(),
+          "plugin gst_pipes_appsrc '%s' found '%s'",
+          name_.c_str(),
+          appsrc_name_.c_str()
+        );
+      }
+
+
+      else
+      {
+        RCLCPP_ERROR(
+          node_if.log->get_logger(),
+          "plugin gst_pipes_appsrc '%s' failed to locate a gstreamer element called '%s'",
+          name_.c_str(),
+          appsrc_name_.c_str()
+        );
+      }
+    }
+    else
+    {
+      RCLCPP_ERROR(
+        node_if.log->get_logger(),
+        "plugin gst_pipes_appsrc '%s' received invalid pipeline in initialisation",
+        name_.c_str()
+      );
+    }
   }
 
   void gst_pipes_appsrc::frame_cb(/* the ros image message / audio message */)
