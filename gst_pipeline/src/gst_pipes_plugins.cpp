@@ -18,22 +18,6 @@ namespace gst_pipes
 {
 
 
-  gst_pipes_plugin::gst_pipes_plugin(){}
-
-  void gst_pipes_plugin::initialise(
-    std::string name, // the config name of the plugin
-    node_interface_collection node_if,
-    GstElement * pipeline)
-  { name_ = name;
-    node_if_ = node_if;
-    pipeline_= pipeline;
-  }
-
-
-
-
-
-
   void gst_pipes_appsink::initialise(
     std::string name, // the config name of the plugin
     node_interface_collection node_if,
@@ -42,9 +26,9 @@ namespace gst_pipes
     name_ = name;
     node_if_ = node_if;
     pipeline_= pipeline;
-    std::string appsink_name;
-    appsink_name = node_if.param-> declare_parameter(
-      name+"/appsink_name",
+
+    appsink_name_ = node_if.param-> declare_parameter(
+      name+".appsink_name",
       rclcpp::ParameterType::PARAMETER_STRING,
       descr("the name of the appsink element inside the pipeline", true)
     ).get<std::string>();
@@ -53,8 +37,10 @@ namespace gst_pipes
       node_if.log->get_logger(),
       "Binding gst_pipes_appsink '%s' to gstreamer element '%s'",
       name_.c_str(),
-      appsink_name.c_str()
+      appsink_name_.c_str()
     );
+
+    // XXX search for the element in pipeline_
 
   }
 
@@ -74,9 +60,9 @@ namespace gst_pipes
     name_ = name;
     node_if_ = node_if;
     pipeline_= pipeline;
-    std::string appsrc_name;
-    appsrc_name = node_if.param-> declare_parameter(
-      name+"/appsrc_name",
+
+    appsrc_name_ = node_if.param-> declare_parameter(
+      name+".appsrc_name",
       rclcpp::ParameterType::PARAMETER_STRING,
       descr("the name of the appsrc element inside the pipeline", true)
     ).get<std::string>();
@@ -85,8 +71,11 @@ namespace gst_pipes
       node_if.log->get_logger(),
       "Binding gst_pipes_appsrc '%s' to gstreamer element '%s'",
       name_.c_str(),
-      appsrc_name.c_str()
+      appsrc_name_.c_str()
     );
+
+    // XXX search for the element in pipeline_
+
   }
 
   void gst_pipes_appsrc::frame_cb(/* the ros image message / audio message */)

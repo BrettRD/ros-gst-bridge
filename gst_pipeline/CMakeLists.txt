@@ -97,8 +97,8 @@ install(
 )
 
 install(DIRECTORY
-  #config
-  #launch
+  config
+  launch
   ${PROJECT_NAME}
   DESTINATION share/${PROJECT_NAME}
 )

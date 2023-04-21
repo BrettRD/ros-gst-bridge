@@ -1,7 +1,5 @@
 
 #include <gst_pipes.h>
-#include <pluginlib/class_loader.hpp>
-#include <gst_pipes_plugins.h>
 
 extern "C" {
 #include "gst/gst.h"
@@ -27,7 +25,7 @@ namespace gst_pipes {
 
 
 gst_pipes::gst_pipes(const rclcpp::NodeOptions & options):
-  Node("gst_pipes", options)
+  Node("gst_pipes_node", options)
 {
 
   // get gstreamer ready
@@ -46,7 +44,8 @@ gst_pipes::gst_pipes(const rclcpp::NodeOptions & options):
 
   declare_parameter("gst_plugin_paths", gst_plugin_paths_,
     descr("paths to look for gstreamer plugins", true));
-
+  gst_plugin_paths_ = get_parameter(
+    "gst_plugin_paths").get_value<std::vector<std::string> >();
 
   auto registry = gst_registry_get();
   if (registry)
@@ -79,7 +78,8 @@ gst_pipes::gst_pipes(const rclcpp::NodeOptions & options):
   // read the pipeline parameter
   declare_parameter("pipeline_base_descr", gst_pipeline_base_descr_,
     descr("pipeline description to load before plugins", true));
-
+  gst_pipeline_base_descr_ = get_parameter(
+    "pipeline_base_descr").get_value<std::string>();
 
 
 
@@ -87,44 +87,62 @@ gst_pipes::gst_pipes(const rclcpp::NodeOptions & options):
 
   // read the pluginlib parameters (to handle elements)
   // fetch the names and types of the ros plugins
-  declare_parameter("plugin_names", ros_plugin_names_,
+  declare_parameter("ros_plugin_names", ros_plugin_names_,
     descr("list of names for each instance of a plugin to load", true));
+  ros_plugin_names_ = get_parameter(
+    "ros_plugin_names").get_value<std::vector<std::string> >();
 
   for(auto name : ros_plugin_names_){
     std::string type;
-    declare_parameter(name+"/type", type,
+    declare_parameter(name+".type", type,
       descr("the type of the \"" + name +
         "\" plugin this must be a pluginlib class name like \"gst_pipes::gst_pipes_appsink\"",
         true));
+    type = get_parameter(name+".type").get_value<std::string>();
+
     ros_plugin_types_[name] = type;
+
+    RCLCPP_INFO(get_logger(),
+      "preparing to load a %s for %s",
+      type.c_str(),
+      name.c_str());
+
   }
 
 
   // instantiate the pluginlib classloader
-  pluginlib::ClassLoader<gst_pipes_plugin> loader(
-    "gst_pipeline",
-    "gst_pipes::gst_pipes_plugin"
-  );
+  loader_ = std::make_unique<pluginlib::ClassLoader<gst_pipes_plugin> >(
+    "gst_pipeline", "gst_pipes::gst_pipes_plugin");
 
 
 
   // load the ros plugins, but don't initialise
   for(auto name_type : ros_plugin_types_){
+    RCLCPP_INFO(get_logger(),
+      "loading a %s for %s",
+      name_type.second.c_str(),
+      name_type.first.c_str());
     // instantiate the pluginlib plugins
     element_handlers_[name_type.first] =
-      loader.createSharedInstance(name_type.second);
+      loader_->createSharedInstance(name_type.second);
   }
 
 
 
   // instantiate the pipeline
   GError * error = nullptr;
-  pipeline_ = gst_parse_launch(gst_pipeline_base_descr_.c_str(), &error);
-  if (!pipeline_) {
-    RCLCPP_FATAL(get_logger(), error->message);
-    //return false;
+  if("" == gst_pipeline_base_descr_)
+  {
+    RCLCPP_WARN(get_logger(), "instantiating an empty pipeline");
   }
-
+  else
+  {
+    pipeline_ = gst_parse_launch(gst_pipeline_base_descr_.c_str(), &error);
+    if (!pipeline_) {
+      RCLCPP_FATAL(get_logger(), error->message);
+      //return false;
+    }
+  }
 
   // XXX Connect to the pipeline clock using a pipeline context variable
 

@@ -7,8 +7,8 @@
 
 
 #include "rclcpp/rclcpp.hpp"
-// XXX split this file into base class / derived classes
-#include <gst_pipes_plugins.h>
+#include <pluginlib/class_loader.hpp>
+#include <gst_pipes_plugin_base.h>
 
 
 namespace gst_pipes {
@@ -31,7 +31,10 @@ class gst_pipes : public rclcpp::Node
   GstElement * pipeline_;
 
 
-  // ### pluginlib element handlers ###
+  // ### pluginlib  ###
+
+  std::unique_ptr<pluginlib::ClassLoader<gst_pipes_plugin>> loader_;
+
   std::unordered_map<
     std::string,
     std::shared_ptr<gst_pipes_plugin>
