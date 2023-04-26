@@ -13,14 +13,6 @@ Many thanks to Clyde McQueen for his work on gscam2
 This node loads via ros_components, and exposes node interfaces to a
   variety of plugins.
 
-plugins are expected to load their config from the node interface,
-  search for relevant gst elements from the pipeline,
-  and connect parsers to relevant bus messages
-
-This node should iterate through all elements and expose their
-  properties as parameters where sensible type mappings exist,
-  and run a diagnostic updater with information about the pipeline.
-
 */
 
 

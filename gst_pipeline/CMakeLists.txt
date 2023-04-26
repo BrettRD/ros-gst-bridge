@@ -67,7 +67,7 @@ ament_target_dependencies(gstpipes
 )
 
 add_library(gstpipes_plugins SHARED
-  src/gst_pipes_plugins.cpp
+  src/gst_pipes_plugin_app_elements.cpp
 )
 
 ament_target_dependencies(gstpipes_plugins

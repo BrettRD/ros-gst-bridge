@@ -1,15 +1,21 @@
-#include <gst_pipes_plugins.h>
+#include <gst_pipes_plugin_app_elements.h>
 
 /*
 
 appsrc and appsink elements are handled by classes that bind callbacks to
   both the gstreamer elements, and the ros node interface.
-
-appsrc and appsink essentailly re-implement rosimagesrc and rosimagesink,
+  appsrc and appsink essentailly re-implement rosimagesrc and rosimagesink,
   but going through rclcpp and binding directly to the node interface allows
-  gst_pipes to be a composable node, and perform zero-copy messaging through
-  its pluginlib plugins.
+  gst_pipes to be a composable node
 
+Property to Parameter mappings:
+  Iterate through all gstreamer elements, declare parameters for every property
+
+Diagnostics: 
+  Connect a Diagnostic Updater to the pipeline
+
+Play/Pause:
+  provide a ROS service with a Gazebo style play/pause API
 
 aravissrc will benefit from a plugin that exposes
   gig-e values as parameters and services
