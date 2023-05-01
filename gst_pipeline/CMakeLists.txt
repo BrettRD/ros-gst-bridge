@@ -67,7 +67,9 @@ ament_target_dependencies(gstpipes
 )
 
 add_library(gstpipes_plugins SHARED
+  src/syntax_sugar.cpp
   src/gst_pipes_plugin_app_elements.cpp
+  src/gst_pipes_plugin_pause_srv.cpp
 )
 
 ament_target_dependencies(gstpipes_plugins

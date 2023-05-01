@@ -2,29 +2,13 @@
 #define GST_PIPELINE__GST_PIPES_PLUGIN_BASE_H_
 
 #include <gst_bridge/gst_bridge.h>
+#include <syntax_sugar.h>
 
 //#include <rclcpp/node_interfaces/node_interfaces.hpp>  //not in galactic
 //#include <rclcpp/node_interfaces/node_base_interface.hpp>
 
 
 #include "rclcpp/rclcpp.hpp"
-
-
-
-// parameter descriptions could really do with a constructor
-rcl_interfaces::msg::ParameterDescriptor descr(
-  const std::string& description,
-  const bool& read_only = false,
-  const std::string additional_constraints = "",
-  const bool& dynamic_typing = false)
-{
-    rcl_interfaces::msg::ParameterDescriptor descr;
-    descr.description = description;
-    descr.read_only = read_only;
-    descr.additional_constraints = additional_constraints;
-    descr.dynamic_typing = dynamic_typing;
-    return descr;
-}
 
 
 namespace gst_pipes {

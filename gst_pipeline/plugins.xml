@@ -12,4 +12,10 @@
     </description>
   </class>
 
+  <class type="gst_pipes::gst_pipes_pause_srv" base_class_type="gst_pipes::gst_pipes_plugin">
+    <description>
+    Play and pause a GStreamer pipeline with a Gazebo style service call
+    </description>
+  </class>
+
 </library>
