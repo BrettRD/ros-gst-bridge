@@ -25,19 +25,20 @@
 #include <gst_bridge/rosbasesrc.h>
 
 //include ROS and ROS message formats
-#include <rclcpp/rclcpp.hpp>
 #include <audio_msgs/msg/audio.hpp>
-#include <queue>  // std::queue
-#include <mutex>  // std::mutex, std::unique_lock
-#include <condition_variable> // std::condition_variable
+#include <condition_variable>  // std::condition_variable
+#include <mutex>               // std::mutex, std::unique_lock
+#include <queue>               // std::queue
+#include <rclcpp/rclcpp.hpp>
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_ROSAUDIOSRC   (rosaudiosrc_get_type())
-#define GST_ROSAUDIOSRC(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROSAUDIOSRC,Rosaudiosrc))
-#define GST_ROSAUDIOSRC_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_ROSAUDIOSRC,RosaudiosrcClass))
-#define GST_IS_ROSAUDIOSRC(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_ROSAUDIOSRC))
-#define GST_IS_ROSAUDIOSRC_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_ROSAUDIOSRC))
+#define GST_TYPE_ROSAUDIOSRC (rosaudiosrc_get_type())
+#define GST_ROSAUDIOSRC(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_ROSAUDIOSRC, Rosaudiosrc))
+#define GST_ROSAUDIOSRC_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_ROSAUDIOSRC, RosaudiosrcClass))
+#define GST_IS_ROSAUDIOSRC(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_ROSAUDIOSRC))
+#define GST_IS_ROSAUDIOSRC_CLASS(obj) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_ROSAUDIOSRC))
 
 typedef struct _Rosaudiosrc Rosaudiosrc;
 typedef struct _RosaudiosrcClass RosaudiosrcClass;
@@ -45,10 +46,10 @@ typedef struct _RosaudiosrcClass RosaudiosrcClass;
 struct _Rosaudiosrc
 {
   RosBaseSrc parent;
-  gchar* sub_topic;
-  gchar* frame_id;
-  gchar* encoding;
-  gchar* init_caps;
+  gchar * sub_topic;
+  gchar * frame_id;
+  gchar * encoding;
+  gchar * init_caps;
 
   bool msg_init;
 
@@ -72,7 +73,7 @@ struct _RosaudiosrcClass
   // along with member function pointers for signal handlers
 };
 
-GType rosaudiosrc_get_type (void);
+GType rosaudiosrc_get_type(void);
 
 G_END_DECLS
 

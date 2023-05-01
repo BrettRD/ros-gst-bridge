@@ -6,13 +6,12 @@
 //#include <rclcpp/node_interfaces/node_interfaces.hpp>  //not in galactic
 //#include <rclcpp/node_interfaces/node_base_interface.hpp>
 
+#include <gst_bridge/gst_bridge.h>
 
 #include "rclcpp/rclcpp.hpp"
 
-#include <gst_bridge/gst_bridge.h>
-
-
-namespace gst_pipes {
+namespace gst_pipes
+{
 
 /*
 
@@ -27,25 +26,20 @@ Play/Pause:
 // a ros service that can pause and resume the pipeline
 class gst_pipes_pause_srv : public gst_pipes_plugin
 {
-  public:
+public:
   // during init, we need to
   //  create a ros service
   //  point the service callbacks to the pipeline
   void initialise(
-    std::string name, // the config-file name of the plugin (possibly unused)
-    node_interface_collection node_if,
-    GstElement * pipeline);
+    std::string name,  // the config-file name of the plugin (possibly unused)
+    node_interface_collection node_if, GstElement * pipeline);
 
   // handle the play/pause service requests
   void service_cb(/* Gazebo's play/pause message type */);
 
-  private:
-
-
+private:
 };
 
+}  // namespace gst_pipes
 
-} // namespace gst_pipes
-
-
-#endif //GST_PIPELINE__GST_PIPES_PLUGIN_PAUSE_SRV_H_
+#endif  //GST_PIPELINE__GST_PIPES_PLUGIN_PAUSE_SRV_H_
