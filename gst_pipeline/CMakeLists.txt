@@ -88,11 +88,13 @@ rclcpp_components_register_node(
   EXECUTABLE gst_pipes_node
 )
 
+# install headers
 install(
   DIRECTORY include/
   DESTINATION include
 )
 
+# install static files
 install(DIRECTORY
   config
   launch
@@ -107,7 +109,6 @@ install(TARGETS gstpipes
   LIBRARY DESTINATION lib
 )
 
-
 # install pluginlib plugins
 install(TARGETS gstpipes_plugins
   EXPORT export_${PROJECT_NAME}
@@ -119,7 +120,27 @@ install(TARGETS gstpipes_plugins
 
 if(BUILD_TESTING)
   find_package(ament_cmake_clang_format REQUIRED)
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(osrf_testing_tools_cpp REQUIRED)
+
   ament_clang_format(CONFIG_FILE "${CMAKE_SOURCE_DIR}/../.clang-format")
+
+  ament_add_gtest(${PROJECT_NAME}_test
+    test/gst_pipeline/test_loader.cpp
+  )
+
+  target_include_directories(${PROJECT_NAME}_test PRIVATE include src)
+  target_link_libraries(${PROJECT_NAME}_test gstpipes)
+  ament_target_dependencies(${PROJECT_NAME}_test
+    gst_bridge
+    pluginlib
+    rcl
+    rclcpp
+    sensor_msgs
+    GSTREAMER
+    osrf_testing_tools_cpp
+  )
+
 endif()
 
 
@@ -138,6 +159,7 @@ ament_export_dependencies(
   rclcpp
   pluginlib
   gst_bridge
+  ament_cmake
 )
 
 ament_package(

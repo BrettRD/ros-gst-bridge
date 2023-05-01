@@ -35,10 +35,9 @@
   <exec_depend>gstreamer1.0-plugins-base</exec_depend>
   <exec_depend>gstreamer1.0-plugins-good</exec_depend>
 
-  <test_depend>ament_copyright</test_depend>
-  <test_depend>ament_flake8</test_depend>
-  <test_depend>ament_pep257</test_depend>
-  <test_depend>python3-pytest</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>osrf_testing_tools_cpp</test_depend>
+  <test_depend>rclcpp</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
