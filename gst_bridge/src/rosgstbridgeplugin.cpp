@@ -22,42 +22,31 @@
 
 #include <gst/gst.h>
 #include <gst_bridge/rosaudiosink.h>
-#include <gst_bridge/rosimagesink.h>
-#include <gst_bridge/rostextsink.h>
 #include <gst_bridge/rosaudiosrc.h>
+#include <gst_bridge/rosimagesink.h>
 #include <gst_bridge/rosimagesrc.h>
+#include <gst_bridge/rostextsink.h>
 #include <gst_bridge/rostextsrc.h>
 
-
-static gboolean
-plugin_init (GstPlugin * plugin)
+static gboolean plugin_init(GstPlugin * plugin)
 {
-
   /* FIXME Remember to set the rank if it's an element that is meant
      to be autoplugged by decodebin. */
 
-  gst_element_register (plugin, "rosaudiosink", GST_RANK_NONE,
-      GST_TYPE_ROSAUDIOSINK);
+  gst_element_register(plugin, "rosaudiosink", GST_RANK_NONE, GST_TYPE_ROSAUDIOSINK);
 
-  gst_element_register (plugin, "rosimagesink", GST_RANK_NONE,
-      GST_TYPE_ROSIMAGESINK);
+  gst_element_register(plugin, "rosimagesink", GST_RANK_NONE, GST_TYPE_ROSIMAGESINK);
 
-  gst_element_register (plugin, "rostextsink", GST_RANK_NONE,
-      GST_TYPE_ROSTEXTSINK);
+  gst_element_register(plugin, "rostextsink", GST_RANK_NONE, GST_TYPE_ROSTEXTSINK);
 
-  gst_element_register (plugin, "rosaudiosrc", GST_RANK_NONE,
-      GST_TYPE_ROSAUDIOSRC);
+  gst_element_register(plugin, "rosaudiosrc", GST_RANK_NONE, GST_TYPE_ROSAUDIOSRC);
 
-  gst_element_register (plugin, "rosimagesrc", GST_RANK_NONE,
-      GST_TYPE_ROSIMAGESRC);
+  gst_element_register(plugin, "rosimagesrc", GST_RANK_NONE, GST_TYPE_ROSIMAGESRC);
 
-  gst_element_register (plugin, "rostextsrc", GST_RANK_NONE,
-    GST_TYPE_ROSTEXTSRC);
-
+  gst_element_register(plugin, "rostextsrc", GST_RANK_NONE, GST_TYPE_ROSTEXTSRC);
 
   return true;
 }
-
 
 #ifndef VERSION
 #define VERSION "0.0.0"
@@ -72,9 +61,6 @@ plugin_init (GstPlugin * plugin)
 #define GST_PACKAGE_ORIGIN "https://github.com/BrettRD/ros-gst-bridge"
 #endif
 
-GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
-    GST_VERSION_MINOR,
-    rosgstbridge,
-    "ROS topic bridge elements",
-    plugin_init, VERSION, "LGPL", PACKAGE_NAME, GST_PACKAGE_ORIGIN)
-
+GST_PLUGIN_DEFINE(
+  GST_VERSION_MAJOR, GST_VERSION_MINOR, rosgstbridge, "ROS topic bridge elements", plugin_init,
+  VERSION, "LGPL", PACKAGE_NAME, GST_PACKAGE_ORIGIN)

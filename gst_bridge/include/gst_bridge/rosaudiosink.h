@@ -25,17 +25,18 @@
 #include <gst_bridge/rosbasesink.h>
 
 //include ROS and ROS message formats
-#include <rclcpp/rclcpp.hpp>
 #include <audio_msgs/msg/audio.hpp>
-
+#include <rclcpp/rclcpp.hpp>
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_ROSAUDIOSINK   (rosaudiosink_get_type())
-#define GST_ROSAUDIOSINK(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROSAUDIOSINK,Rosaudiosink))
-#define GST_ROSAUDIOSINK_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_ROSAUDIOSINK,RosaudiosinkClass))
-#define GST_IS_ROSAUDIOSINK(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_ROSAUDIOSINK))
-#define GST_IS_ROSAUDIOSINK_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_ROSAUDIOSINK))
+#define GST_TYPE_ROSAUDIOSINK (rosaudiosink_get_type())
+#define GST_ROSAUDIOSINK(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_ROSAUDIOSINK, Rosaudiosink))
+#define GST_ROSAUDIOSINK_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_ROSAUDIOSINK, RosaudiosinkClass))
+#define GST_IS_ROSAUDIOSINK(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_ROSAUDIOSINK))
+#define GST_IS_ROSAUDIOSINK_CLASS(obj) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_ROSAUDIOSINK))
 
 typedef struct _Rosaudiosink Rosaudiosink;
 typedef struct _RosaudiosinkClass RosaudiosinkClass;
@@ -44,10 +45,10 @@ struct _Rosaudiosink
 {
   RosBaseSink parent;
 
-  gchar* pub_topic;
-  gchar* frame_id;
-  gchar* encoding; //msg encoding override string (for hacking)
-  gchar* init_caps; //a hack to allow skipping preroll
+  gchar * pub_topic;
+  gchar * frame_id;
+  gchar * encoding;   //msg encoding override string (for hacking)
+  gchar * init_caps;  //a hack to allow skipping preroll
 
   rclcpp::Publisher<audio_msgs::msg::Audio>::SharedPtr pub;
 
@@ -63,7 +64,7 @@ struct _RosaudiosinkClass
   // along with member function pointers for signal handlers
 };
 
-GType rosaudiosink_get_type (void);
+GType rosaudiosink_get_type(void);
 
 G_END_DECLS
 

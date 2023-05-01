@@ -27,14 +27,14 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
 
-
 G_BEGIN_DECLS
 
-#define GST_TYPE_ROSTEXTSINK   (rostextsink_get_type())
-#define GST_ROSTEXTSINK(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROSTEXTSINK,Rostextsink))
-#define GST_ROSTEXTSINK_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_ROSTEXTSINK,RostextsinkClass))
-#define GST_IS_ROSTEXTSINK(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_ROSTEXTSINK))
-#define GST_IS_ROSTEXTSINK_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_ROSTEXTSINK))
+#define GST_TYPE_ROSTEXTSINK (rostextsink_get_type())
+#define GST_ROSTEXTSINK(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_ROSTEXTSINK, Rostextsink))
+#define GST_ROSTEXTSINK_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_ROSTEXTSINK, RostextsinkClass))
+#define GST_IS_ROSTEXTSINK(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_ROSTEXTSINK))
+#define GST_IS_ROSTEXTSINK_CLASS(obj) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_ROSTEXTSINK))
 
 typedef struct _Rostextsink Rostextsink;
 typedef struct _RostextsinkClass RostextsinkClass;
@@ -43,7 +43,7 @@ struct _Rostextsink
 {
   RosBaseSink parent;
 
-  gchar* pub_topic;
+  gchar * pub_topic;
 
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub;
 
@@ -58,7 +58,7 @@ struct _RostextsinkClass
   // along with member function pointers for signal handlers
 };
 
-GType rostextsink_get_type (void);
+GType rostextsink_get_type(void);
 
 G_END_DECLS
 

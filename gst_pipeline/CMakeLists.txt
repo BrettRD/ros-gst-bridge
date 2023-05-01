@@ -86,8 +86,7 @@ rclcpp_components_register_node(
   gstpipes
   PLUGIN "gst_pipes::gst_pipes"
   EXECUTABLE gst_pipes_node
-  )
-
+)
 
 # install headers
 install(
@@ -120,8 +119,11 @@ install(TARGETS gstpipes_plugins
 
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_clang_format REQUIRED)
   find_package(ament_cmake_gtest REQUIRED)
   find_package(osrf_testing_tools_cpp REQUIRED)
+
+  ament_clang_format(CONFIG_FILE "${CMAKE_SOURCE_DIR}/../.clang-format")
 
   ament_add_gtest(${PROJECT_NAME}_test
     test/gst_pipeline/test_loader.cpp

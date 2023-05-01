@@ -19,8 +19,8 @@
 #ifndef _GST_ROSIMAGESINK_H_
 #define _GST_ROSIMAGESINK_H_
 
-#include <gst/video/video-format.h>
 #include <gst/base/gstbasesink.h>
+#include <gst/video/video-format.h>
 #include <gst_bridge/gst_bridge.h>
 #include <gst_bridge/rosbasesink.h>
 
@@ -28,14 +28,15 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 
-
 G_BEGIN_DECLS
 
-#define GST_TYPE_ROSIMAGESINK   (rosimagesink_get_type())
-#define GST_ROSIMAGESINK(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_ROSIMAGESINK,Rosimagesink))
-#define GST_ROSIMAGESINK_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_ROSIMAGESINK,RosimagesinkClass))
-#define GST_IS_ROSIMAGESINK(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_ROSIMAGESINK))
-#define GST_IS_ROSIMAGESINK_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_ROSIMAGESINK))
+#define GST_TYPE_ROSIMAGESINK (rosimagesink_get_type())
+#define GST_ROSIMAGESINK(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_ROSIMAGESINK, Rosimagesink))
+#define GST_ROSIMAGESINK_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_ROSIMAGESINK, RosimagesinkClass))
+#define GST_IS_ROSIMAGESINK(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_ROSIMAGESINK))
+#define GST_IS_ROSIMAGESINK_CLASS(obj) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_ROSIMAGESINK))
 
 typedef struct _Rosimagesink Rosimagesink;
 typedef struct _RosimagesinkClass RosimagesinkClass;
@@ -44,17 +45,17 @@ struct _Rosimagesink
 {
   RosBaseSink parent;
 
-  gchar* pub_topic;
-  gchar* frame_id;
-  gchar* encoding; //image topic encoding string
-  gchar* init_caps; //optional caps override (used for limited apis)
+  gchar * pub_topic;
+  gchar * frame_id;
+  gchar * encoding;   //image topic encoding string
+  gchar * init_caps;  //optional caps override (used for limited apis)
 
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub;
 
   int height;
   int width;
 
-  size_t step;   //bytes per pixel
+  size_t step;  //bytes per pixel
   gint endianness;
 };
 
@@ -66,7 +67,7 @@ struct _RosimagesinkClass
   // along with member function pointers for signal handlers
 };
 
-GType rosimagesink_get_type (void);
+GType rosimagesink_get_type(void);
 
 G_END_DECLS
 
