@@ -143,7 +143,7 @@ target_link_libraries(gst_bridge PUBLIC
 
 if(BUILD_TESTING)
   find_package(ament_cmake_clang_format REQUIRED)
-  ament_clang_format()
+  ament_clang_format(CONFIG_FILE "${CMAKE_SOURCE_DIR}/../.clang-format")
 endif()
 
 

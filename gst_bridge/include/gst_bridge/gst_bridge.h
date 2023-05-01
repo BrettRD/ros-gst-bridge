@@ -39,24 +39,18 @@
 // these formats have odd packing and need thorough testing
 //     S24_32LE, U24_32LE, S24LE, U24LE, S20LE, U20LE, S18LE, U18LE,
 
-#define ROS_IMAGE_MSG_CAPS                     \
-  "video/x-raw, "                              \
-  "format = " GST_BRIDGE_GST_VIDEO_FORMAT_LIST \
-  ", "                                         \
-  "framerate = " GST_VIDEO_FPS_RANGE           \
-  ", "                                         \
-  "width = " GST_VIDEO_SIZE_RANGE              \
-  ", "                                         \
+#define ROS_IMAGE_MSG_CAPS                          \
+  "video/x-raw, "                                   \
+  "format = " GST_BRIDGE_GST_VIDEO_FORMAT_LIST ", " \
+  "framerate = " GST_VIDEO_FPS_RANGE ", "           \
+  "width = " GST_VIDEO_SIZE_RANGE ", "              \
   "height = " GST_VIDEO_SIZE_RANGE " "
 
-#define ROS_AUDIO_MSG_CAPS                     \
-  "audio/x-raw, "                              \
-  "format = " GST_BRIDGE_GST_AUDIO_FORMAT_LIST \
-  ", "                                         \
-  "rate = " GST_AUDIO_RATE_RANGE               \
-  ", "                                         \
-  "channels = " GST_AUDIO_CHANNELS_RANGE       \
-  ","                                          \
+#define ROS_AUDIO_MSG_CAPS                          \
+  "audio/x-raw, "                                   \
+  "format = " GST_BRIDGE_GST_AUDIO_FORMAT_LIST ", " \
+  "rate = " GST_AUDIO_RATE_RANGE ", "               \
+  "channels = " GST_AUDIO_CHANNELS_RANGE ","        \
   "layout = interleaved"
 
 #define ROS_TEXT_MSG_CAPS                              \
@@ -66,12 +60,9 @@
 //support rpicamsrc compressed feeds over DDS?
 #define H264_CAPS                          \
   "video/x-h264, "                         \
-  "width = " GST_VIDEO_SIZE_RANGE          \
-  ", "                                     \
-  "height = " GST_VIDEO_SIZE_RANGE         \
-  ", "                                     \
-  "framerate = " GST_VIDEO_FPS_RANGE       \
-  ", "                                     \
+  "width = " GST_VIDEO_SIZE_RANGE ", "     \
+  "height = " GST_VIDEO_SIZE_RANGE ", "    \
+  "framerate = " GST_VIDEO_FPS_RANGE ", "  \
   "stream-format = (string) byte-stream, " \
   "alignment = (string) nal, "             \
   "profile = (string) { constrained-baseline, baseline, main, high }"
