@@ -532,7 +532,7 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
       msg->encoding.c_str())
       RCLCPP_ERROR(
         ros_base_src->logger, "audio format changed during playback, encoding %s != %s",
-        gst_bridge::getRosEncoding(GST_AUDIO_INFO_FORMAT(&(src->audio_info))),
+        gst_bridge::getRosEncoding(GST_AUDIO_INFO_FORMAT(&(src->audio_info))).c_str(),
         msg->encoding.c_str());  // XXX account for the override
     if (
       GST_AUDIO_INFO_ENDIANNESS(&(src->audio_info)) !=
