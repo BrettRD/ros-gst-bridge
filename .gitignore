@@ -161,3 +161,6 @@ Makefile
 # Clion
 .idea/
 cmake-build-debug
+
+# Vim swap files
+*.sw?

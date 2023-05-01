@@ -86,12 +86,7 @@ rclcpp_components_register_node(
   gstpipes
   PLUGIN "gst_pipes::gst_pipes"
   EXECUTABLE gst_pipes_node
-  )
-
-pluginlib_export_plugin_description_file(gst_pipeline plugins.xml)
-
-
-ament_export_include_directories(include)
+)
 
 install(
   DIRECTORY include/
@@ -120,6 +115,17 @@ install(TARGETS gstpipes_plugins
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_clang_format REQUIRED)
+  ament_clang_format(CONFIG_FILE "${CMAKE_SOURCE_DIR}/../.clang-format")
+endif()
+
+
+pluginlib_export_plugin_description_file(gst_pipeline plugins.xml)
+
+ament_export_include_directories(include)
 
 ament_export_libraries(
   gstpipes_plugins

@@ -7,41 +7,25 @@ Play/Pause:
 
 */
 
-
-
 namespace gst_pipes
 {
 
+void gst_pipes_pause_srv::initialise(
+  std::string name,  // the config name of the plugin
+  node_interface_collection node_if, GstElement * pipeline)
+{
+  name_ = name;
+  node_if_ = node_if;
+  pipeline_ = pipeline;
 
-  void gst_pipes_pause_srv::initialise(
-    std::string name, // the config name of the plugin
-    node_interface_collection node_if,
-    GstElement * pipeline)
-  {
-    name_ = name;
-    node_if_ = node_if;
-    pipeline_= pipeline;
-
-
-    if (GST_IS_BIN(pipeline_))
-    {
-
-      // automatically start the pipeline
-    }
+  if (GST_IS_BIN(pipeline_)) {
+    // automatically start the pipeline
   }
+}
 
-  void gst_pipes_pause_srv::service_cb(/* gazebo's service type*/)
-  {}
+void gst_pipes_pause_srv::service_cb(/* gazebo's service type*/) {}
 
-
-
-
-
-
-
-} // namespace gst_pipes
-
-
+}  // namespace gst_pipes
 
 #include <pluginlib/class_list_macros.hpp>
 PLUGINLIB_EXPORT_CLASS(gst_pipes::gst_pipes_pause_srv, gst_pipes::gst_pipes_plugin)
