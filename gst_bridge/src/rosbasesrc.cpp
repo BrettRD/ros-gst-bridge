@@ -121,8 +121,7 @@ void rosbasesrc_set_property(
   switch (property_id) {
     case PROP_ROS_NAME:
       if (src->node_if) {
-        RCLCPP_ERROR(src->node_if->logging->get_logger(),
-          "can't change node name once opened");
+        RCLCPP_ERROR(src->node_if->logging->get_logger(), "can't change node name once opened");
       } else {
         g_free(src->node_name);
         src->node_name = g_value_dup_string(value);
@@ -131,8 +130,8 @@ void rosbasesrc_set_property(
 
     case PROP_ROS_NAMESPACE:
       if (src->node_if) {
-        RCLCPP_ERROR(src->node_if->logging->get_logger(),
-          "can't change node namespace once opened");
+        RCLCPP_ERROR(
+          src->node_if->logging->get_logger(), "can't change node namespace once opened");
       } else {
         g_free(src->node_namespace);
         src->node_namespace = g_value_dup_string(value);
@@ -141,8 +140,7 @@ void rosbasesrc_set_property(
 
     case PROP_ROS_START_TIME:
       if (src->node_if) {
-        RCLCPP_ERROR(src->node_if->logging->get_logger(),
-          "can't change start_time once opened");
+        RCLCPP_ERROR(src->node_if->logging->get_logger(), "can't change start_time once opened");
       } else {
         src->stream_start_prop = g_value_get_uint64(value);
       }
@@ -196,13 +194,16 @@ static GstStateChangeReturn rosbasesrc_change_state(GstElement * element, GstSta
     }
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING: {
       if (GST_CLOCK_TIME_IS_VALID(src->stream_start_prop)) {
-        src->stream_start = rclcpp::Time(src->stream_start_prop, src->node_if->clock->get_clock()->get_clock_type());
-        RCLCPP_INFO(src->node_if->logging->get_logger(),
-          "stream_start overridden to %ld", src->stream_start.nanoseconds());
+        src->stream_start =
+          rclcpp::Time(src->stream_start_prop, src->node_if->clock->get_clock()->get_clock_type());
+        RCLCPP_INFO(
+          src->node_if->logging->get_logger(), "stream_start overridden to %ld",
+          src->stream_start.nanoseconds());
       } else {
         src->stream_start = src->node_if->clock->get_clock()->now();
-        RCLCPP_INFO(src->node_if->logging->get_logger(),
-          "stream_start at %ld", src->stream_start.nanoseconds());
+        RCLCPP_INFO(
+          src->node_if->logging->get_logger(), "stream_start at %ld",
+          src->stream_start.nanoseconds());
       }
 
       src->ros_clock_offset =
@@ -240,8 +241,7 @@ static gboolean rosbasesrc_open(RosBaseSrc * src)
   gboolean result = TRUE;
   GST_DEBUG_OBJECT(src, "open");
 
-
-  if(nullptr == src->node_if){
+  if (nullptr == src->node_if) {
     // XXX this can be a call to a gst interface
     rosbaseimp_open(&(src->local_node), src->node_name, src->node_namespace);
     src->node_if = gst_bridge::collect_all_node_interfaces(src->local_node.node);
@@ -263,7 +263,7 @@ static gboolean rosbasesrc_close(RosBaseSrc * src)
   if (src_class->close) result = src_class->close(src);
 
   // if the node exists, destruct it, and reset node_if.
-  if(nullptr != src->local_node.node){
+  if (nullptr != src->local_node.node) {
     src->node_if.reset();
     rosbaseimp_close(&(src->local_node));
   }
@@ -271,4 +271,3 @@ static gboolean rosbasesrc_close(RosBaseSrc * src)
 
   return result;
 }
-

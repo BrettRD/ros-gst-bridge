@@ -16,8 +16,6 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-
-
 #ifndef _GST_ROS_BASE_IFACE_H_
 #define _GST_ROS_BASE_IFACE_H_
 
@@ -53,10 +51,10 @@ gboolean rosbase_close(RosBase *self);
 
 */
 
-
 // helper object to collect implementation prerequisites
 typedef struct _RosBaseImp RosBaseImp;
-struct _RosBaseImp{
+struct _RosBaseImp
+{
   // interface variables
   gchar * node_name;
   gchar * node_namespace;
@@ -71,8 +69,8 @@ struct _RosBaseImp{
   GstClockTimeDiff ros_clock_offset;
 };
 
-gboolean rosbaseimp_open(RosBaseImp *self, gchar* node_name, gchar* node_namespace);
-gboolean rosbaseimp_close(RosBaseImp *self);
+gboolean rosbaseimp_open(RosBaseImp * self, gchar * node_name, gchar * node_namespace);
+gboolean rosbaseimp_close(RosBaseImp * self);
 
 /*
 GType rosbase_get_type(void);

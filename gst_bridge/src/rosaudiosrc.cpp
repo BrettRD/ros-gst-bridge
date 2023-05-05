@@ -174,8 +174,8 @@ void rosaudiosrc_set_property(
   switch (property_id) {
     case PROP_ROS_TOPIC:
       if (ros_base_src->node_if) {
-        RCLCPP_ERROR(ros_base_src->node_if->logging->get_logger(),
-          "can't change topic name once opened");
+        RCLCPP_ERROR(
+          ros_base_src->node_if->logging->get_logger(), "can't change topic name once opened");
       } else {
         g_free(src->sub_topic);
         src->sub_topic = g_value_dup_string(value);
@@ -188,8 +188,8 @@ void rosaudiosrc_set_property(
         src->init_caps = g_value_dup_string(value);
         rosaudiosrc_set_msg_props_from_caps_string(src, src->init_caps);
       } else {
-        RCLCPP_ERROR(ros_base_src->node_if->logging->get_logger(),
-          "can't change initial caps after init");
+        RCLCPP_ERROR(
+          ros_base_src->node_if->logging->get_logger(), "can't change initial caps after init");
       }
       break;
 
@@ -255,15 +255,14 @@ static void rosaudiosrc_set_msg_props_from_msg(
 
   if ((uint32_t)GST_AUDIO_INFO_BPF(&(src->audio_info)) != msg->step)
     RCLCPP_ERROR(
-      ros_base_src->node_if->logging->get_logger(),
-        "audio format misunderstood, step %d != %d",
+      ros_base_src->node_if->logging->get_logger(), "audio format misunderstood, step %d != %d",
       GST_AUDIO_INFO_BPF(&(src->audio_info)), msg->step);
   if (
     GST_AUDIO_INFO_ENDIANNESS(&(src->audio_info)) !=
     ((msg->is_bigendian == 1) ? G_BIG_ENDIAN : G_LITTLE_ENDIAN))
     RCLCPP_ERROR(
       ros_base_src->node_if->logging->get_logger(),
-        "audio format misunderstood, endianness %d != %d",
+      "audio format misunderstood, endianness %d != %d",
       GST_AUDIO_INFO_ENDIANNESS(&(src->audio_info)),
       ((msg->is_bigendian == 1) ? G_BIG_ENDIAN : G_LITTLE_ENDIAN));
   if (
@@ -272,8 +271,7 @@ static void rosaudiosrc_set_msg_props_from_msg(
        ? GST_AUDIO_LAYOUT_INTERLEAVED
        : GST_AUDIO_LAYOUT_NON_INTERLEAVED))
     RCLCPP_ERROR(
-      ros_base_src->node_if->logging->get_logger(),
-        "audio format misunderstood, layout %d != %d",
+      ros_base_src->node_if->logging->get_logger(), "audio format misunderstood, layout %d != %d",
       GST_AUDIO_INFO_LAYOUT(&(src->audio_info)),
       ((msg->layout == audio_msgs::msg::Audio::LAYOUT_INTERLEAVED)
          ? GST_AUDIO_LAYOUT_INTERLEAVED
@@ -300,10 +298,7 @@ static gboolean rosaudiosrc_open(RosBaseSrc * ros_base_src)
   rclcpp::QoS qos = rclcpp::SensorDataQoS();  //XXX add a parameter for overrides
 
   src->sub = rclcpp::create_subscription<audio_msgs::msg::Audio>(
-    ros_base_src->node_if->parameters,
-    ros_base_src->node_if->topics,
-    src->sub_topic, qos, cb
-  );
+    ros_base_src->node_if->parameters, ros_base_src->node_if->topics, src->sub_topic, qos, cb);
 
   return TRUE;
 }
@@ -356,8 +351,9 @@ static GstCaps * rosaudiosrc_fixate(GstBaseSrc * gst_base_src, GstCaps * caps)
   caps = GST_BASE_SRC_CLASS(rosaudiosrc_parent_class)->fixate(gst_base_src, caps);
 
   if (ros_base_src->node_if)
-    RCLCPP_INFO(ros_base_src->node_if->logging->get_logger(),
-      "preparing audio with caps '%s'", gst_caps_to_string(caps));
+    RCLCPP_INFO(
+      ros_base_src->node_if->logging->get_logger(), "preparing audio with caps '%s'",
+      gst_caps_to_string(caps));
 
   return caps;
 }
@@ -398,8 +394,9 @@ static GstCaps * rosaudiosrc_getcaps(GstBaseSrc * gst_base_src, GstCaps * filter
   GST_DEBUG_OBJECT(src, "getcaps with filter %s", gst_caps_to_string(filter));
 
   if (ros_base_src->node_if)
-    RCLCPP_INFO(ros_base_src->node_if->logging->get_logger(),
-      "getcaps with filter '%s'", gst_caps_to_string(filter));
+    RCLCPP_INFO(
+      ros_base_src->node_if->logging->get_logger(), "getcaps with filter '%s'",
+      gst_caps_to_string(filter));
 
   // if init_caps is not set, we wait for the first message
   // if init_caps is set, we don't wait
@@ -409,8 +406,7 @@ static GstCaps * rosaudiosrc_getcaps(GstBaseSrc * gst_base_src, GstCaps * filter
       return gst_pad_get_pad_template_caps(GST_BASE_SRC(src)->srcpad);
     }
     GST_DEBUG_OBJECT(src, "getcaps with node ready, waiting for message");
-    RCLCPP_INFO(ros_base_src->node_if->logging->get_logger(),
-      "waiting for first message");
+    RCLCPP_INFO(ros_base_src->node_if->logging->get_logger(), "waiting for first message");
     msg = rosaudiosrc_wait_for_msg(src);
 
     rosaudiosrc_set_msg_props_from_msg(
@@ -531,24 +527,24 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
     if ((uint32_t)GST_AUDIO_INFO_BPF(&(src->audio_info)) != msg->step)
       RCLCPP_ERROR(
         ros_base_src->node_if->logging->get_logger(),
-          "audio format changed during playback, step %d != %d",
+        "audio format changed during playback, step %d != %d",
         GST_AUDIO_INFO_BPF(&(src->audio_info)), msg->step);
     if ((uint32_t)GST_AUDIO_INFO_CHANNELS(&(src->audio_info)) != msg->channels)
       RCLCPP_ERROR(
         ros_base_src->node_if->logging->get_logger(),
-          "audio format changed during playback, channels %d != %d",
+        "audio format changed during playback, channels %d != %d",
         GST_AUDIO_INFO_CHANNELS(&(src->audio_info)), msg->channels);
     if (GST_AUDIO_INFO_RATE(&(src->audio_info)) != msg->sample_rate)
       RCLCPP_ERROR(
         ros_base_src->node_if->logging->get_logger(),
-          "audio format changed during playback, sample_rate %d != %d",
+        "audio format changed during playback, sample_rate %d != %d",
         GST_AUDIO_INFO_RATE(&(src->audio_info)), msg->sample_rate);
     if (
       gst_bridge::getRosEncoding(GST_AUDIO_INFO_FORMAT(&(src->audio_info))) !=
       msg->encoding.c_str())
       RCLCPP_ERROR(
         ros_base_src->node_if->logging->get_logger(),
-          "audio format changed during playback, encoding %s != %s",
+        "audio format changed during playback, encoding %s != %s",
         gst_bridge::getRosEncoding(GST_AUDIO_INFO_FORMAT(&(src->audio_info))).c_str(),
         msg->encoding.c_str());  // XXX account for the override
     if (
@@ -556,7 +552,7 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
       (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN))
       RCLCPP_ERROR(
         ros_base_src->node_if->logging->get_logger(),
-          "audio format changed during playback, endianness %d != %d",
+        "audio format changed during playback, endianness %d != %d",
         GST_AUDIO_INFO_ENDIANNESS(&(src->audio_info)),
         (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN));
     if (
@@ -564,7 +560,7 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
       msg->layout)  // XXX really do need a converter beteen the enums
       RCLCPP_ERROR(
         ros_base_src->node_if->logging->get_logger(),
-          "audio format changed during playback, layout %d != %d",
+        "audio format changed during playback, layout %d != %d",
         GST_AUDIO_INFO_LAYOUT(&(src->audio_info)), msg->layout);
   }
 
@@ -572,8 +568,7 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
   src->msg_queue.push(msg);
   while (src->msg_queue.size() > src->msg_queue_max) {
     src->msg_queue.pop();
-    RCLCPP_WARN(ros_base_src->node_if->logging->get_logger(),
-      "dropping message");
+    RCLCPP_WARN(ros_base_src->node_if->logging->get_logger(), "dropping message");
   }
   src->msg_queue_cv.notify_one();
 }

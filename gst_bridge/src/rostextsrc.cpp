@@ -143,8 +143,8 @@ static void rostextsrc_set_property(
 
     case PROP_ROS_TOPIC:
       if (ros_base_src->node_if) {
-        RCLCPP_ERROR(ros_base_src->node_if->logging->get_logger(),
-          "can't change topic name once opened");
+        RCLCPP_ERROR(
+          ros_base_src->node_if->logging->get_logger(), "can't change topic name once opened");
       } else {
         g_free(src->sub_topic);
         src->sub_topic = g_value_dup_string(value);
@@ -192,10 +192,7 @@ static gboolean rostextsrc_open(RosBaseSrc * ros_base_src)
   rclcpp::QoS qos = rclcpp::SensorDataQoS();  //XXX add a parameter for overrides
 
   src->sub = rclcpp::create_subscription<std_msgs::msg::String>(
-    ros_base_src->node_if->parameters,
-    ros_base_src->node_if->topics,
-    src->sub_topic, qos, cb
-  );
+    ros_base_src->node_if->parameters, ros_base_src->node_if->topics, src->sub_topic, qos, cb);
 
   return TRUE;
 }
@@ -301,8 +298,8 @@ static GstFlowReturn rostextsrc_create(
   base_time = gst_element_get_base_time(GST_ELEMENT(src));
   // String message does not have a header, use node->now() TODO call now() in the cb and save in the queue
   // GST_BUFFER_PTS (*buf) = rclcpp::Time(msg->header.stamp).nanoseconds() - ros_base_src->ros_clock_offset - base_time;
-  GST_BUFFER_PTS(*buf) =
-    ros_base_src->node_if->clock->get_clock()->now().nanoseconds() - ros_base_src->ros_clock_offset - base_time;
+  GST_BUFFER_PTS(*buf) = ros_base_src->node_if->clock->get_clock()->now().nanoseconds() -
+                         ros_base_src->ros_clock_offset - base_time;
 
   // TODO explore configurable message types
   //GST_BUFFER_DURATION (*buf) = GST_CLOCK_TIME_NONE;
@@ -320,15 +317,14 @@ static void rostextsrc_sub_cb(Rostextsrc * src, std_msgs::msg::String::ConstShar
 {
   RosBaseSrc * ros_base_src = GST_ROS_BASE_SRC(src);
   GST_DEBUG_OBJECT(src, "ros cb called");
-  RCLCPP_DEBUG(ros_base_src->node_if->logging->get_logger(),
-    "ros cb called with %s", msg->data.c_str());
+  RCLCPP_DEBUG(
+    ros_base_src->node_if->logging->get_logger(), "ros cb called with %s", msg->data.c_str());
 
   std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
   src->msg_queue.push(msg);
   while (src->msg_queue.size() > src->msg_queue_max) {
     src->msg_queue.pop();
-    RCLCPP_WARN(ros_base_src->node_if->logging->get_logger(),
-      "dropping message");
+    RCLCPP_WARN(ros_base_src->node_if->logging->get_logger(), "dropping message");
   }
   src->msg_queue_cv.notify_one();
 }

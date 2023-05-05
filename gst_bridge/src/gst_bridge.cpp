@@ -116,44 +116,43 @@ audio_msgs::msg::Audio gst_audio_info_to_audio_msg(GstAudioInfo * audio_info)
   return msg;
 }
 
-
-
-std::shared_ptr<gst_bridge::node_interface_collection>
-collect_all_node_interfaces(rclcpp::Node::SharedPtr node) {
-  std::shared_ptr<gst_bridge::node_interface_collection> node_if = 
+std::shared_ptr<gst_bridge::node_interface_collection> collect_all_node_interfaces(
+  rclcpp::Node::SharedPtr node)
+{
+  std::shared_ptr<gst_bridge::node_interface_collection> node_if =
     std::make_shared<gst_bridge::node_interface_collection>();
 
-  node_if->base = node->get_node_base_interface ();
-  node_if->clock = node->get_node_clock_interface ();
-  node_if->graph = node->get_node_graph_interface ();
-  node_if->logging = node->get_node_logging_interface ();
-  node_if->parameters = node->get_node_parameters_interface ();
-  node_if->services = node->get_node_services_interface ();
-  node_if->topics = node->get_node_topics_interface ();
-  node_if->timers = node->get_node_timers_interface ();
-  node_if->time_source = node->get_node_time_source_interface ();
-  node_if->waitables = node->get_node_waitables_interface ();
+  node_if->base = node->get_node_base_interface();
+  node_if->clock = node->get_node_clock_interface();
+  node_if->graph = node->get_node_graph_interface();
+  node_if->logging = node->get_node_logging_interface();
+  node_if->parameters = node->get_node_parameters_interface();
+  node_if->services = node->get_node_services_interface();
+  node_if->topics = node->get_node_topics_interface();
+  node_if->timers = node->get_node_timers_interface();
+  node_if->time_source = node->get_node_time_source_interface();
+  node_if->waitables = node->get_node_waitables_interface();
 
   return node_if;
 }
-std::shared_ptr<gst_bridge::node_interface_collection>
-collect_all_node_interfaces(rclcpp::Node *node) {
-  std::shared_ptr<gst_bridge::node_interface_collection> node_if = 
+std::shared_ptr<gst_bridge::node_interface_collection> collect_all_node_interfaces(
+  rclcpp::Node * node)
+{
+  std::shared_ptr<gst_bridge::node_interface_collection> node_if =
     std::make_shared<gst_bridge::node_interface_collection>();
 
-  node_if->base = node->get_node_base_interface ();
-  node_if->clock = node->get_node_clock_interface ();
-  node_if->graph = node->get_node_graph_interface ();
-  node_if->logging = node->get_node_logging_interface ();
-  node_if->parameters = node->get_node_parameters_interface ();
-  node_if->services = node->get_node_services_interface ();
-  node_if->topics = node->get_node_topics_interface ();
-  node_if->timers = node->get_node_timers_interface ();
-  node_if->time_source = node->get_node_time_source_interface ();
-  node_if->waitables = node->get_node_waitables_interface ();
+  node_if->base = node->get_node_base_interface();
+  node_if->clock = node->get_node_clock_interface();
+  node_if->graph = node->get_node_graph_interface();
+  node_if->logging = node->get_node_logging_interface();
+  node_if->parameters = node->get_node_parameters_interface();
+  node_if->services = node->get_node_services_interface();
+  node_if->topics = node->get_node_topics_interface();
+  node_if->timers = node->get_node_timers_interface();
+  node_if->time_source = node->get_node_time_source_interface();
+  node_if->waitables = node->get_node_waitables_interface();
 
   return node_if;
 }
-
 
 }  //namespace gst_bridge

@@ -24,11 +24,10 @@
 #include <gst/video/video-format.h>
 
 #include <audio_msgs/msg/audio.hpp>
+#include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/image_encodings.hpp>
 #include <sensor_msgs/msg/image.hpp>
-
-#include <memory>
 
 #define GST_BRIDGE_GST_VIDEO_FORMAT_LIST "{ GRAY8, GRAY16_LE, RGB, BGR, RGBA, BGRA, UYVY, YUY2 }"
 // only well behaved formats
@@ -100,12 +99,11 @@ typedef struct
   rclcpp::node_interfaces::NodeWaitablesInterface::SharedPtr waitables;
 } node_interface_collection;
 
-
 // collect the node interfaces from a node
-std::shared_ptr<gst_bridge::node_interface_collection>
-collect_all_node_interfaces(rclcpp::Node::SharedPtr node);
-std::shared_ptr<gst_bridge::node_interface_collection>
-collect_all_node_interfaces(rclcpp::Node *node); // support a this pointer
+std::shared_ptr<gst_bridge::node_interface_collection> collect_all_node_interfaces(
+  rclcpp::Node::SharedPtr node);
+std::shared_ptr<gst_bridge::node_interface_collection> collect_all_node_interfaces(
+  rclcpp::Node * node);  // support a this pointer
 
 //measure the difference between ROS and GST time
 //raw sampling of the clocks seems to be stable within about 10uS

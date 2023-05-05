@@ -1,8 +1,9 @@
 #ifndef GST_PIPELINE__GST_PIPES_PLUGIN_APP_ELEMENTS_H_
 #define GST_PIPELINE__GST_PIPES_PLUGIN_APP_ELEMENTS_H_
 
-#include <gst_pipes_plugin_base.h>
 #include <gst_bridge/gst_bridge.h>
+#include <gst_pipes_plugin_base.h>
+
 #include "rclcpp/rclcpp.hpp"
 
 namespace gst_pipes
@@ -32,7 +33,6 @@ private:
   // a pointer to the bridge elements in the pipeline
   GstElement * bin_;
 };
-
 
 }  // namespace gst_pipes
 

@@ -12,10 +12,11 @@ void gst_pipes_bridge::initialise(
   node_if_ = node_if;
   pipeline_ = pipeline;
 
-  elem_name_ = node_if->parameters->declare_parameter(
-      name + ".element_name", rclcpp::ParameterType::PARAMETER_STRING,
-      descr("the name of the appsink element inside the pipeline", true))
-    .get<std::string>();
+  elem_name_ = node_if->parameters
+                 ->declare_parameter(
+                   name + ".element_name", rclcpp::ParameterType::PARAMETER_STRING,
+                   descr("the name of the appsink element inside the pipeline", true))
+                 .get<std::string>();
 
   if (GST_IS_BIN(pipeline_)) {
     bin_ = gst_bin_get_by_name(GST_BIN_CAST(pipeline_), elem_name_.c_str());
@@ -27,26 +28,25 @@ void gst_pipes_bridge::initialise(
       if (GST_IS_ROS_BASE_SINK(bin_)) {
         RCLCPP_INFO(
           node_if->logging->get_logger(),
-          "plugin gst_pipes_bridge - '%s' is a sink from the gst-bridge package, connecting interfaces",
+          "plugin gst_pipes_bridge - '%s' is a sink from the gst-bridge package, connecting "
+          "interfaces",
           elem_name_.c_str());
-          
-        RosBaseSink* ros_sink = GST_ROS_BASE_SINK_CAST(bin_);
+
+        RosBaseSink * ros_sink = GST_ROS_BASE_SINK_CAST(bin_);
         ros_sink->node_if = node_if_;
-      }
-      else if (GST_IS_ROS_BASE_SRC(bin_)) {
+      } else if (GST_IS_ROS_BASE_SRC(bin_)) {
         RCLCPP_INFO(
           node_if->logging->get_logger(),
-          "plugin gst_pipes_bridge - '%s' is a src from the gst-bridge package, connecting interfaces",
+          "plugin gst_pipes_bridge - '%s' is a src from the gst-bridge package, connecting "
+          "interfaces",
           elem_name_.c_str());
-          
-        RosBaseSrc* ros_src = GST_ROS_BASE_SRC_CAST(bin_);
+
+        RosBaseSrc * ros_src = GST_ROS_BASE_SRC_CAST(bin_);
         ros_src->node_if = node_if_;
-      }
-      else {
+      } else {
         RCLCPP_ERROR(
           node_if->logging->get_logger(),
-          "plugin gst_pipes_bridge could not recognise the type of '%s'",
-          elem_name_.c_str());
+          "plugin gst_pipes_bridge could not recognise the type of '%s'", elem_name_.c_str());
       }
     }
 

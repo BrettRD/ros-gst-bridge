@@ -25,7 +25,6 @@
 
 #include <gst_bridge/rosbaseiface.h>
 
-
 /* Gstreamer interface
 
 G_DEFINE_INTERFACE (RosBase, rosbase, G_TYPE_OBJECT)
@@ -132,11 +131,9 @@ void rosbaseimp_get_property(
 
 */
 
-
-
 /* open a connection to the ROS graph */
 // XXX allow the pipeline host to inject a node handle
-gboolean rosbaseimp_open(RosBaseImp * self, gchar* node_name, gchar* node_namespace)
+gboolean rosbaseimp_open(RosBaseImp * self, gchar * node_name, gchar * node_namespace)
 {
   gboolean result = TRUE;
 
@@ -144,8 +141,8 @@ gboolean rosbaseimp_open(RosBaseImp * self, gchar* node_name, gchar* node_namesp
   self->ros_context->init(0, NULL);  // XXX should expose the init arg list
   auto opts = rclcpp::NodeOptions();
   opts.context(self->ros_context);  //set a context to generate the node in
-  self->node = std::make_shared<rclcpp::Node>(
-    std::string(node_name), std::string(node_namespace), opts);
+  self->node =
+    std::make_shared<rclcpp::Node>(std::string(node_name), std::string(node_namespace), opts);
 
   auto ex_args = rclcpp::ExecutorOptions();
   ex_args.context = self->ros_context;
@@ -153,9 +150,8 @@ gboolean rosbaseimp_open(RosBaseImp * self, gchar* node_name, gchar* node_namesp
   self->ros_executor->add_node(self->node);
   //iface->ros_executor->spin_some();
   self->spin_thread = std::thread(
-    [=](rclcpp::Executor::SharedPtr e){e->spin();},  // lambda spin
-    self->ros_executor
-  );
+    [=](rclcpp::Executor::SharedPtr e) { e->spin(); },  // lambda spin
+    self->ros_executor);
 
   return result;
 }

@@ -119,8 +119,7 @@ void rostextsink_set_property(
     case PROP_ROS_TOPIC:
       if (ros_base_sink->node_if) {
         RCLCPP_ERROR(
-          ros_base_sink->node_if->logging->get_logger(),
-          "can't change topic name once opened");
+          ros_base_sink->node_if->logging->get_logger(), "can't change topic name once opened");
         // XXX try harder
       } else {
         g_free(sink->pub_topic);
@@ -160,10 +159,7 @@ static gboolean rostextsink_open(RosBaseSink * ros_base_sink)
   // XXX test for nullptr in ros_base_sink->node_if
 
   sink->pub = rclcpp::create_publisher<std_msgs::msg::String>(
-    ros_base_sink->node_if->parameters,
-    ros_base_sink->node_if->topics,
-    sink->pub_topic, qos
-  );
+    ros_base_sink->node_if->parameters, ros_base_sink->node_if->topics, sink->pub_topic, qos);
 
   return TRUE;
 }

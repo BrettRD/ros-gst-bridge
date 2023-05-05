@@ -139,8 +139,7 @@ void rosaudiosink_set_property(
     case PROP_ROS_TOPIC:
       if (ros_base_sink->node_if) {
         RCLCPP_ERROR(
-          ros_base_sink->node_if->logging->get_logger(),
-          "can't change topic name once opened");
+          ros_base_sink->node_if->logging->get_logger(), "can't change topic name once opened");
         // XXX try harder
       } else {
         g_free(sink->pub_topic);
@@ -197,10 +196,7 @@ static gboolean rosaudiosink_open(RosBaseSink * ros_base_sink)
   rclcpp::QoS qos = rclcpp::SensorDataQoS().reliable();  //XXX add a parameter for overrides
 
   sink->pub = rclcpp::create_publisher<audio_msgs::msg::Audio>(
-    ros_base_sink->node_if->parameters,
-    ros_base_sink->node_if->topics,
-    sink->pub_topic, qos
-  );
+    ros_base_sink->node_if->parameters, ros_base_sink->node_if->topics, sink->pub_topic, qos);
 
   return TRUE;
 }
@@ -232,7 +228,9 @@ static gboolean rosaudiosink_setcaps(GstBaseSink * gst_base_sink, GstCaps * caps
   }
 
   if (ros_base_sink->node_if)
-    RCLCPP_INFO(ros_base_sink->node_if->logging->get_logger(), "preparing audio with caps '%s'", gst_caps_to_string(caps));
+    RCLCPP_INFO(
+      ros_base_sink->node_if->logging->get_logger(), "preparing audio with caps '%s'",
+      gst_caps_to_string(caps));
 
   if (gst_audio_info_from_caps(&audio_info, caps)) {
     sink->audio_info = audio_info;
