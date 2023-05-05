@@ -21,6 +21,7 @@
 
 #include <gst/base/gstbasesrc.h>
 #include <gst_bridge/gst_bridge.h>
+#include <gst_bridge/rosbaseiface.h>
 
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>

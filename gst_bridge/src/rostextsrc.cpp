@@ -190,8 +190,12 @@ static gboolean rostextsrc_open(RosBaseSrc * ros_base_src)
   // lambdas seem to be the preferred case for these instances
   auto cb = [src](std_msgs::msg::String::ConstSharedPtr msg) { rostextsrc_sub_cb(src, msg); };
   rclcpp::QoS qos = rclcpp::SensorDataQoS();  //XXX add a parameter for overrides
-  src->sub =
-    ros_base_src->node_if->topics->create_subscription<std_msgs::msg::String>(src->sub_topic, qos, cb);
+
+  src->sub = rclcpp::create_subscription<std_msgs::msg::String>(
+    ros_base_src->node_if->parameters,
+    ros_base_src->node_if->topics,
+    src->sub_topic, qos, cb
+  );
 
   return TRUE;
 }

@@ -60,6 +60,7 @@ find_package(builtin_interfaces REQUIRED)
 
 add_library(gst_bridge SHARED
   src/gst_bridge.cpp
+  src/rosbaseiface.cpp
   src/rosbasesink.cpp
   src/rosbasesrc.cpp
 )

@@ -57,13 +57,13 @@ static gboolean rosbase_open(RosBase *self)
 
 /* possible implementation
 
-static void rosbase_impl_init(RosBaseInterface * iface)
+static void rosbaseimp_init(RosBaseInterface * iface)
 {
   iface->open = rosbase_open;
   iface->close = rosbase_close;
 }
 
-void rosbase_impl_set_property(
+void rosbaseimp_set_property(
   GObject * object, guint property_id, const GValue * value, GParamSpec * pspec)
 {
   RosBaseSink * sink = GST_ROS_BASE_SINK(object);
@@ -103,7 +103,7 @@ void rosbase_impl_set_property(
   }
 }
 
-void rosbase_impl_get_property(
+void rosbaseimp_get_property(
   GObject * object, guint property_id, GValue * value, GParamSpec * pspec)
 {
   RosBaseSink * sink = GST_ROS_BASE_SINK(object);
@@ -136,7 +136,7 @@ void rosbase_impl_get_property(
 
 /* open a connection to the ROS graph */
 // XXX allow the pipeline host to inject a node handle
-static gboolean rosbase_imp_open(RosBaseImp * self)
+gboolean rosbaseimp_open(RosBaseImp * self, gchar* node_name, gchar* node_namespace)
 {
   gboolean result = TRUE;
 
@@ -153,7 +153,7 @@ static gboolean rosbase_imp_open(RosBaseImp * self)
   self->ros_executor->add_node(self->node);
   //iface->ros_executor->spin_some();
   self->spin_thread = std::thread(
-    [=](rclcpp::Executor::SharedPtr e){e->spin()},  // lambda spin
+    [=](rclcpp::Executor::SharedPtr e){e->spin();},  // lambda spin
     self->ros_executor
   );
 
@@ -161,12 +161,11 @@ static gboolean rosbase_imp_open(RosBaseImp * self)
 }
 
 /* close the connection to the ROS graph  */
-static gboolean rosbase_imp_close(RosBaseImp * iface)
+gboolean rosbaseimp_close(RosBaseImp * iface)
 {
-  _RosBase* 
   gboolean result = TRUE;
 
-  GST_DEBUG_OBJECT(sink, "close");
+  GST_DEBUG_OBJECT(iface, "close");
 
   iface->ros_executor->cancel();
   iface->spin_thread.join();
@@ -175,6 +174,6 @@ static gboolean rosbase_imp_close(RosBaseImp * iface)
 
   iface->node.reset();
   iface->ros_executor.reset();
-  iface->ros_executor.reset()
+  iface->ros_executor.reset();
   return result;
 }

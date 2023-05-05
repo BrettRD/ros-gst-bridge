@@ -50,7 +50,6 @@ static GstFlowReturn rosbasesink_render(GstBaseSink * sink, GstBuffer * buffer);
 
 static gboolean rosbasesink_open(RosBaseSink * sink);
 static gboolean rosbasesink_close(RosBaseSink * sink);
-static void spin_wrapper(RosBaseSink * sink);
 
 /*
   XXX provide a mechanism for ROS to provide a clock
@@ -203,13 +202,14 @@ static GstStateChangeReturn rosbasesink_change_state(
     }
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING: {
       if (GST_CLOCK_TIME_IS_VALID(sink->stream_start_prop)) {
-        sink->stream_start = rclcpp::Time(sink->stream_start_prop, sink->clock->get_clock_type());
-        RCLCPP_INFO(
-          sink->logger, "stream_start overridden to %ld", sink->stream_start.nanoseconds());
+        sink->stream_start = rclcpp::Time(sink->stream_start_prop, sink->node_if->clock->get_clock()->get_clock_type());
+        RCLCPP_INFO(sink->node_if->logging->get_logger(),
+          "stream_start overridden to %ld", sink->stream_start.nanoseconds());
       } else {
         
-        sink->stream_start = sink->node_if->clock->get_clock().now();
-        RCLCPP_INFO(sink->logger, "stream_start at %ld", sink->stream_start.nanoseconds());
+        sink->stream_start = sink->node_if->clock->get_clock()->now();
+        RCLCPP_INFO(sink->node_if->logging->get_logger(),
+          "stream_start at %ld", sink->stream_start.nanoseconds());
       }
 
       sink->ros_clock_offset =
@@ -248,9 +248,9 @@ static gboolean rosbasesink_open(RosBaseSink * sink)
   gboolean result = TRUE;
   GST_DEBUG_OBJECT(sink, "open");
 
-  if(nullptr == sink->node_if->base){
+  if(nullptr == sink->node_if){
     // XXX this can be a call to a gst interface
-    rosbase_imp_open.open(&(sink->local_node));
+    rosbaseimp_open(&(sink->local_node), sink->node_name, sink->node_namespace);
     sink->node_if = gst_bridge::collect_all_node_interfaces(sink->local_node.node);
   }
 
@@ -272,8 +272,8 @@ static gboolean rosbasesink_close(RosBaseSink * sink)
 
   // if the node exists, destruct it, and reset node_if.
   if(nullptr != sink->local_node.node){
-    sink->node_if.reset()
-    rosbase_imp_open.close(&(sink->local_node));
+    sink->node_if.reset();
+    rosbaseimp_close(&(sink->local_node));
   }
   // if the node doesn't exist, hang onto the node_if
 
@@ -294,11 +294,12 @@ static GstFlowReturn rosbasesink_render(GstBaseSink * base_sink, GstBuffer * buf
   // XXX look at the base sink clock synchronising features
   base_time = gst_element_get_base_time(GST_ELEMENT(sink));
   msg_time = rclcpp::Time(
-    GST_BUFFER_PTS(buf) + base_time + sink->ros_clock_offset, sink->clock->get_clock_type());
+    GST_BUFFER_PTS(buf) + base_time + sink->ros_clock_offset,
+    sink->node_if->clock->get_clock()->get_clock_type());
 
   if (NULL != sink_class->render) return sink_class->render(sink, buf, msg_time);
 
-  if (sink->node) RCLCPP_WARN(sink->logger, "rosbasesink render function not set, dropping buffer");
+  if (sink->node_if) RCLCPP_WARN(sink->node_if->logging->get_logger(), "rosbasesink render function not set, dropping buffer");
 
   return GST_FLOW_OK;
 }

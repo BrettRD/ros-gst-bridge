@@ -23,7 +23,7 @@
  * <refsect2>
  * <title>Example launch line</title>
  * |[
- * gst-launch-1.0 -v rosaudiosrc ! queue ! audioconvert ! alsasink
+ * gst-launch-1.0 -v rosaudiosrc ! queue ! audioconvert ! alsasrc
  * ]|
  * plays audio data from ros over the default output.
  * </refsect2>
@@ -47,7 +47,6 @@ static void rosbasesrc_init(RosBaseSrc * src);
 
 static gboolean rosbasesrc_open(RosBaseSrc * src);
 static gboolean rosbasesrc_close(RosBaseSrc * src);
-static void spin_wrapper(RosBaseSrc * src);
 
 /*
   XXX provide a mechanism for ROS to provide a clock
@@ -121,8 +120,9 @@ void rosbasesrc_set_property(
 
   switch (property_id) {
     case PROP_ROS_NAME:
-      if (src->node) {
-        RCLCPP_ERROR(src->logger, "can't change node name once opened");
+      if (src->node_if) {
+        RCLCPP_ERROR(src->node_if->logging->get_logger(),
+          "can't change node name once opened");
       } else {
         g_free(src->node_name);
         src->node_name = g_value_dup_string(value);
@@ -130,8 +130,9 @@ void rosbasesrc_set_property(
       break;
 
     case PROP_ROS_NAMESPACE:
-      if (src->node) {
-        RCLCPP_ERROR(src->logger, "can't change node namespace once opened");
+      if (src->node_if) {
+        RCLCPP_ERROR(src->node_if->logging->get_logger(),
+          "can't change node namespace once opened");
       } else {
         g_free(src->node_namespace);
         src->node_namespace = g_value_dup_string(value);
@@ -139,8 +140,9 @@ void rosbasesrc_set_property(
       break;
 
     case PROP_ROS_START_TIME:
-      if (src->node) {
-        RCLCPP_ERROR(src->logger, "can't change start_time once opened");
+      if (src->node_if) {
+        RCLCPP_ERROR(src->node_if->logging->get_logger(),
+          "can't change start_time once opened");
       } else {
         src->stream_start_prop = g_value_get_uint64(value);
       }
@@ -194,11 +196,13 @@ static GstStateChangeReturn rosbasesrc_change_state(GstElement * element, GstSta
     }
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING: {
       if (GST_CLOCK_TIME_IS_VALID(src->stream_start_prop)) {
-        src->stream_start = rclcpp::Time(src->stream_start_prop, src->clock->get_clock_type());
-        RCLCPP_INFO(src->logger, "stream_start overridden to %ld", src->stream_start.nanoseconds());
+        src->stream_start = rclcpp::Time(src->stream_start_prop, src->node_if->clock->get_clock()->get_clock_type());
+        RCLCPP_INFO(src->node_if->logging->get_logger(),
+          "stream_start overridden to %ld", src->stream_start.nanoseconds());
       } else {
-        src->stream_start = src->clock->now();
-        RCLCPP_INFO(src->logger, "stream_start at %ld", src->stream_start.nanoseconds());
+        src->stream_start = src->node_if->clock->get_clock()->now();
+        RCLCPP_INFO(src->node_if->logging->get_logger(),
+          "stream_start at %ld", src->stream_start.nanoseconds());
       }
 
       src->ros_clock_offset =
@@ -237,10 +241,10 @@ static gboolean rosbasesrc_open(RosBaseSrc * src)
   GST_DEBUG_OBJECT(src, "open");
 
 
-  if(nullptr == sink->node_if->base){
+  if(nullptr == src->node_if){
     // XXX this can be a call to a gst interface
-    rosbase_imp_open.open(&(sink->local_node));
-    sink->node_if = gst_bridge::collect_all_node_interfaces(sink->local_node.node);
+    rosbaseimp_open(&(src->local_node), src->node_name, src->node_namespace);
+    src->node_if = gst_bridge::collect_all_node_interfaces(src->local_node.node);
   }
   // allow sub-class to create subscribers on src->node
   if (src_class->open) result = src_class->open(src);
@@ -252,23 +256,19 @@ static gboolean rosbasesrc_open(RosBaseSrc * src)
 static gboolean rosbasesrc_close(RosBaseSrc * src)
 {
   RosBaseSrcClass * src_class = GST_ROS_BASE_SRC_GET_CLASS(src);
-
   GST_DEBUG_OBJECT(src, "close");
   gboolean result = TRUE;
-
-  src->clock.reset();
 
   //allow sub-class to clean up before destroying ros context
   if (src_class->close) result = src_class->close(src);
 
   // if the node exists, destruct it, and reset node_if.
-  if(nullptr != sink->local_node.node){
-    sink->node_if.reset()
-    rosbase_imp_open.close(&(sink->local_node));
+  if(nullptr != src->local_node.node){
+    src->node_if.reset();
+    rosbaseimp_close(&(src->local_node));
   }
   // if the node doesn't exist, hang onto the node_if
 
   return result;
 }
 
-static void spin_wrapper(RosBaseSrc * src) { src->ros_executor->spin(); }

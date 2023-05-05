@@ -17,8 +17,6 @@
  */
 
 
-/*
-Proper GStreamer interface definition, not yet used
 
 #ifndef _GST_ROS_BASE_IFACE_H_
 #define _GST_ROS_BASE_IFACE_H_
@@ -27,7 +25,10 @@ Proper GStreamer interface definition, not yet used
 
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
+#include <thread>
 
+/*
+Proper GStreamer interface definition, not yet used
 G_BEGIN_DECLS
 
 #define GST_TYPE_ROS_BASE (rosbase_get_type())
@@ -68,10 +69,10 @@ struct _RosBaseImp{
   rclcpp::Time stream_start;
   rcl_time_point_value_t stream_start_prop;  //uint64_t, equiv to GST_TYPE_CLOCK_TIME
   GstClockTimeDiff ros_clock_offset;
-}
+};
 
-gboolean rosbase_open(RosBase *self);
-gboolean rosbase_close(RosBase *self);
+gboolean rosbaseimp_open(RosBaseImp *self, gchar* node_name, gchar* node_namespace);
+gboolean rosbaseimp_close(RosBaseImp *self);
 
 /*
 GType rosbase_get_type(void);

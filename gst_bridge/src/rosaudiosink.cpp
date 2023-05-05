@@ -195,7 +195,12 @@ static gboolean rosaudiosink_open(RosBaseSink * ros_base_sink)
   Rosaudiosink * sink = GST_ROSAUDIOSINK(ros_base_sink);
   GST_DEBUG_OBJECT(sink, "open");
   rclcpp::QoS qos = rclcpp::SensorDataQoS().reliable();  //XXX add a parameter for overrides
-  sink->pub = ros_base_sink->node_if->topics->create_publisher<audio_msgs::msg::Audio>(sink->pub_topic, qos);
+
+  sink->pub = rclcpp::create_publisher<audio_msgs::msg::Audio>(
+    ros_base_sink->node_if->parameters,
+    ros_base_sink->node_if->topics,
+    sink->pub_topic, qos
+  );
 
   return TRUE;
 }
@@ -226,7 +231,7 @@ static gboolean rosaudiosink_setcaps(GstBaseSink * gst_base_sink, GstCaps * caps
     return false;
   }
 
-  if (ros_base_sink->node)
+  if (ros_base_sink->node_if)
     RCLCPP_INFO(ros_base_sink->node_if->logging->get_logger(), "preparing audio with caps '%s'", gst_caps_to_string(caps));
 
   if (gst_audio_info_from_caps(&audio_info, caps)) {

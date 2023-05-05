@@ -4,7 +4,7 @@ namespace gst_pipes
 {
 void gst_pipes_appsink::initialise(
   std::string name,  // the config name of the plugin
-  std::shared<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
+  std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
 {
   name_ = name;
   node_if_ = node_if;
@@ -41,7 +41,7 @@ void gst_pipes_appsink::frame_cb(/* ideally the gstreamer buffer*/) {}
 
 void gst_pipes_appsrc::initialise(
   std::string name,  // the config name of the plugin
-  std::shared<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
+  std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
 {
   name_ = name;
   node_if_ = node_if;

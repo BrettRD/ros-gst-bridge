@@ -107,8 +107,8 @@ gst_pipes::gst_pipes(const rclcpp::NodeOptions & options) : Node("gst_pipes_node
   //     Plugins (both here and inside the pipeline) should refer to
   //     the pipeline's GstContext
 
-  std::shared<gst_bridge::node_interface_collection> node_if =
-    collect_all_node_interfaces(shared_from_this());
+  std::shared_ptr<gst_bridge::node_interface_collection> node_if =
+    gst_bridge::collect_all_node_interfaces(this);
 
   // initialise the ros plugins
   for (auto name_handler : element_handlers_) {

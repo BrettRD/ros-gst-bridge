@@ -199,7 +199,13 @@ static gboolean rosimagesink_open(RosBaseSink * ros_base_sink)
   Rosimagesink * sink = GST_ROSIMAGESINK(ros_base_sink);
   GST_DEBUG_OBJECT(sink, "open");
   rclcpp::QoS qos = rclcpp::SensorDataQoS().reliable();  //XXX add a parameter for overrides
-  sink->pub = ros_base_sink->node_if->topics->create_publisher<sensor_msgs::msg::Image>(sink->pub_topic, qos);
+
+  sink->pub = rclcpp::create_publisher<sensor_msgs::msg::Image>(
+    ros_base_sink->node_if->parameters,
+    ros_base_sink->node_if->topics,
+    sink->pub_topic, qos
+  );
+
   return TRUE;
 }
 
@@ -232,7 +238,7 @@ static gboolean rosimagesink_setcaps(GstBaseSink * gst_base_sink, GstCaps * caps
       "caps is not fixed");
   }
 
-  if (ros_base_sink->node)
+  if (ros_base_sink->node_if)
     RCLCPP_INFO(ros_base_sink->node_if->logging->get_logger(), "preparing video with caps '%s'", gst_caps_to_string(caps));
 
   caps_struct = gst_caps_get_structure(caps, 0);

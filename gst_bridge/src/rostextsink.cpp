@@ -158,7 +158,12 @@ static gboolean rostextsink_open(RosBaseSink * ros_base_sink)
   GST_DEBUG_OBJECT(sink, "open");
   rclcpp::QoS qos = rclcpp::SensorDataQoS().reliable();  //XXX add a parameter for overrides
   // XXX test for nullptr in ros_base_sink->node_if
-  sink->pub = ros_base_sink->node_if->topics->create_publisher<std_msgs::msg::String>(sink->pub_topic, qos);
+
+  sink->pub = rclcpp::create_publisher<std_msgs::msg::String>(
+    ros_base_sink->node_if->parameters,
+    ros_base_sink->node_if->topics,
+    sink->pub_topic, qos
+  );
 
   return TRUE;
 }

@@ -6,7 +6,7 @@ namespace gst_pipes
 {
 void gst_pipes_bridge::initialise(
   std::string name,  // the config name of the plugin
-  std::shared<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
+  std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
 {
   name_ = name;
   node_if_ = node_if;
@@ -26,7 +26,7 @@ void gst_pipes_bridge::initialise(
 
       if (GST_IS_ROS_BASE_SINK(bin_)) {
         RCLCPP_INFO(
-          node_if.log->get_logger(),
+          node_if->logging->get_logger(),
           "plugin gst_pipes_bridge - '%s' is a sink from the gst-bridge package, connecting interfaces",
           elem_name_.c_str());
           

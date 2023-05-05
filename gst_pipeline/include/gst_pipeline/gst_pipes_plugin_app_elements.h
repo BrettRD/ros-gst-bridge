@@ -34,7 +34,7 @@ public:
   //  bind to the appsink callbacks
   void initialise(
     std::string name,  // the config name of the plugin
-    std::shared<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
+    std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
 
   // handle the frame emitted from the pipeline
   void frame_cb(/* ideally the gstreamer buffer*/);
@@ -52,7 +52,7 @@ class gst_pipes_appsrc : public gst_pipes_plugin
 public:
   void initialise(
     std::string name,  // the config name of the plugin
-    std::shared<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
+    std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
 
   // handle the frame from the subscription
   void frame_cb(/* the ros image message / audio message */);

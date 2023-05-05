@@ -31,7 +31,7 @@ public:
   //  point the service callbacks to the pipeline
   void initialise(
     std::string name,  // the config-file name of the plugin (possibly unused)
-    std::shared<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
+    std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
 
   // handle the play/pause service requests
   void service_cb(/* Gazebo's play/pause message type */);
