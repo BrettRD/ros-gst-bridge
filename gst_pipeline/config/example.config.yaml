@@ -12,14 +12,14 @@ gst_pipes_node:
     #pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! ximagesink name=mysink"
 
     ros_plugin_names:
-      - "appsrc_handler"
-      - "appsink_handler"
+      - "src_handler"
+      - "sink_handler"
 
-    appsrc_handler:
-      type: "gst_pipes::gst_pipes_appsrc"
-      appsrc_name: "mysrc"
+    src_handler:
+      type: "gst_pipes::gst_pipes_bridge"
+      element_name: "mysrc"
 
-    appsink_handler:
-      type: "gst_pipes::gst_pipes_appsink"
-      appsink_name: "mysink"
+    sink_handler:
+      type: "gst_pipes::gst_pipes_bridge"
+      element_name: "mysink"
 

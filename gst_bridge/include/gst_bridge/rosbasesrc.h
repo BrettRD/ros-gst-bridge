@@ -46,14 +46,20 @@ struct _RosBaseSrc
   gchar * node_name;
   gchar * node_namespace;
 
+  // private variables to construct the node interfaces
   rclcpp::Context::SharedPtr ros_context;
   rclcpp::Executor::SharedPtr ros_executor;
   rclcpp::Node::SharedPtr node;
   rclcpp::Logger logger;
   rclcpp::Clock::SharedPtr clock;
-
   std::thread spin_thread;
 
+  // place to bind all ros calls to
+  //   We can use this in the gst_pipeline pacakge to pass access to the
+  //   pipeline host's node within a composable node container
+  gst_bridge::node_interface_collection node_if;
+
+  // clocking and timing information
   rclcpp::Time stream_start;
   rcl_time_point_value_t stream_start_prop;  //uint64_t, equiv to GST_TYPE_CLOCK_TIME
   GstClockTimeDiff ros_clock_offset;
