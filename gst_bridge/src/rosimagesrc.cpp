@@ -176,8 +176,8 @@ void rosimagesrc_set_property(
 
   switch (property_id) {
     case PROP_ROS_TOPIC:
-      if (ros_base_src->node) {
-        RCLCPP_ERROR(ros_base_src->logger, "can't change topic name once opened");
+      if (ros_base_src->node_if) {
+        RCLCPP_ERROR(ros_base_src->node_if->logging->get_logger(), "can't change topic name once opened");
       } else {
         g_free(src->sub_topic);
         src->sub_topic = g_value_dup_string(value);
@@ -190,7 +190,7 @@ void rosimagesrc_set_property(
         src->init_caps = g_value_dup_string(value);
         rosimagesrc_set_msg_props_from_caps_string(src, src->init_caps);
       } else {
-        RCLCPP_ERROR(ros_base_src->logger, "can't change initial caps after init");
+        RCLCPP_ERROR(ros_base_src->node_if->logging->get_logger(), "can't change initial caps after init");
       }
       break;
 
@@ -307,7 +307,7 @@ static gboolean rosimagesrc_open(RosBaseSrc * ros_base_src)
   auto cb = [src](sensor_msgs::msg::Image::ConstSharedPtr msg) { rosimagesrc_sub_cb(src, msg); };
   rclcpp::QoS qos = rclcpp::SensorDataQoS();  //XXX add a parameter for overrides
   src->sub =
-    ros_base_src->node->create_subscription<sensor_msgs::msg::Image>(src->sub_topic, qos, cb);
+    ros_base_src->node_if->topics->create_subscription<sensor_msgs::msg::Image>(src->sub_topic, qos, cb);
 
   return TRUE;
 }
@@ -358,8 +358,8 @@ static GstCaps * rosimagesrc_fixate(GstBaseSrc * base_src, GstCaps * caps)
 
   caps = GST_BASE_SRC_CLASS(rosimagesrc_parent_class)->fixate(base_src, caps);
 
-  if (ros_base_src->node)
-    RCLCPP_INFO(ros_base_src->logger, "preparing video with caps '%s'", gst_caps_to_string(caps));
+  if (ros_base_src->node_if)
+    RCLCPP_INFO(ros_base_src->node_if->logging->get_logger(), "preparing video with caps '%s'", gst_caps_to_string(caps));
 
   return caps;
 }
@@ -378,18 +378,18 @@ static GstCaps * rosimagesrc_getcaps(GstBaseSrc * base_src, GstCaps * filter)
 
   GST_DEBUG_OBJECT(src, "getcaps");
 
-  if (ros_base_src->node)
-    RCLCPP_INFO(ros_base_src->logger, "getcaps with filter '%s'", gst_caps_to_string(filter));
+  if (ros_base_src->node_if)
+    RCLCPP_INFO(ros_base_src->node_if->logging->get_logger(), "getcaps with filter '%s'", gst_caps_to_string(filter));
 
   // if init_caps is not set, we wait for the first message
   // if init_caps is set, we don't wait
   if (0 == g_strcmp0(src->init_caps, "")) {
-    if (!ros_base_src->node) {
+    if (!ros_base_src->node_if) {
       GST_DEBUG_OBJECT(src, "getcaps with node not ready, returning template");
       return gst_pad_get_pad_template_caps(GST_BASE_SRC(src)->srcpad);
     }
     GST_DEBUG_OBJECT(src, "getcaps with node ready, waiting for message");
-    RCLCPP_INFO(ros_base_src->logger, "waiting for first message");
+    RCLCPP_INFO(ros_base_src->node_if->logging->get_logger(), "waiting for first message");
     msg =
       rosimagesrc_wait_for_msg(src);  // XXX need to fix API, the action happens in a side-effect
 
@@ -454,7 +454,7 @@ static GstFlowReturn rosimagesrc_create(
 
   GST_DEBUG_OBJECT(src, "create");
 
-  if (!ros_base_src->node) {
+  if (!ros_base_src->node_if) {
     GST_DEBUG_OBJECT(src, "ros image creating buffer before node init");
   } else if (src->msg_init) {
     GST_DEBUG_OBJECT(src, "ros image creating buffer before receiving first message");
@@ -503,7 +503,7 @@ static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::Const
 {
   RosBaseSrc * ros_base_src = GST_ROS_BASE_SRC(src);
   //GST_DEBUG_OBJECT (src, "ros cb called");
-  //RCLCPP_DEBUG(ros_base_src->logger, "ros cb called");
+  //RCLCPP_DEBUG(ros_base_src->node_if->logging->get_logger(), "ros cb called");
 
   //fetch caps from the first msg, check on subsequent
   if (src->msg_init) {
@@ -511,23 +511,28 @@ static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::Const
   } else {
     if (!(src->step == msg->step / msg->width))
       RCLCPP_ERROR(
-        ros_base_src->logger, "image format changed during playback, step %zd != %d", src->step,
+        ros_base_src->node_if->logging->get_logger(),
+          "image format changed during playback, step %zd != %d", src->step,
         msg->step / msg->width);
     if (!(src->height == (int)msg->height))
       RCLCPP_ERROR(
-        ros_base_src->logger, "image format changed during playback, height %d != %d", src->height,
+        ros_base_src->node_if->logging->get_logger(),
+          "image format changed during playback, height %d != %d", src->height,
         msg->height);
     if (!(src->width == (int)msg->width))
       RCLCPP_ERROR(
-        ros_base_src->logger, "image format changed during playback, width %d != %d", src->width,
+        ros_base_src->node_if->logging->get_logger(),
+          "image format changed during playback, width %d != %d", src->width,
         msg->width);
     if (!(src->endianness == (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN)))
       RCLCPP_ERROR(
-        ros_base_src->logger, "image format changed during playback, endianness %d != %d",
+        ros_base_src->node_if->logging->get_logger(),
+          "image format changed during playback, endianness %d != %d",
         src->endianness, (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN));
     if (!(0 == g_strcmp0(src->encoding, msg->encoding.c_str())))
       RCLCPP_ERROR(
-        ros_base_src->logger, "image format changed during playback, encoding %s != %s",
+        ros_base_src->node_if->logging->get_logger(),
+          "image format changed during playback, encoding %s != %s",
         src->encoding, msg->encoding.c_str());
   }
 
@@ -535,7 +540,8 @@ static void rosimagesrc_sub_cb(Rosimagesrc * src, sensor_msgs::msg::Image::Const
   src->msg_queue.push(msg);
   while (src->msg_queue.size() > src->msg_queue_max) {
     src->msg_queue.pop();
-    RCLCPP_WARN(ros_base_src->logger, "dropping message");
+    RCLCPP_WARN(ros_base_src->node_if->logging->get_logger(),
+      "dropping message");
   }
   src->msg_queue_cv.notify_one();
 }

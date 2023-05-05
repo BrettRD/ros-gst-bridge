@@ -11,7 +11,7 @@ namespace gst_pipes
 {
 void gst_pipes_pause_srv::initialise(
   std::string name,  // the config name of the plugin
-  gst_bridge::node_interface_collection node_if, GstElement * pipeline)
+  std::shared<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
 {
   name_ = name;
   node_if_ = node_if;

@@ -117,8 +117,10 @@ void rostextsink_set_property(
 
   switch (property_id) {
     case PROP_ROS_TOPIC:
-      if (ros_base_sink->node) {
-        RCLCPP_ERROR(ros_base_sink->logger, "can't change topic name once opened");
+      if (ros_base_sink->node_if) {
+        RCLCPP_ERROR(
+          ros_base_sink->node_if->logging->get_logger(),
+          "can't change topic name once opened");
         // XXX try harder
       } else {
         g_free(sink->pub_topic);
@@ -155,7 +157,8 @@ static gboolean rostextsink_open(RosBaseSink * ros_base_sink)
   Rostextsink * sink = GST_ROSTEXTSINK(ros_base_sink);
   GST_DEBUG_OBJECT(sink, "open");
   rclcpp::QoS qos = rclcpp::SensorDataQoS().reliable();  //XXX add a parameter for overrides
-  sink->pub = ros_base_sink->node->create_publisher<std_msgs::msg::String>(sink->pub_topic, qos);
+  // XXX test for nullptr in ros_base_sink->node_if
+  sink->pub = ros_base_sink->node_if->topics->create_publisher<std_msgs::msg::String>(sink->pub_topic, qos);
 
   return TRUE;
 }

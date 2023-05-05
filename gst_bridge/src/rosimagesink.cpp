@@ -142,8 +142,10 @@ void rosimagesink_set_property(
 
   switch (property_id) {
     case PROP_ROS_TOPIC:
-      if (ros_base_sink->node) {
-        RCLCPP_ERROR(ros_base_sink->logger, "can't change topic name once opened");
+      if (ros_base_sink->node_if) {
+        RCLCPP_ERROR(
+          ros_base_sink->node_if->logging->get_logger(),
+          "can't change topic name once opened");
       } else {
         g_free(sink->pub_topic);
         sink->pub_topic = g_value_dup_string(value);
@@ -197,7 +199,7 @@ static gboolean rosimagesink_open(RosBaseSink * ros_base_sink)
   Rosimagesink * sink = GST_ROSIMAGESINK(ros_base_sink);
   GST_DEBUG_OBJECT(sink, "open");
   rclcpp::QoS qos = rclcpp::SensorDataQoS().reliable();  //XXX add a parameter for overrides
-  sink->pub = ros_base_sink->node->create_publisher<sensor_msgs::msg::Image>(sink->pub_topic, qos);
+  sink->pub = ros_base_sink->node_if->topics->create_publisher<sensor_msgs::msg::Image>(sink->pub_topic, qos);
   return TRUE;
 }
 
@@ -225,19 +227,24 @@ static gboolean rosimagesink_setcaps(GstBaseSink * gst_base_sink, GstCaps * caps
   GST_DEBUG_OBJECT(sink, "setcaps");
 
   if (!gst_caps_is_fixed(caps)) {
-    RCLCPP_ERROR(ros_base_sink->logger, "caps is not fixed");
+    RCLCPP_ERROR(
+      ros_base_sink->node_if->logging->get_logger(),
+      "caps is not fixed");
   }
 
   if (ros_base_sink->node)
-    RCLCPP_INFO(ros_base_sink->logger, "preparing video with caps '%s'", gst_caps_to_string(caps));
+    RCLCPP_INFO(ros_base_sink->node_if->logging->get_logger(), "preparing video with caps '%s'", gst_caps_to_string(caps));
 
   caps_struct = gst_caps_get_structure(caps, 0);
   if (!gst_structure_get_int(caps_struct, "width", &width))
-    RCLCPP_ERROR(ros_base_sink->logger, "setcaps missing width");
+    RCLCPP_ERROR(ros_base_sink->node_if->logging->get_logger(),
+      "setcaps missing width");
   if (!gst_structure_get_int(caps_struct, "height", &height))
-    RCLCPP_ERROR(ros_base_sink->logger, "setcaps missing height");
+    RCLCPP_ERROR(ros_base_sink->node_if->logging->get_logger(),
+      "setcaps missing height");
   if (!gst_structure_get_fraction(caps_struct, "framerate", &rate_num, &rate_den))
-    RCLCPP_ERROR(ros_base_sink->logger, "setcaps missing framerate");
+    RCLCPP_ERROR(ros_base_sink->node_if->logging->get_logger(),
+      "setcaps missing framerate");
 
   format_str = gst_structure_get_string(caps_struct, "format");
 
@@ -257,20 +264,27 @@ static gboolean rosimagesink_setcaps(GstBaseSink * gst_base_sink, GstCaps * caps
       sink->encoding = g_strdup(gst_bridge::getRosEncoding(format_enum).c_str());
     }
 
-    RCLCPP_INFO(ros_base_sink->logger, "setcaps format string is %s ", format_str);
-    RCLCPP_INFO(ros_base_sink->logger, "setcaps n_components is %d", format_info->n_components);
-    RCLCPP_INFO(ros_base_sink->logger, "setcaps bits is %d", format_info->bits);
-    RCLCPP_INFO(ros_base_sink->logger, "setcaps pixel_stride is %d", depth);
+    RCLCPP_INFO(ros_base_sink->node_if->logging->get_logger(),
+      "setcaps format string is %s ", format_str);
+    RCLCPP_INFO(ros_base_sink->node_if->logging->get_logger(),
+      "setcaps n_components is %d", format_info->n_components);
+    RCLCPP_INFO(ros_base_sink->node_if->logging->get_logger(),
+      "setcaps bits is %d", format_info->bits);
+    RCLCPP_INFO(ros_base_sink->node_if->logging->get_logger(),
+      "setcaps pixel_stride is %d", depth);
 
     if (format_info->bits < 8) {
       depth = depth / 8;
-      RCLCPP_ERROR(ros_base_sink->logger, "low bits per pixel");
+      RCLCPP_ERROR(ros_base_sink->node_if->logging->get_logger(),
+        "low bits per pixel");
     }
     endianness = GST_VIDEO_FORMAT_INFO_IS_LE(format_info) ? G_LITTLE_ENDIAN : G_BIG_ENDIAN;
   } else {
-    RCLCPP_ERROR(ros_base_sink->logger, "setcaps missing format");
+    RCLCPP_ERROR(ros_base_sink->node_if->logging->get_logger(),
+      "setcaps missing format");
     if (!gst_structure_get_int(caps_struct, "endianness", &endianness))
-      RCLCPP_ERROR(ros_base_sink->logger, "setcaps missing endianness");
+      RCLCPP_ERROR(ros_base_sink->node_if->logging->get_logger(),
+        "setcaps missing endianness");
     return false;
   }
 

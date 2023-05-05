@@ -6,13 +6,13 @@ namespace gst_pipes
 {
 void gst_pipes_bridge::initialise(
   std::string name,  // the config name of the plugin
-  gst_bridge::node_interface_collection node_if, GstElement * pipeline)
+  std::shared<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
 {
   name_ = name;
   node_if_ = node_if;
   pipeline_ = pipeline;
 
-  elem_name_ = node_if.param->declare_parameter(
+  elem_name_ = node_if->parameters->declare_parameter(
       name + ".element_name", rclcpp::ParameterType::PARAMETER_STRING,
       descr("the name of the appsink element inside the pipeline", true))
     .get<std::string>();
@@ -21,7 +21,7 @@ void gst_pipes_bridge::initialise(
     bin_ = gst_bin_get_by_name(GST_BIN_CAST(pipeline_), elem_name_.c_str());
     if (bin_) {
       RCLCPP_INFO(
-        node_if.log->get_logger(), "plugin gst_pipes_bridge '%s' found '%s'", name_.c_str(),
+        node_if->logging->get_logger(), "plugin gst_pipes_bridge '%s' found '%s'", name_.c_str(),
         elem_name_.c_str());
 
       if (GST_IS_ROS_BASE_SINK(bin_)) {
@@ -35,7 +35,7 @@ void gst_pipes_bridge::initialise(
       }
       else if (GST_IS_ROS_BASE_SRC(bin_)) {
         RCLCPP_INFO(
-          node_if.log->get_logger(),
+          node_if->logging->get_logger(),
           "plugin gst_pipes_bridge - '%s' is a src from the gst-bridge package, connecting interfaces",
           elem_name_.c_str());
           
@@ -44,7 +44,7 @@ void gst_pipes_bridge::initialise(
       }
       else {
         RCLCPP_ERROR(
-          node_if.log->get_logger(),
+          node_if->logging->get_logger(),
           "plugin gst_pipes_bridge could not recognise the type of '%s'",
           elem_name_.c_str());
       }
@@ -52,13 +52,13 @@ void gst_pipes_bridge::initialise(
 
     else {
       RCLCPP_ERROR(
-        node_if.log->get_logger(),
+        node_if->logging->get_logger(),
         "plugin gst_pipes_bridge '%s' failed to locate a gstreamer element called '%s'",
         name_.c_str(), elem_name_.c_str());
     }
   } else {
     RCLCPP_ERROR(
-      node_if.log->get_logger(),
+      node_if->logging->get_logger(),
       "plugin gst_pipes_bridge '%s' received invalid pipeline in initialisation", name_.c_str());
   }
 }

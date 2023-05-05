@@ -233,31 +233,17 @@ static GstStateChangeReturn rosbasesrc_change_state(GstElement * element, GstSta
 static gboolean rosbasesrc_open(RosBaseSrc * src)
 {
   RosBaseSrcClass * src_class = GST_ROS_BASE_SRC_GET_CLASS(src);
-  using std::placeholders::_1;
-
   gboolean result = TRUE;
-
   GST_DEBUG_OBJECT(src, "open");
 
-  src->ros_context = std::make_shared<rclcpp::Context>();
-  src->ros_context->init(0, NULL);  // XXX should expose the init arg list
-  auto opts = rclcpp::NodeOptions();
-  opts.context(src->ros_context);  //set a context to generate the node in
-  src->node = std::make_shared<rclcpp::Node>(
-    std::string(src->node_name), std::string(src->node_namespace), opts);
 
-  auto ex_args = rclcpp::ExecutorOptions();
-  ex_args.context = src->ros_context;
-  src->ros_executor = std::make_shared<rclcpp::executors::SingleThreadedExecutor>(ex_args);
-  src->ros_executor->add_node(src->node);
-
+  if(nullptr == sink->node_if->base){
+    // XXX this can be a call to a gst interface
+    rosbase_imp_open.open(&(sink->local_node));
+    sink->node_if = gst_bridge::collect_all_node_interfaces(sink->local_node.node);
+  }
   // allow sub-class to create subscribers on src->node
   if (src_class->open) result = src_class->open(src);
-
-  src->logger = src->node->get_logger();
-  src->clock = src->node->get_clock();
-
-  src->spin_thread = std::thread{&spin_wrapper, src};
 
   return result;
 }
@@ -275,16 +261,13 @@ static gboolean rosbasesrc_close(RosBaseSrc * src)
   //allow sub-class to clean up before destroying ros context
   if (src_class->close) result = src_class->close(src);
 
-  //stop the executor
-  src->ros_executor->cancel();
-  src->spin_thread.join();
-  src->ros_context->shutdown("gst closing rosbasesrc");
+  // if the node exists, destruct it, and reset node_if.
+  if(nullptr != sink->local_node.node){
+    sink->node_if.reset()
+    rosbase_imp_open.close(&(sink->local_node));
+  }
+  // if the node doesn't exist, hang onto the node_if
 
-  //release anything held by shared pointer
-  src->ros_context.reset();
-  src->ros_executor.reset();
-  src->node.reset();
-  src->clock.reset();
   return result;
 }
 

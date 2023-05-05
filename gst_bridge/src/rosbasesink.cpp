@@ -124,8 +124,10 @@ void rosbasesink_set_property(
 
   switch (property_id) {
     case PROP_ROS_NAME:
-      if (sink->node) {
-        RCLCPP_ERROR(sink->logger, "can't change node name once opened");
+      if (sink->node_if) {
+        RCLCPP_ERROR(
+          sink->node_if->logging->get_logger(),
+          "can't change node name once opened");
       } else {
         g_free(sink->node_name);
         sink->node_name = g_value_dup_string(value);
@@ -133,8 +135,10 @@ void rosbasesink_set_property(
       break;
 
     case PROP_ROS_NAMESPACE:
-      if (sink->node) {
-        RCLCPP_ERROR(sink->logger, "can't change node namespace once opened");
+      if (sink->node_if) {
+        RCLCPP_ERROR(
+          sink->node_if->logging->get_logger(),
+          "can't change node namespace once opened");
       } else {
         g_free(sink->node_namespace);
         sink->node_namespace = g_value_dup_string(value);
@@ -142,8 +146,9 @@ void rosbasesink_set_property(
       break;
 
     case PROP_ROS_START_TIME:
-      if (sink->node) {
-        RCLCPP_ERROR(sink->logger, "can't change start_time once opened");
+      if (sink->node_if) {
+        RCLCPP_ERROR(sink->node_if->logging->get_logger(),
+          "can't change start_time once opened");
       } else {
         sink->stream_start_prop = g_value_get_uint64(value);
       }
@@ -202,7 +207,8 @@ static GstStateChangeReturn rosbasesink_change_state(
         RCLCPP_INFO(
           sink->logger, "stream_start overridden to %ld", sink->stream_start.nanoseconds());
       } else {
-        sink->stream_start = sink->clock->now();
+        
+        sink->stream_start = sink->node_if->clock->get_clock().now();
         RCLCPP_INFO(sink->logger, "stream_start at %ld", sink->stream_start.nanoseconds());
       }
 
@@ -242,57 +248,38 @@ static gboolean rosbasesink_open(RosBaseSink * sink)
   gboolean result = TRUE;
   GST_DEBUG_OBJECT(sink, "open");
 
-  sink->ros_context = std::make_shared<rclcpp::Context>();
-  sink->ros_context->init(0, NULL);  // XXX should expose the init arg list
-  auto opts = rclcpp::NodeOptions();
-  opts.context(sink->ros_context);  //set a context to generate the node in
-  sink->node = std::make_shared<rclcpp::Node>(
-    std::string(sink->node_name), std::string(sink->node_namespace), opts);
-
-  auto ex_args = rclcpp::ExecutorOptions();
-  ex_args.context = sink->ros_context;
-  sink->ros_executor = std::make_shared<rclcpp::executors::SingleThreadedExecutor>(ex_args);
-  sink->ros_executor->add_node(sink->node);
+  if(nullptr == sink->node_if->base){
+    // XXX this can be a call to a gst interface
+    rosbase_imp_open.open(&(sink->local_node));
+    sink->node_if = gst_bridge::collect_all_node_interfaces(sink->local_node.node);
+  }
 
   // allow sub-class to create publishers on sink->node
   if (sink_class->open) result = sink_class->open(sink);
-
-  sink->logger = sink->node->get_logger();
-  sink->clock = sink->node->get_clock();
-
-  //sink->ros_executor->spin_some();
-  sink->spin_thread = std::thread{&spin_wrapper, sink};
   return result;
 }
 
 /* close the device */
 static gboolean rosbasesink_close(RosBaseSink * sink)
 {
-  // XXX revision:
-  //     if the node exists, destruct it, and reset node_if.
-  //     if the node doesn't exist, hang onto the node_if
-
   RosBaseSinkClass * sink_class = GST_ROS_BASE_SINK_GET_CLASS(sink);
   gboolean result = TRUE;
 
   GST_DEBUG_OBJECT(sink, "close");
 
-  sink->clock.reset();
-
   //allow sub-class to clean up before destroying ros context
   if (sink_class->close) result = sink_class->close(sink);
 
-  // XXX do something with result
-  //XXX executor
-  sink->ros_executor->cancel();
-  sink->spin_thread.join();
+  // if the node exists, destruct it, and reset node_if.
+  if(nullptr != sink->local_node.node){
+    sink->node_if.reset()
+    rosbase_imp_open.close(&(sink->local_node));
+  }
+  // if the node doesn't exist, hang onto the node_if
 
-  sink->node.reset();
-  sink->ros_context->shutdown("gst closing rosbasesink");
   return result;
 }
 
-static void spin_wrapper(RosBaseSink * sink) { sink->ros_executor->spin(); }
 
 static GstFlowReturn rosbasesink_render(GstBaseSink * base_sink, GstBuffer * buf)
 {

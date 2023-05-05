@@ -83,14 +83,26 @@
 namespace gst_bridge
 {
 // Collection of relevant node interfaces for elements and plugins
-// This interfaces struct is valid for galactic,
-//   humble and rolling have more convenient interface collection types
+// XXX Look to Fuse for a possibly better variation on this
 typedef struct
 {
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr base;
-  rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr log;
-  rclcpp::node_interfaces::NodeParametersInterface::SharedPtr param;
+  rclcpp::node_interfaces::NodeClockInterface::SharedPtr clock;
+  rclcpp::node_interfaces::NodeGraphInterface::SharedPtr graph;
+  rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr logging;
+  rclcpp::node_interfaces::NodeParametersInterface::SharedPtr parameters;
+  rclcpp::node_interfaces::NodeServicesInterface::SharedPtr services;
+  rclcpp::node_interfaces::NodeTimeSourceInterface::SharedPtr time_source;
+  rclcpp::node_interfaces::NodeTimersInterface::SharedPtr timers;
+  rclcpp::node_interfaces::NodeTopicsInterface::SharedPtr topics;
+  rclcpp::node_interfaces::NodeWaitablesInterface::SharedPtr waitables;
 } node_interface_collection;
+
+
+// collect the node interfaces from a node
+std::shared<gst_bridge::node_interface_collection>
+collect_all_node_interfaces(rclcpp::Node::SharedPtr node);
+
 
 //measure the difference between ROS and GST time
 //raw sampling of the clocks seems to be stable within about 10uS

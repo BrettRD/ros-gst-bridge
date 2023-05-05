@@ -47,17 +47,12 @@ struct _RosBaseSink
   gchar * node_namespace;
 
   // private variables to construct the node interfaces
-  rclcpp::Context::SharedPtr ros_context;
-  rclcpp::Executor::SharedPtr ros_executor;
-  rclcpp::Node::SharedPtr node;
-  rclcpp::Logger logger;
-  rclcpp::Clock::SharedPtr clock;
-  std::thread spin_thread;
+  RosBaseImp local_node;
 
   // place to bind all ros calls to
   //   We can use this in the gst_pipeline pacakge to pass access to the
   //   pipeline host's node within a composable node container
-  gst_bridge::node_interface_collection node_if;
+  std::shared_ptr<gst_bridge::node_interface_collection> node_if;
 
   // clocking and timing information
   rclcpp::Time stream_start;
