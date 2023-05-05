@@ -12,7 +12,6 @@
 
 namespace gst_pipes
 {
-
 /*
 
 Play/Pause:
@@ -32,7 +31,7 @@ public:
   //  point the service callbacks to the pipeline
   void initialise(
     std::string name,  // the config-file name of the plugin (possibly unused)
-    node_interface_collection node_if, GstElement * pipeline);
+    gst_bridge::node_interface_collection node_if, GstElement * pipeline);
 
   // handle the play/pause service requests
   void service_cb(/* Gazebo's play/pause message type */);

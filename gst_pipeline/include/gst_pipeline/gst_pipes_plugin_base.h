@@ -11,23 +11,13 @@
 
 namespace gst_pipes
 {
-
-// This interfaces struct is valid for galactic only.
-//   humble and rolling have more convenient interface collection types
-typedef struct
-{
-  rclcpp::node_interfaces::NodeBaseInterface::SharedPtr base;
-  rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr log;
-  rclcpp::node_interfaces::NodeParametersInterface::SharedPtr param;
-} node_interface_collection;
-
 class gst_pipes_plugin
 {
 public:
   //  pass a ros node interface, the pipeline, and a pointer to an element
   virtual void initialise(
     std::string name,  // the config name of the plugin
-    node_interface_collection node_if, GstElement * pipeline) = 0;
+    gst_bridge::node_interface_collection node_if, GstElement * pipeline) = 0;
 
   virtual ~gst_pipes_plugin() {}
 
@@ -35,7 +25,7 @@ protected:
   gst_pipes_plugin() {}
 
   std::string name_;
-  node_interface_collection node_if_;
+  gst_bridge::node_interface_collection node_if_;
   GstElement * pipeline_;
 };
 

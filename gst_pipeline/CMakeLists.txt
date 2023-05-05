@@ -53,6 +53,7 @@ include_directories(include/${PROJECT_NAME})
 
 add_library(gstpipes SHARED
   src/gst_pipes.cpp
+  src/syntax_sugar.cpp
   #src/gst_pipes_plugins.cpp
 )
 

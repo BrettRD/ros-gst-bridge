@@ -235,6 +235,9 @@ static GstStateChangeReturn rosbasesink_change_state(
 /* open the device with given specs */
 static gboolean rosbasesink_open(RosBaseSink * sink)
 {
+  // XXX revision: check the sink->node_if contains valid pointers
+  //   only build an isolated node if the node_if hasn't been set up
+
   RosBaseSinkClass * sink_class = GST_ROS_BASE_SINK_GET_CLASS(sink);
   gboolean result = TRUE;
   GST_DEBUG_OBJECT(sink, "open");
@@ -265,6 +268,10 @@ static gboolean rosbasesink_open(RosBaseSink * sink)
 /* close the device */
 static gboolean rosbasesink_close(RosBaseSink * sink)
 {
+  // XXX revision:
+  //     if the node exists, destruct it, and reset node_if.
+  //     if the node doesn't exist, hang onto the node_if
+
   RosBaseSinkClass * sink_class = GST_ROS_BASE_SINK_GET_CLASS(sink);
   gboolean result = TRUE;
 

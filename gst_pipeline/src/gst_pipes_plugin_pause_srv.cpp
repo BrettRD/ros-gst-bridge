@@ -9,10 +9,9 @@ Play/Pause:
 
 namespace gst_pipes
 {
-
 void gst_pipes_pause_srv::initialise(
   std::string name,  // the config name of the plugin
-  node_interface_collection node_if, GstElement * pipeline)
+  gst_bridge::node_interface_collection node_if, GstElement * pipeline)
 {
   name_ = name;
   node_if_ = node_if;

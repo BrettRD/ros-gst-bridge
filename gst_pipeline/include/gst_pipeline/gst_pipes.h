@@ -13,7 +13,6 @@
 
 namespace gst_pipes
 {
-
 // the node and ROS component for the gstreamer pipeline
 class gst_pipes : public rclcpp::Node
 {

@@ -1,0 +1,43 @@
+# clang-format configuration copied from the ros-humble-ament-clang-format package
+---
+Language: Cpp
+BasedOnStyle: Google
+
+AccessModifierOffset: -2
+AlignAfterOpenBracket: AlwaysBreak
+BraceWrapping:
+  AfterClass: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+BreakBeforeBraces: Custom
+ColumnLimit: 100
+ConstructorInitializerIndentWidth: 0
+ContinuationIndentWidth: 2
+DerivePointerAlignment: false
+PointerAlignment: Middle
+ReflowComments: false
+
+### Changes to the default formatting configuration: 
+
+# Enabling "AlwaysBreakBeforeMultilineStrings" seems to mess up the formatting
+# of multi-line strings that contain preprocessor definitions, like this:
+#
+# #define ROS_IMAGE_MSG_CAPS                         \
+#   "video/x-raw, "                                   \
+#   "format = " GST_BRIDGE_GST_VIDEO_FORMAT_LIST ", " \
+#   "framerate = " GST_VIDEO_FPS_RANGE ", "           \
+#
+# With this option enabled, clang-format will turn the above into:
+# #define ROS_IMAGE_MSG_CAPS                     \
+#   "video/x-raw, "                              \
+#   "format = " GST_BRIDGE_GST_VIDEO_FORMAT_LIST \
+#   ", "                                         \
+#   "framerate = " GST_VIDEO_FPS_RANGE           \
+#   ", "
+#
+# This is not improving readability, so we disable this feature:
+AlwaysBreakBeforeMultilineStrings: false
+
+
+...

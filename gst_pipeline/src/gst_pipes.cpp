@@ -17,7 +17,6 @@ This node loads via ros_components, and exposes node interfaces to a
 
 namespace gst_pipes
 {
-
 gst_pipes::gst_pipes(const rclcpp::NodeOptions & options) : Node("gst_pipes_node", options)
 {
   // get gstreamer ready
@@ -108,7 +107,7 @@ gst_pipes::gst_pipes(const rclcpp::NodeOptions & options) : Node("gst_pipes_node
   //     Plugins (both here and inside the pipeline) should refer to
   //     the pipeline's GstContext
 
-  node_interface_collection node_if = {
+  gst_bridge::node_interface_collection node_if = {
     get_node_base_interface(), get_node_logging_interface(), get_node_parameters_interface()};
 
   // initialise the ros plugins

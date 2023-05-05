@@ -58,62 +58,11 @@ find_package(builtin_interfaces REQUIRED)
 ###########
 
 
-
-
-# This is a gstreamer plugin, not a ros node
-# the install location needs to be found by gst-inspect
-
-add_library(rosgstbridge SHARED
-  src/rosgstbridgeplugin.cpp
-  src/gst_bridge.cpp
-  src/rosbasesink.cpp
-  src/rosbasesrc.cpp
-  src/rosaudiosink.cpp
-  src/rosimagesink.cpp
-  src/rostextsink.cpp
-  src/rosaudiosrc.cpp
-  src/rosimagesrc.cpp
-  src/rostextsrc.cpp
-  )
-
-
-#rosidl_target_interfaces(rosgstbridge
-#  ${PROJECT_NAME} "rosidl_typesupport_cpp")
-
-# ament has a habit of pruning unused linked functions required by gstreamer
-# symptom of this is 'undefined symbol: gst_audio_sink_get_type' on gst-inspect
-target_include_directories(rosgstbridge PRIVATE
-  ${rclcpp_INCLUDE_DIRS}
-  ${sensor_msgs_INCLUDE_DIRS}
-  ${audio_msgs_INCLUDE_DIRS}
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-  ${GLIB_INCLUDE_DIRS}
-  ${GOBJECT_INCLUDE_DIR}
-  ${GSTREAMER_INCLUDE_DIRS}
-  ${GSTREAMER_BASE_INCLUDE_DIRS}
-  ${GST_INCLUDE_DIRS}
-)
-
-target_link_libraries(rosgstbridge PUBLIC
-  ${rclcpp_LIBRARIES}
-  ${sensor_msgs_LIBRARIES}
-  ${audio_msgs_LIBRARIES}
-  ${GLIB_LIBRARIES}
-  ${GLIB_GIO_LIBRARIES}
-  ${GLIB_GOBJECT_LIBRARIES}
-  ${GSTREAMER_LIBRARIES}
-  ${GSTREAMER_AUDIO_LIBRARIES}
-  ${GSTREAMER_APP_LIBRARIES}
-  ${GSTREAMER_VIDEO_LIBRARIES}
-  ${GSTREAMER_BASE_LIBRARIES}
-  ${GST_LIBRARIES}
-)
-
-
-# XXX this lib build needs pruning
 add_library(gst_bridge SHARED
   src/gst_bridge.cpp
+  # XXX this feels hacky, maybe try making a ros_base_interface
+  src/rosbasesink.cpp
+  src/rosbasesrc.cpp
 )
 target_include_directories(gst_bridge PUBLIC
   ${rclcpp_INCLUDE_DIRS}
@@ -133,6 +82,7 @@ target_link_libraries(gst_bridge PUBLIC
   ${audio_msgs_LIBRARIES}
   ${GLIB_LIBRARIES}
   ${GLIB_GIO_LIBRARIES}
+  ${GLIB_GOBJECT_LIBRARIES}
   ${GSTREAMER_LIBRARIES}
   ${GSTREAMER_AUDIO_LIBRARIES}
   ${GSTREAMER_APP_LIBRARIES}
@@ -140,6 +90,57 @@ target_link_libraries(gst_bridge PUBLIC
   ${GSTREAMER_BASE_LIBRARIES}
   ${GST_LIBRARIES}
 )
+
+
+# This is a gstreamer plugin, not a ros node
+# the install location needs to be found by gst-inspect
+
+add_library(rosgstbridge SHARED
+  src/rosgstbridgeplugin.cpp
+  #src/gst_bridge.cpp
+  #src/rosbasesink.cpp
+  #src/rosbasesrc.cpp
+  src/rosaudiosink.cpp
+  src/rosimagesink.cpp
+  src/rostextsink.cpp
+  src/rosaudiosrc.cpp
+  src/rosimagesrc.cpp
+  src/rostextsrc.cpp
+  )
+
+
+#rosidl_target_interfaces(rosgstbridge
+#  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_include_directories(rosgstbridge PRIVATE
+  ${rclcpp_INCLUDE_DIRS}
+  ${sensor_msgs_INCLUDE_DIRS}
+  ${audio_msgs_INCLUDE_DIRS}
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${GLIB_INCLUDE_DIRS}
+  ${GOBJECT_INCLUDE_DIR}
+  ${GSTREAMER_INCLUDE_DIRS}
+  ${GSTREAMER_BASE_INCLUDE_DIRS}
+  ${GST_INCLUDE_DIRS}
+)
+
+target_link_libraries(rosgstbridge PUBLIC
+  gst_bridge
+  ${rclcpp_LIBRARIES}
+  ${sensor_msgs_LIBRARIES}
+  ${audio_msgs_LIBRARIES}
+  ${GLIB_LIBRARIES}
+  ${GLIB_GIO_LIBRARIES}
+  ${GLIB_GOBJECT_LIBRARIES}
+  ${GSTREAMER_LIBRARIES}
+  ${GSTREAMER_AUDIO_LIBRARIES}
+  ${GSTREAMER_APP_LIBRARIES}
+  ${GSTREAMER_VIDEO_LIBRARIES}
+  ${GSTREAMER_BASE_LIBRARIES}
+  ${GST_LIBRARIES}
+)
+
+
 
 if(BUILD_TESTING)
   find_package(ament_cmake_clang_format REQUIRED)

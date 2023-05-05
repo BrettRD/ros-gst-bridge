@@ -60,9 +60,12 @@
 //support rpicamsrc compressed feeds over DDS?
 #define H264_CAPS                          \
   "video/x-h264, "                         \
-  "width = " GST_VIDEO_SIZE_RANGE ", "     \
-  "height = " GST_VIDEO_SIZE_RANGE ", "    \
-  "framerate = " GST_VIDEO_FPS_RANGE ", "  \
+  "width = " GST_VIDEO_SIZE_RANGE          \
+  ", "                                     \
+  "height = " GST_VIDEO_SIZE_RANGE         \
+  ", "                                     \
+  "framerate = " GST_VIDEO_FPS_RANGE       \
+  ", "                                     \
   "stream-format = (string) byte-stream, " \
   "alignment = (string) nal, "             \
   "profile = (string) { constrained-baseline, baseline, main, high }"
@@ -73,6 +76,16 @@
 
 namespace gst_bridge
 {
+// Collection of relevant node interfaces for elements and plugins
+// This interfaces struct is valid for galactic,
+//   humble and rolling have more convenient interface collection types
+typedef struct
+{
+  rclcpp::node_interfaces::NodeBaseInterface::SharedPtr base;
+  rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr log;
+  rclcpp::node_interfaces::NodeParametersInterface::SharedPtr param;
+} node_interface_collection;
+
 //measure the difference between ROS and GST time
 //raw sampling of the clocks seems to be stable within about 10uS
 GstClockTimeDiff sample_clock_offset(GstClock * gst_clock, rclcpp::Time stream_start);

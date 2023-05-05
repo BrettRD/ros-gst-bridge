@@ -20,7 +20,6 @@
 
 namespace gst_bridge
 {
-
 GstClockTimeDiff sample_clock_offset(GstClock * gst_clock, rclcpp::Time stream_start)
 {
   GstClockTime g_time = gst_clock_get_time(gst_clock);  //gst time now

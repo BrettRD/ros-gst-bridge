@@ -1,11 +1,12 @@
+#include <gst_bridge/rosbasesink.h>
+#include <gst_bridge/rosbasesrc.h>
 #include <gst_pipes_plugin_app_elements.h>
 
 namespace gst_pipes
 {
-
 void gst_pipes_appsink::initialise(
   std::string name,  // the config name of the plugin
-  node_interface_collection node_if, GstElement * pipeline)
+  gst_bridge::node_interface_collection node_if, GstElement * pipeline)
 {
   name_ = name;
   node_if_ = node_if;
@@ -23,6 +24,14 @@ void gst_pipes_appsink::initialise(
       RCLCPP_INFO(
         node_if.log->get_logger(), "plugin gst_pipes_appsink '%s' found '%s'", name_.c_str(),
         appsink_name_.c_str());
+
+      if (GST_IS_ROS_BASE_SINK(sink_)) {
+        RCLCPP_INFO(
+          node_if.log->get_logger(),
+          "plugin gst_pipes_appsink '%s' is a sink from the gst-bridge package",
+          appsink_name_.c_str());
+        //GST_ROS_BASE_SINK_CAST(sink_)->node_if = node_if_;
+      }
     }
 
     else {
@@ -42,7 +51,7 @@ void gst_pipes_appsink::frame_cb(/* ideally the gstreamer buffer*/) {}
 
 void gst_pipes_appsrc::initialise(
   std::string name,  // the config name of the plugin
-  node_interface_collection node_if, GstElement * pipeline)
+  gst_bridge::node_interface_collection node_if, GstElement * pipeline)
 {
   name_ = name;
   node_if_ = node_if;
