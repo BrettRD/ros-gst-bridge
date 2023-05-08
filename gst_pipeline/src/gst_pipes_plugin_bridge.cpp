@@ -15,7 +15,7 @@ void gst_pipes_bridge::initialise(
   elem_name_ = node_if->parameters
                  ->declare_parameter(
                    name + ".element_name", rclcpp::ParameterType::PARAMETER_STRING,
-                   descr("the name of the appsink element inside the pipeline", true))
+                   descr("the name of the ros-gst-bridge element inside the pipeline", true))
                  .get<std::string>();
 
   if (GST_IS_BIN(pipeline_)) {

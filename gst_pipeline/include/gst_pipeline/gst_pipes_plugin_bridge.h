@@ -1,5 +1,5 @@
-#ifndef GST_PIPELINE__GST_PIPES_PLUGIN_APP_ELEMENTS_H_
-#define GST_PIPELINE__GST_PIPES_PLUGIN_APP_ELEMENTS_H_
+#ifndef GST_PIPELINE__GST_PIPES_PLUGIN_BRIDGE_H_
+#define GST_PIPELINE__GST_PIPES_PLUGIN_BRIDGE_H_
 
 #include <gst_bridge/gst_bridge.h>
 #include <gst_pipes_plugin_base.h>
@@ -36,4 +36,4 @@ private:
 
 }  // namespace gst_pipes
 
-#endif  //GST_PIPELINE__GST_PIPES_PLUGIN_APP_ELEMENTS_H_
+#endif  //GST_PIPELINE__GST_PIPES_PLUGIN_BRIDGE_H_
