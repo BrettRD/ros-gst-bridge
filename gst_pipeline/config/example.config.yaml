@@ -7,13 +7,17 @@ gst_pipes_node:
     # XXX use the colcon package finder too
 
     #pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! rosimagesink name=mysink"
-    #pipeline_base_descr: "videotestsrc name=mysrc ! queue ! videorate ! videoconvert ! ximagesink live=true name=mysink"
-    pipeline_base_descr: "v4l2src name=mysrc ! videoconvert ! ximagesink live=true name=mysink"
+    pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! ximagesink name=mysink"
+    #pipeline_base_descr: "v4l2src name=mysrc ! videoconvert ! ximagesink name=mysink"
 
     ros_plugin_names:
+      - "pause"
       #- "src_handler"
       #- "sink_handler"
-      - "snapshooter"
+      #- "snapshooter"
+
+    pause:
+      type: "gst_pipes::gst_pipes_pause_srv"
 
     src_handler:
       type: "gst_pipes::gst_pipes_bridge"

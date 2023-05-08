@@ -9,6 +9,7 @@
 #include <gst_bridge/gst_bridge.h>
 
 #include "rclcpp/rclcpp.hpp"
+#include <std_srvs/srv/empty.hpp>
 
 namespace gst_pipes
 {
@@ -34,9 +35,20 @@ public:
     std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
 
   // handle the play/pause service requests
-  void service_cb(/* Gazebo's play/pause message type */);
+
+  void pause_srv_cb(
+    std_srvs::srv::Empty::Request::SharedPtr,
+    std_srvs::srv::Empty::Response::SharedPtr);
+
+  void play_srv_cb(
+    std_srvs::srv::Empty::Request::SharedPtr,
+    std_srvs::srv::Empty::Response::SharedPtr);
 
 private:
+
+  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr pause_service_;
+  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr play_service_;
+
 };
 
 }  // namespace gst_pipes
