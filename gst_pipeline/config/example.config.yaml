@@ -6,14 +6,14 @@ gst_pipes_node:
       - 'install/gst_bridge/lib/gst_bridge/'
     # XXX use the colcon package finder too
 
-    #pipeline_base_descr: "appsrc name='mysrc' ! appsink name='mysink'"
-    #pipeline_base_descr: ""
-    pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! rosimagesink name=mysink"
-    #pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! ximagesink name=mysink"
+    #pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! rosimagesink name=mysink"
+    #pipeline_base_descr: "videotestsrc name=mysrc ! queue ! videorate ! videoconvert ! ximagesink live=true name=mysink"
+    pipeline_base_descr: "v4l2src name=mysrc ! videoconvert ! ximagesink live=true name=mysink"
 
     ros_plugin_names:
-      - "src_handler"
-      - "sink_handler"
+      #- "src_handler"
+      #- "sink_handler"
+      - "snapshooter"
 
     src_handler:
       type: "gst_pipes::gst_pipes_bridge"
@@ -23,3 +23,6 @@ gst_pipes_node:
       type: "gst_pipes::gst_pipes_bridge"
       element_name: "mysink"
 
+    snapshooter:
+      type: "gst_pipes::gst_pipes_snapshooter"
+      element_name: "mysrc"

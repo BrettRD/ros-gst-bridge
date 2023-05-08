@@ -72,6 +72,7 @@ add_library(gstpipes_plugins SHARED
   #src/gst_pipes_plugin_app_elements.cpp
   src/gst_pipes_plugin_bridge.cpp
   src/gst_pipes_plugin_pause_srv.cpp
+  src/gst_pipes_plugin_snapshooter.cpp
 )
 
 ament_target_dependencies(gstpipes_plugins
