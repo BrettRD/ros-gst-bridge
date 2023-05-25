@@ -40,6 +40,7 @@ pkg_check_modules(GST_APP REQUIRED gstreamer-app-1.0 IMPORTED_TARGET)
 ## Include messages
 find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(gst_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(audio_msgs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
@@ -81,6 +82,7 @@ ament_target_dependencies(gstpipes_plugins
   std_msgs
   std_srvs
   sensor_msgs
+  gst_msgs
   GSTREAMER
 )
 
