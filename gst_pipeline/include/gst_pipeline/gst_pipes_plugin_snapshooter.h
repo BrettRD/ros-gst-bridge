@@ -4,8 +4,9 @@
 #include <gst_bridge/gst_bridge.h>
 #include <gst_pipes_plugin_base.h>
 
-#include "rclcpp/rclcpp.hpp"
 #include <std_msgs/msg/empty.hpp>
+
+#include "rclcpp/rclcpp.hpp"
 
 namespace gst_pipes
 {
@@ -24,22 +25,18 @@ public:
     std::string name,  // the config name of the plugin
     std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
 
-
   void trigger_sub_cb(const std_msgs::msg::Empty::SharedPtr msg);
-
-
 
   // This callback is run inside the pad of the sink element, the return will be ok or drop.
   //  This function needs to be static, we can pass a pointer to our logic in user-data
-  static GstPadProbeReturn gst_pad_probe_cb (GstPad *pad, GstPadProbeInfo *info,
-    gpointer user_data);
-
+  static GstPadProbeReturn gst_pad_probe_cb(
+    GstPad * pad, GstPadProbeInfo * info, gpointer user_data);
 
 private:
-
   // wrap some data for a user_data pointer into the gstreamer callback
-  struct cb_user_data {
-    gst_pipes_snapshooter* this_ptr;
+  struct cb_user_data
+  {
+    gst_pipes_snapshooter * this_ptr;
     std::atomic_bool trigger;
   };
 
@@ -55,7 +52,6 @@ private:
 
   // A data type we can pass as pointer into the callback
   struct cb_user_data cb_data;
-
 };
 
 }  // namespace gst_pipes
