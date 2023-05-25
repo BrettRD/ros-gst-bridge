@@ -1,0 +1,8 @@
+# seek operation on a gstreamer pipeline
+
+int64 seek_time     # nanoseconds from beginning of media
+int32 flags         # not yet implemented (nearest keyframe, flush data, etc)
+
+---
+bool success        # indicate successful run of triggered service
+string message      # informational, e.g. for error messages
