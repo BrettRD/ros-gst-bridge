@@ -103,7 +103,6 @@ install(
 install(DIRECTORY
   config
   launch
-  ${PROJECT_NAME}
   DESTINATION share/${PROJECT_NAME}
 )
 
