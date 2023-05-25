@@ -10,6 +10,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include <std_srvs/srv/empty.hpp>
+#include <gst_msgs/srv/seek.hpp>
 
 namespace gst_pipes
 {
@@ -44,10 +45,15 @@ public:
     std_srvs::srv::Empty::Request::SharedPtr,
     std_srvs::srv::Empty::Response::SharedPtr);
 
+  void seek_srv_cb(
+    gst_msgs::srv::Seek::Request::SharedPtr,
+    gst_msgs::srv::Seek::Response::SharedPtr);
+
 private:
 
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr pause_service_;
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr play_service_;
+  rclcpp::Service<gst_msgs::srv::Seek>::SharedPtr seek_service_;
 
 };
 
