@@ -6,9 +6,9 @@ TEST(Test, gst_pipeline_loader)
   std::unique_ptr<pluginlib::ClassLoader<gst_pipes::gst_pipes_plugin>> loader;
 
   std::unordered_map<std::string, std::string> ros_plugin_types = {
-    {"appsrc", "gst_pipes::gst_pipes_appsrc"},
-    {"appsink", "gst_pipes::gst_pipes_appsink"},
-    {"pause", "gst_pipes::gst_pipes_pause_srv"}};
+    {"bridge", "gst_pipes::gst_pipes_bridge"},
+    {"pause", "gst_pipes::gst_pipes_pause_srv"},
+    {"snapshooter", "gst_pipes::gst_pipes_snapshooter"}};
 
   std::unordered_map<std::string, std::shared_ptr<gst_pipes::gst_pipes_plugin>> element_handlers;
 
