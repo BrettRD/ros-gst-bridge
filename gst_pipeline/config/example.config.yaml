@@ -6,9 +6,11 @@ gst_pipes_node:
       - 'install/gst_bridge/lib/gst_bridge/'
     # XXX use the colcon package finder too
 
-    #pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! rosimagesink name=mysink"
-    pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! ximagesink name=mysink"
-    #pipeline_base_descr: "v4l2src name=mysrc ! videoconvert ! ximagesink name=mysink"
+    pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! ximagesink"
+    # pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! rosimagesink name=mysink"
+    # pipeline_base_descr: "v4l2src name=mysrc ! videoconvert ! ximagesink"
+    # pipeline_base_descr: "filesrc location=tears-of-steel.mp4 ! decodebin ! videoconvert ! ximagesink"
+    # pipeline_base_descr: "filesrc location=tears-of-steel.mp4 ! decodebin ! videoconvert ! rosimagesink name=mysink"
 
     ros_plugin_names:
       - "pause"
