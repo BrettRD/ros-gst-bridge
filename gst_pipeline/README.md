@@ -16,9 +16,10 @@ and you don't have to fork the node to do it.
   This gives you shared-pointer message transport with any other ROS nodes in
   the same composable node container.
 
-### Play/Pause:
+### Play/Pause/Seek:
   Connect a Gazebo style play/pause service to the pipeline.
   Pause video files streaming into ROS the same way you pause physics in gazebo
+  This plugin also allows you to seek through a video file with a ros service call specifying the nanoseconds from the beginning of the file
 
 ### Snapshooter:
   Retrieve single video frames from a live stream with a ROS service call.
@@ -29,6 +30,15 @@ and you don't have to fork the node to do it.
   down-sampled potato-quality video, and occasionally transmit single frames
   of high definition on demand.
 
+### WebRTC: 
+  A plugin that connects to the WebRTC signalling callbacks and provides transport for peer discovery metadata.
+  This package provides ROS topics and websockets as peer discovery transport options.
+  Some applications will need to re-arrange the pipeline when the peer's media connects, use the dynamic pipelines plugin for this.
+
+### Dynamic pipelines: (Not yet built)
+  This plugin adds and removes elements from the pipeline.
+  Element discovery mechanisms in other plugins will need to use the bin_added signals to wait for their corresponding element to be created instead of assuming they will exist on init.
+
 ### Property to Parameter mappings: (Not yet built)
   This feature should iterate through all elements and expose their
   element properties as ros parameters where sensible type mappings exist.
@@ -36,15 +46,8 @@ and you don't have to fork the node to do it.
 ### Diagnostics: (Not yet built)
   Run a diagnostic updater with information about the pipeline.
 
-### WebRTC: (Not yet built)
-  A plugin that connects to the WebRTC signalling callbacks and provides
-  transport for peer connection metadata.
-  This plugin may need to add and remove elements from the pipeline,
-  the addition and removal of nodes may need hooks that trigger plugin re-init
-
 ### Aravis: (Not yet built)
   Expose configuration of GiGE / Genicam cameras as ROS parameters
-
 
 ### BYO features:
   These features are based on pluginlib, and use an extremely simple base-class.

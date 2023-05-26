@@ -21,15 +21,10 @@ public:
   //  fetch parameters describing the src and sink bins/pads to connect when webrtc goes online
   //    audio_sink_descr
   //    video_sink_descr
-  //    dummy_audio_src_descr
-  //    dummy_video_src_descr
-  //    audio_src_name  // name of the element that own the src pad
-  //    video_src_name
   
   //  fetch parameters indicating if we should:
   //    dialout automatically
   //    pick up automatically
-
 
   //  fetch a param from the node for the element name of our webrtcbin
   //  search the pipeline for the webrtcbin
@@ -132,25 +127,13 @@ public:
     gpointer user_data
   );
 
-
-  // ########## Callbacks for manipulating the pipeline on connection #########
-
-  // This callback is used to replace dummy sources on the webrtc bin
-  static GstPadProbeReturn
-  gst_pad_probe_cb(
-    GstPad * pad,
-    GstPadProbeInfo * info,
-    gpointer user_data
-  );
-
-  // This callback is used add sinks to the webrtcbin
+  // This callback is used to add sinks to the webrtcbin
   static void
   pad_added_cb(
     GstElement *webrtc,
     GstPad *pad,
     gpointer user_data
   );
-
 
 
   // ###################### Callbacks for data channels ######################

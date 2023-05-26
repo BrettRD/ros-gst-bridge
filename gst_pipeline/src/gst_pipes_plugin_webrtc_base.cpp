@@ -126,26 +126,6 @@ void gst_pipes_webrtc_base::initialise(
 
 // ############### C style callbacks for the webrtc async logic ###############
 
-
-// XXX needs logic to disconnect pads, delete elements, and connect new pads.
-// this is important for cases where you want to loop the webrtc output back to the input
-GstPadProbeReturn
-gst_pipes_webrtc_base::gst_pad_probe_cb(
-  GstPad * pad,
-  GstPadProbeInfo * info,
-  gpointer user_data
-){
-  gst_pipes_webrtc_base* this_ptr = (gst_pipes_webrtc_base*) user_data;
-  // XXX remove the src pad in *pad,
-  // XXX remove the src bin
-  // XXX find the new src pad
-  // XXX attach the new src pad
-  GstPadProbeReturn ret;
-  ret = GST_PAD_PROBE_OK;
-  return ret;
-}
-
-// 
 void
 gst_pipes_webrtc_base::on_negotiation_needed_cb(
   GstElement * object,
