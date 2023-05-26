@@ -1,16 +1,14 @@
-#include <gst_pipes_plugin_webrtc.h>
+#include <gst_pipes_plugin_webrtc_base.h>
 
 namespace gst_pipes
 {
-void gst_pipes_webrtc::initialise(
+void gst_pipes_webrtc_base::initialise(
   std::string name,  // the config name of the plugin
   std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
 {
   name_ = name;
   node_if_ = node_if;
   pipeline_ = pipeline;
-  cb_data.this_ptr = this;
-  cb_data.trigger = false;
 
   elem_name_ = node_if->parameters
                  ->declare_parameter(
@@ -57,8 +55,6 @@ void gst_pipes_webrtc::initialise(
       // we can offer a low latency data channel back
       g_signal_emit_by_name(webrtc_, "create-data-channel", "channel", NULL, &data_channel_tx);
 
-
-
       */
 
 
@@ -79,17 +75,71 @@ void gst_pipes_webrtc::initialise(
 }
 
 
+
+
+
+  // ############ virtual methods for different signalling servers ############
+
+  // connect to your signalling server
+  void gst_pipes_webrtc_base::init_signalling_server_client(){}
+
+  // called when the webrtcbin wants to send a SDP answer
+  // default calls  send_sdp(descr)
+  void gst_pipes_webrtc_base::send_sdp_answer(
+    GstWebRTCSessionDescription * desc
+  ){
+    RCLCPP_INFO(
+      node_if->logging->get_logger(),
+      "plugin gst_pipes_webrtc '%s' sending sdp answer",
+      name_.c_str());
+
+    send_sdp(desc);
+  }
+
+  // called when the webrtcbin is instructed to send a sdp offer
+  // default calls  send_sdp(descr)
+  void gst_pipes_webrtc_base::send_sdp_offer(
+    GstWebRTCSessionDescription * desc
+  ){
+    RCLCPP_INFO(
+      node_if->logging->get_logger(),
+      "plugin gst_pipes_webrtc '%s' sending sdp offer",
+      name_.c_str());
+
+    send_sdp(desc);
+  }
+
+  // send a sdp description to the remote server
+  void gst_pipes_webrtc_base::send_sdp(
+    GstWebRTCSessionDescription * desc
+  ){}
+
+  // send an ice candidat to the remote server
+  void gst_pipes_webrtc_base::send_ice_candidate(
+    guint mline_index,
+    gchararray candidate
+  ){}
+
+
+
+
+
+// ############### C style callbacks for the webrtc async logic ###############
+
+
 // XXX needs logic to disconnect pads, delete elements, and connect new pads.
 // this is important for cases where you want to loop the webrtc output back to the input
 GstPadProbeReturn
-gst_pipes_webrtc::gst_pad_probe_cb(
+gst_pipes_webrtc_base::gst_pad_probe_cb(
   GstPad * pad,
   GstPadProbeInfo * info,
   gpointer user_data
 ){
-  gst_pipes_webrtc* this_ptr = (gst_pipes_webrtc*) user_data;
-  // XXX remove the source bin,
-  // XXX attach the appropriate new src bin
+  gst_pipes_webrtc_base* this_ptr = (gst_pipes_webrtc_base*) user_data;
+  // XXX remove the src pad in *pad,
+  // XXX remove the src bin
+  // XXX find the new src pad
+  // XXX attach the new src pad
   GstPadProbeReturn ret;
   ret = GST_PAD_PROBE_OK;
   return ret;
@@ -97,42 +147,46 @@ gst_pipes_webrtc::gst_pad_probe_cb(
 
 // 
 void
-gst_pipes_webrtc::on_negotiation_needed_cb(
+gst_pipes_webrtc_base::on_negotiation_needed_cb(
   GstElement * object,
   gpointer udata
 ){
-  gst_pipes_webrtc* this_ptr = (gst_pipes_webrtc*) user_data;
+  gst_pipes_webrtc_base* this_ptr = (gst_pipes_webrtc_base*) user_data;
 }
 
+
 void
-gst_pipes_webrtc::on_ice_candidate_cb(
+gst_pipes_webrtc_base::on_ice_candidate_cb(
   GstElement * object,
   guint mline_index,
   gchararray candidate,
   gpointer udata
 ){
-  gst_pipes_webrtc* this_ptr = (gst_pipes_webrtc*) user_data;
+  gst_pipes_webrtc_base* this_ptr = (gst_pipes_webrtc_base*) user_data;
   // our webrtcbin is ready to send an ice candidate to the remote peer,
-  // package and publish the string
+  // XXX package and publish the candidate
+  this_ptr->send_ice_candidate(mline_index, candidate);
 }
 
+
 void
-gst_pipes_webrtc::on_notify_ice_gathering_state_cb(
+gst_pipes_webrtc_base::on_notify_ice_gathering_state_cb(
   GstElement *webrtcbin,
   GParamSpec *pspec,
   gpointer user_data
 ){
-  gst_pipes_webrtc* this_ptr = (gst_pipes_webrtc*) user_data;
-  // this is purely a monitoring call, just print to debug, and maybe send a ros diagnostics update
+  gst_pipes_webrtc_base* this_ptr = (gst_pipes_webrtc_base*) user_data;
+  // XXX this is purely a monitoring call, just print to debug, and maybe send a ros diagnostics update
 }
 
+
 void
-gst_pipes_webrtc::pad_added_cb(
+gst_pipes_webrtc_base::pad_added_cb(
   GstElement *webrtc,
   GstPad *pad,
   gpointer user_data
 ){
-  gst_pipes_webrtc* this_ptr = (gst_pipes_webrtc*) user_data;
+  gst_pipes_webrtc_base* this_ptr = (gst_pipes_webrtc_base*) user_data;
   // XXX test if the pad is audio or video, then build and attach the appropriate sink bin
   // optionally shim a decodebin in for convenience
 }
@@ -142,14 +196,14 @@ gst_pipes_webrtc::pad_added_cb(
 // called when the remote peer has a SDP answer,
 // this will be called by a ros topic message in the default plugin
 void
-gst_pipes_webrtc::sdp_received(
+gst_pipes_webrtc_base::sdp_received(
   GstWebRTCSessionDescription * desc,   //a GstWebRTCSessionDescription description
 ){
 
   GstPromise * promise = gst_promise_new_with_change_func(set_remote_description_prom, this, NULL);
 
   g_signal_emit_by_name(webrtc_, "set-remote-description", desc, promise);
-  // XXX
+  // this is the start of a bit of a call stack
   // promise calls set_remote_description_prom
   // which emits signal g_signal_emit_by_name(webrtc_, "create-answer", NULL, promise);
   // whose promise calls create_answer_prom
@@ -159,11 +213,11 @@ gst_pipes_webrtc::sdp_received(
 }
 
 void 
-gst_pipes_webrtc::set_remote_description_prom(
+gst_pipes_webrtc_base::set_remote_description_prom(
   GstPromise *promise,
   gpointer user_data
 ){
-  gst_pipes_webrtc* this_ptr = (gst_pipes_webrtc*) user_data;
+  gst_pipes_webrtc_base* this_ptr = (gst_pipes_webrtc_base*) user_data;
   gst_promise_unref(promise);
 
 
@@ -171,12 +225,14 @@ gst_pipes_webrtc::set_remote_description_prom(
   g_signal_emit_by_name(webrtc_, "create-answer", NULL, promise);
 
 }
+
+
 void 
-gst_pipes_webrtc::create_answer_prom(
+gst_pipes_webrtc_base::create_answer_prom(
   GstPromise *promise,
   gpointer user_data
 ){
-  gst_pipes_webrtc* this_ptr = (gst_pipes_webrtc*) user_data;
+  gst_pipes_webrtc_base* this_ptr = (gst_pipes_webrtc_base*) user_data;
 
   GstWebRTCSessionDescription *answer = NULL;
   const GstStructure *reply;
@@ -191,8 +247,8 @@ gst_pipes_webrtc::create_answer_prom(
   // Is this needed?
   g_signal_emit_by_name(webrtc_, "set-local-description", answer, NULL);
 
-  // send answer to remote peer,
-  this_ptr->publish_sdp_answer(answer);
+  // XXX send answer to remote peer,
+  this_ptr->send_sdp_answer(answer);
 
 }
 
@@ -201,7 +257,7 @@ gst_pipes_webrtc::create_answer_prom(
 // called when the remote peer sends an ice candidate,
 // this will be called by a ros topic message in the default plugin
 void
-gst_pipes_webrtc::ice_received(
+gst_pipes_webrtc_base::ice_received(
   guint mline_index,          // the index of the media description in the SDP
   gchararray ice_candidate,   // an ice candidate or NULL/"" to mark that no more candidates will arrive
 ){
@@ -211,12 +267,12 @@ gst_pipes_webrtc::ice_received(
 
 // remote peer has offered a data channel to send us data
 void
-gst_pipes_webrtc::on_data_channel_cb(
+gst_pipes_webrtc_base::on_data_channel_cb(
   GstElement * object,
   GstWebRTCDataChannel * channel,
   gpointer user_data
 ){
-  gst_pipes_webrtc* this_ptr = (gst_pipes_webrtc*) user_data;
+  gst_pipes_webrtc_base* this_ptr = (gst_pipes_webrtc_base*) user_data;
   this_ptr->data_channel_rx_ = channel; // XXX use a setter method
 
   // events associated with data channels:
@@ -227,55 +283,40 @@ gst_pipes_webrtc::on_data_channel_cb(
 }
 
 void
-gst_pipes_webrtc::data_channel_on_message_data_cb(
+gst_pipes_webrtc_base::data_channel_on_message_data_cb(
   GstWebRTCDataChannel * self,
   GBytes * data,
   gpointer user_data
 ){
-  gst_pipes_webrtc* this_ptr = (gst_pipes_webrtc*) user_data;
+  gst_pipes_webrtc_base* this_ptr = (gst_pipes_webrtc_base*) user_data;
 }
 
 void
-gst_pipes_webrtc::data_channel_on_open_cb(
+gst_pipes_webrtc_base::data_channel_on_open_cb(
   GstWebRTCDataChannel * self,
   gpointer user_data
 ){
-  gst_pipes_webrtc* this_ptr = (gst_pipes_webrtc*) user_data;
+  gst_pipes_webrtc_base* this_ptr = (gst_pipes_webrtc_base*) user_data;
 }
 
 void
-gst_pipes_webrtc::data_channel_on_error_cb(
+gst_pipes_webrtc_base::data_channel_on_error_cb(
   GstWebRTCDataChannel * self,
   GError * error,
   gpointer user_data
 ){
-  gst_pipes_webrtc* this_ptr = (gst_pipes_webrtc*) user_data;
+  gst_pipes_webrtc_base* this_ptr = (gst_pipes_webrtc_base*) user_data;
 }
 
 void
-gst_pipes_webrtc::data_channel_on_close_cb(
+gst_pipes_webrtc_base::data_channel_on_close_cb(
   GstWebRTCDataChannel * self,
   gpointer user_data
 ){
-  gst_pipes_webrtc* this_ptr = (gst_pipes_webrtc*) user_data;
+  gst_pipes_webrtc_base* this_ptr = (gst_pipes_webrtc_base*) user_data;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
 }  // namespace gst_pipes
 
-#include <pluginlib/class_list_macros.hpp>
-PLUGINLIB_EXPORT_CLASS(gst_pipes::gst_pipes_webrtc, gst_pipes::gst_pipes_plugin)
