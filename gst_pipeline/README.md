@@ -17,8 +17,13 @@ and you don't have to fork the node to do it.
   the same composable node container.
 
 ### Play/Pause:
-  Connect a Gazebo style play/pause service to the pipeline.
-  Pause video files streaming into ROS the same way you pause physics in gazebo
+  Connect a Gazebo style play/pause service to the pipeline, adding two
+  services named `/play` and `/pause`. These enable pausing/playing video files
+  streaming into ROS the same way you pause/play physics in gazebo.
+###### Example:
+```
+ros2 service call /pause std_srvs/srv/Empty
+```
 
 ### Snapshooter:
   Retrieve single video frames from a live stream with a ROS service call.
