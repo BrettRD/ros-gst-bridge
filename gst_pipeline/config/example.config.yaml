@@ -13,7 +13,7 @@ gst_pipes_node:
     # pipeline_base_descr: "filesrc location=tears-of-steel.mp4 ! decodebin ! videoconvert ! rosimagesink name=mysink"
 
     ros_plugin_names:
-      - "pause"
+      - "clock_observer"
       #- "src_handler"
       #- "sink_handler"
       #- "snapshooter"
@@ -31,4 +31,8 @@ gst_pipes_node:
 
     snapshooter:
       type: "gst_pipes::gst_pipes_snapshooter"
+      element_name: "mysrc"
+
+    clock_observer:
+      type: "gst_pipes::gst_pipes_clock_observer"
       element_name: "mysrc"
