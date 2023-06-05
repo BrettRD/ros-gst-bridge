@@ -14,7 +14,7 @@ namespace gst_pipes
     A class publishes the gstreamer buffer PTS time as a ROSTime to topic `/{mysrc}/gst_pts`.
     This can be used with `ros2 topic hz` to measure the frame rate of video
 
-    TODO build-in the functionality of ros2 topic hz so reduce chatter on the DDS
+    TODO build-in the functionality of ros2 topic hz to reduce chatter on the DDS
 */
 class gst_pipes_buffer_observer : public gst_pipes_plugin
 {
