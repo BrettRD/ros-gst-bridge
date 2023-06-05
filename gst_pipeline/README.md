@@ -15,6 +15,9 @@ and you don't have to fork the node to do it.
   inside the composable node container.
   This gives you shared-pointer message transport with any other ROS nodes in
   the same composable node container.
+  
+  ###### Parameters:
+  * element_name - String
 
 ### Play/Pause:
   Connect a Gazebo style play/pause service to the pipeline, adding two
@@ -25,7 +28,16 @@ and you don't have to fork the node to do it.
 ros2 service call /pause std_srvs/srv/Empty
 ```
 
-### Snapshooter:
+
+### Buffer Observer:
+  Sends a ros message whenever a buffer passes out of a specified GStreamer element
+  
+  ###### parameters:
+  * element_name - String
+
+
+
+### Frame Gate:
   Retrieve single video frames from a live stream with a ROS service call.
   This plugin inserts a probe anywhere in a gstreamer pipeline, and causes the
   src pad to drop buffers unless the ros service was recently called.
@@ -33,6 +45,10 @@ ros2 service call /pause std_srvs/srv/Empty
   This can be used on low-bandwidth connections where you navigate on
   down-sampled potato-quality video, and occasionally transmit single frames
   of high definition on demand.
+  ###### parameters:
+  * element_name - String
+  * pass_on_startup
+
 
 ### Property to Parameter mappings: (Not yet built)
   This feature should iterate through all elements and expose their
