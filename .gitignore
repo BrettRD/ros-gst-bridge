@@ -4,6 +4,9 @@
 
 */build
 
+# backup files
+*.bak
+
 # CMake
 CMakeLists.txt.user
 CMakeCache.txt

@@ -12,10 +12,11 @@
     </description>
   </class>
 
-  <class type="gst_pipes::gst_pipes_snapshooter" base_class_type="gst_pipes::gst_pipes_plugin">
+  <class type="gst_pipes::gst_pipes_framegate" base_class_type="gst_pipes::gst_pipes_plugin">
     <description>
-    A class that can cause a gst element to drop buffers within the pipeline.
-    This can be used to pull single frames from a video stream.
+      This plugin inserts a callback into the sink pad of the target element,
+      controlling the flow of frames according the last recieved FrameGate message
+      mode on a ros subscription.
     </description>
   </class>
 

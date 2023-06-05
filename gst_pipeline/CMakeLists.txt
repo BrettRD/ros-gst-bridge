@@ -71,7 +71,7 @@ add_library(gstpipes_plugins SHARED
   src/syntax_sugar.cpp
   src/gst_pipes_plugin_bridge.cpp
   src/gst_pipes_plugin_pause_srv.cpp
-  src/gst_pipes_plugin_snapshooter.cpp
+  src/gst_pipes_plugin_framegate.cpp
 )
 
 ament_target_dependencies(gstpipes_plugins
