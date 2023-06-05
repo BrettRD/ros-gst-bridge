@@ -1,20 +1,24 @@
-#ifndef GST_PIPELINE__GST_PIPES_PLUGIN_SNAPSHOOTER_H_
-#define GST_PIPELINE__GST_PIPES_PLUGIN_SNAPSHOOTER_H_
+#ifndef GST_PIPELINE__GST_PIPES_PLUGIN_FRAMEGATE_H_
+#define GST_PIPELINE__GST_PIPES_PLUGIN_FRAMEGATE_H_
+
+#include <atomic>
 
 #include <gst_bridge/gst_bridge.h>
 #include <gst_pipes_plugin_base.h>
 
-#include <std_msgs/msg/empty.hpp>
+#include <gst_msgs/msg/frame_gate.hpp>
 
 #include "rclcpp/rclcpp.hpp"
+
 
 namespace gst_pipes
 {
 /*
-  This plugin inserts a callback into the sink pad of the target elenemt,
-  conditionally dropping frames according to some traffic on a ros subscription
+  This plugin inserts a callback into the sink pad of the target element,
+  controlling the flow of frames according the last recieved FrameGate message
+  mode on a ros subscription.
 */
-class gst_pipes_snapshooter : public gst_pipes_plugin
+class gst_pipes_framegate : public gst_pipes_plugin
 {
 public:
   // during init, we need to
@@ -25,35 +29,29 @@ public:
     std::string name,  // the config name of the plugin
     std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
 
-  void trigger_sub_cb(const std_msgs::msg::Empty::SharedPtr msg);
+  void gate_sub_cb(const gst_msgs::msg::FrameGate::SharedPtr msg);
 
   // This callback is run inside the pad of the sink element, the return will be ok or drop.
-  //  This function needs to be static, we can pass a pointer to our logic in user-data
+  //  This function needs to be static, we can pass a pointer to our logic in user-data (TODO validate need)
   static GstPadProbeReturn gst_pad_probe_cb(
     GstPad * pad, GstPadProbeInfo * info, gpointer user_data);
 
 private:
-  // wrap some data for a user_data pointer into the gstreamer callback
-  struct cb_user_data
-  {
-    gst_pipes_snapshooter * this_ptr;
-    std::atomic_bool trigger;
-  };
+  // state machine
+  std::atomic<decltype(gst_msgs::msg::FrameGate().mode)> gate_mode_;
 
   // the name of the target element in the pipeline
   std::string elem_name_;
 
-  std::string trigger_topic_;
+  // topic name
+  std::string gate_topic_;
 
   // a pointer to the bridge elements in the pipeline
   GstElement * bin_;
 
-  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr trigger_sub_;
-
-  // A data type we can pass as pointer into the callback
-  struct cb_user_data cb_data;
+  rclcpp::Subscription<gst_msgs::msg::FrameGate>::SharedPtr gate_sub_;
 };
 
 }  // namespace gst_pipes
 
-#endif  //GST_PIPELINE__GST_PIPES_PLUGIN_SNAPSHOOTER_H_
+#endif  //GST_PIPELINE__GST_PIPES_PLUGIN_FRAMEGATE_H_
