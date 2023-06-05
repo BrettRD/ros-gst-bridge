@@ -19,10 +19,10 @@
     </description>
   </class>
 
-  <class type="gst_pipes::gst_pipes_clock_observer" base_class_type="gst_pipes::gst_pipes_plugin">
+  <class type="gst_pipes::gst_pipes_buffer_observer" base_class_type="gst_pipes::gst_pipes_plugin">
     <description>
-      A class publishes the gstreamer buffer PTS time as a ROSTime to topic `/{mysrc}/gst_pts`.
-      This can be renamed to `/clock` to provide a synthetic clock for ROS2 that correlates with the rendered video.
+      Publishes the presentation timestamp (PTS) of gstreamer buffers to topic `/{mysrc}/gst_pts`.
+      This can be used with `ros2 topic hz` to measure the frame rate of video
     </description>
   </class>
 

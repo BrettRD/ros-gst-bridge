@@ -1,10 +1,10 @@
-#ifndef GST_PIPELINE__GST_PIPES_PLUGIN_CLOCK_OBSERVER_H_
-#define GST_PIPELINE__GST_PIPES_PLUGIN_CLOCK_OBSERVER_H_
+#ifndef GST_PIPELINE__GST_PIPES_PLUGIN_BUFFER_OBSERVER_H_
+#define GST_PIPELINE__GST_PIPES_PLUGIN_BUFFER_OBSERVER_H_
 
 #include <gst_bridge/gst_bridge.h>
 #include <gst_pipes_plugin_base.h>
 
-#include <rosgraph_msgs/msg/clock.hpp>
+#include <gst_msgs/msg/buffer_event.hpp>
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -12,11 +12,11 @@ namespace gst_pipes
 {
 /*
     A class publishes the gstreamer buffer PTS time as a ROSTime to topic `/{mysrc}/gst_pts`.
-    This can be renamed to `/clock` to provide a synthetic clock for ROS2 that correlates with the rendered video.
+    This can be used with `ros2 topic hz` to measure the frame rate of video
 
-    TODO Add a wall timer that periodically publishes system clock of this node, or maybe on a seperate plugin.
+    TODO build-in the functionality of ros2 topic hz so reduce chatter on the DDS
 */
-class gst_pipes_clock_observer : public gst_pipes_plugin
+class gst_pipes_buffer_observer : public gst_pipes_plugin
 {
 public:
   // during init, we need to
@@ -39,10 +39,15 @@ private:
   // a pointer to the bridge elements in the pipeline
   GstElement * bin_;
 
-  rclcpp::Publisher<rosgraph_msgs::msg::Clock>::SharedPtr clock_pub_;
+  // the publisher for the statistics messages
+  rclcpp::Publisher<gst_msgs::msg::BufferEvent>::SharedPtr event_pub_;
+
+  // the number of events since the last fps timer reset
+  // std::atomic_int_least32_t event_count_;
+
 
 };
 
 }  // namespace gst_pipes
 
-#endif  //GST_PIPELINE__GST_PIPES_PLUGIN_CLOCK_OBSERVER_H_
+#endif  //GST_PIPELINE__GST_PIPES_PLUGIN_BUFFER_OBSERVER_H_

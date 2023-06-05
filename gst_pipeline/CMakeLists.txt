@@ -72,7 +72,7 @@ add_library(gstpipes_plugins SHARED
   src/gst_pipes_plugin_bridge.cpp
   src/gst_pipes_plugin_pause_srv.cpp
   src/gst_pipes_plugin_snapshooter.cpp
-  src/gst_pipes_plugin_clock_observer.cpp
+  src/gst_pipes_plugin_buffer_observer.cpp
 )
 
 
