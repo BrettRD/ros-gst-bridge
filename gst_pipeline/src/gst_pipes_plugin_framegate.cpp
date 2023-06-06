@@ -30,9 +30,10 @@ void gst_pipes_framegate::initialise(
     .get<bool>();
 
   if (startup_passing) {
-    gate_mode_ = gst_msgs::msg::FrameGate::PASS_ALL;    
+    gate_mode_ = gst_msgs::msg::FrameGate::PASS_ALL;
   } else {
-    gate_mode_ = gst_msgs::msg::FrameGate::DROP_ALL;
+    //gate_mode_ = gst_msgs::msg::FrameGate::DROP_ALL;
+    gate_mode_ = gst_msgs::msg::FrameGate::PASS_ONE;	// dirty hack to get through preroll
   }
 
   rclcpp::QoS qos = rclcpp::SensorDataQoS();
