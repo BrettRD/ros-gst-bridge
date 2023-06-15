@@ -43,6 +43,9 @@ public:
   // connect to your signalling server
   virtual void init_signalling_server_client();
 
+  // we're ready to start a call, or receive incoming calls
+  virtual void begin_negotiate();
+
   // called when the webrtcbin wants to send a SDP answer
   // default calls  send_sdp(descr)
   virtual void send_sdp_answer(GstWebRTCSessionDescription * desc);
@@ -60,7 +63,8 @@ public:
 
   // ############# handlers for remote peer events #############
 
-  //called when the remote peer has a SDP answer
+  // to be called by the implementation when the remote peer has a SDP answer
+  
   // thin wrapper over g_signal_emit_by_name(webrtc_, "set-remote-description", desc, promise);
   void
   sdp_received(
