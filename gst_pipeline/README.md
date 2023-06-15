@@ -16,12 +16,24 @@ and you don't have to fork the node to do it.
   This gives you shared-pointer message transport with any other ROS nodes in
   the same composable node container.
 
+  ###### Parameters:
+  * element_name - String
+
 ### Play/Pause/Seek:
   Connect a Gazebo style play/pause service to the pipeline.
   Pause video files streaming into ROS the same way you pause physics in gazebo
   This plugin also allows you to seek through a video file with a ros service call specifying the nanoseconds from the beginning of the file
 
-### Snapshooter:
+
+### Buffer Observer:
+  Sends a ros message whenever a buffer passes out of a specified GStreamer element
+  
+  ###### parameters:
+  * element_name - String
+
+
+
+### Frame Gate:
   Retrieve single video frames from a live stream with a ROS service call.
   This plugin inserts a probe anywhere in a gstreamer pipeline, and causes the
   src pad to drop buffers unless the ros service was recently called.
@@ -29,6 +41,10 @@ and you don't have to fork the node to do it.
   This can be used on low-bandwidth connections where you navigate on
   down-sampled potato-quality video, and occasionally transmit single frames
   of high definition on demand.
+  ###### parameters:
+  * element_name - String
+  * pass_on_startup
+
 
 ### WebRTC: 
   A plugin that connects to the WebRTC signalling callbacks and provides transport for peer discovery metadata.
