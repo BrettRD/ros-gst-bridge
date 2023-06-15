@@ -26,19 +26,19 @@ void gst_pipes_pause_srv::initialise(
     node_if_->base, node_if_->services, "pause",
     std::bind(
       &gst_pipes_pause_srv::pause_srv_cb, this, std::placeholders::_1, std::placeholders::_2),
-    rclcpp::SensorDataQoS().get_rmw_qos_profile(), nullptr);
+    rclcpp::ServicesQoS().get_rmw_qos_profile(), nullptr);
 
   play_service_ = rclcpp::create_service<std_srvs::srv::Empty>(
     node_if_->base, node_if_->services, "play",
     std::bind(
       &gst_pipes_pause_srv::play_srv_cb, this, std::placeholders::_1, std::placeholders::_2),
-    rclcpp::SensorDataQoS().get_rmw_qos_profile(), nullptr);
+    rclcpp::ServicesQoS().get_rmw_qos_profile(), nullptr);
 
   seek_service_ = rclcpp::create_service<gst_msgs::srv::Seek>(
     node_if_->base, node_if_->services, "seek",
     std::bind(
       &gst_pipes_pause_srv::seek_srv_cb, this, std::placeholders::_1, std::placeholders::_2),
-    rclcpp::SensorDataQoS().get_rmw_qos_profile(), nullptr);
+    rclcpp::ServicesQoS().get_rmw_qos_profile(), nullptr);
 }
 
 void gst_pipes_pause_srv::pause_srv_cb(

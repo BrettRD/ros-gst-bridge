@@ -21,7 +21,9 @@ find_package(std_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
+  "msg/FrameGate.msg"
   "msg/WebrtcIce.msg"
+  "msg/BufferEvent.msg"
   "srv/Seek.srv"
 )
 

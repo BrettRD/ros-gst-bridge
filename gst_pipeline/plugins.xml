@@ -12,11 +12,20 @@
     </description>
   </class>
 
-  <class type="gst_pipes::gst_pipes_snapshooter" base_class_type="gst_pipes::gst_pipes_plugin">
+  <class type="gst_pipes::gst_pipes_framegate" base_class_type="gst_pipes::gst_pipes_plugin">
     <description>
-    A class that can cause a gst element to drop buffers within the pipeline.
-    This can be used to pull single frames from a video stream.
+      This plugin inserts a callback into the sink pad of the target element,
+      controlling the flow of frames according the last recieved FrameGate message
+      mode on a ros subscription.
+    </description>
+  </class>
+
+  <class type="gst_pipes::gst_pipes_buffer_observer" base_class_type="gst_pipes::gst_pipes_plugin">
+    <description>
+      Publishes the presentation timestamp (PTS) of gstreamer buffers to topic `/{mysrc}/gst_pts`.
+      This can be used with `ros2 topic hz` to measure the frame rate of video
     </description>
   </class>
 
 </library>
+

@@ -153,12 +153,6 @@ install(DIRECTORY include/
   DESTINATION include)
 
 
-install(DIRECTORY
-  config
-  launch
-  DESTINATION share/${PROJECT_NAME}
-)
-
 install(TARGETS ${PROJECT_NAME}
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib

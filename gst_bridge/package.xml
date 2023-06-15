@@ -18,14 +18,16 @@
   <build_depend>audio_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>
 
-  <test_depend>ament_cmake_clang_format</test_depend>
-
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>audio_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>gstreamer1.0</exec_depend>
   <exec_depend>gstreamer1.0-plugins-base</exec_depend>
   <exec_depend>gstreamer1.0-plugins-good</exec_depend>
+
+  <test_depend>ament_cmake_clang_format</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>osrf_testing_tools_cpp</test_depend>
 
 
   <export>
