@@ -1,7 +1,7 @@
-#ifndef GST_PIPELINE__GST_PIPES_PLUGIN_PAUSE_SRV_H_
-#define GST_PIPELINE__GST_PIPES_PLUGIN_PAUSE_SRV_H_
+#ifndef GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_PAUSE_SRV_H_
+#define GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_PAUSE_SRV_H_
 
-#include <gst_pipes_plugin_base.h>
+#include <gst_pipeline/gst_pipes_plugin_base.h>
 
 //#include <rclcpp/node_interfaces/node_interfaces.hpp>  //not in galactic
 //#include <rclcpp/node_interfaces/node_base_interface.hpp>
@@ -55,4 +55,4 @@ private:
 
 }  // namespace gst_pipes
 
-#endif  //GST_PIPELINE__GST_PIPES_PLUGIN_PAUSE_SRV_H_
+#endif  //GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_PAUSE_SRV_H_

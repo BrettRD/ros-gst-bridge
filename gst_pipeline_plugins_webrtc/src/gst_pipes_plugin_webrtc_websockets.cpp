@@ -8,7 +8,7 @@
 */
 
 // For signalling 
-#include <libsoup/soup.h>
+#include <libsoup/soup.h>  // gir1.2-soup-3.0 libsoup-3.0-0 libsoup-3.0-dev libsoup-3.0-doc libsoup-3.0-common
 #include <json-glib/json-glib.h>
 
 

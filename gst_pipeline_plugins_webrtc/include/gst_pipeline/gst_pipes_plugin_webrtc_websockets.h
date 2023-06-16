@@ -1,7 +1,7 @@
 #ifndef GST_PIPELINE__GST_PIPES_PLUGIN_WEBRTC_WEBSOCKETS_H_
 #define GST_PIPELINE__GST_PIPES_PLUGIN_WEBRTC_WEBSOCKETS_H_
 
-#include <gst_pipes_webrtc_base.h>
+#include <gst_pipes_plugin_webrtc_base.h>
 
 #include <std_msgs/msg/string.hpp>
 #include <gst_msgs/msg/webrtc_ice.hpp>

@@ -1,8 +1,8 @@
-#ifndef GST_PIPELINE__GST_PIPES_PLUGIN_BRIDGE_H_
-#define GST_PIPELINE__GST_PIPES_PLUGIN_BRIDGE_H_
+#ifndef GST_PIPELINE_PLUGINs__GST_PIPES_PLUGIN_BRIDGE_H_
+#define GST_PIPELINE_PLUGINs__GST_PIPES_PLUGIN_BRIDGE_H_
 
 #include <gst_bridge/gst_bridge.h>
-#include <gst_pipes_plugin_base.h>
+#include <gst_pipeline/gst_pipes_plugin_base.h>
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -36,4 +36,4 @@ private:
 
 }  // namespace gst_pipes
 
-#endif  //GST_PIPELINE__GST_PIPES_PLUGIN_BRIDGE_H_
+#endif  //GST_PIPELINE_PLUGINs__GST_PIPES_PLUGIN_BRIDGE_H_

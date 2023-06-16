@@ -2,7 +2,7 @@
 #define GST_PIPELINE__GST_PIPES_PLUGIN_BASE_H_
 
 #include <gst_bridge/gst_bridge.h>
-#include <syntax_sugar.h>
+#include <gst_pipeline/syntax_sugar.h>
 
 //#include <rclcpp/node_interfaces/node_interfaces.hpp>  //not in galactic
 //#include <rclcpp/node_interfaces/node_base_interface.hpp>

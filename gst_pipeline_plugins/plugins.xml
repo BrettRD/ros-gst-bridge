@@ -1,4 +1,4 @@
-<library path="gstpipes_plugins">
+<library path="gst_pipeline_plugins">
 
   <class type="gst_pipes::gst_pipes_bridge" base_class_type="gst_pipes::gst_pipes_plugin">
     <description>

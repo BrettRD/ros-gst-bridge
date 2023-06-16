@@ -1,10 +1,10 @@
-#ifndef GST_PIPELINE__GST_PIPES_PLUGIN_FRAMEGATE_H_
-#define GST_PIPELINE__GST_PIPES_PLUGIN_FRAMEGATE_H_
+#ifndef GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_FRAMEGATE_H_
+#define GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_FRAMEGATE_H_
 
 #include <atomic>
 
 #include <gst_bridge/gst_bridge.h>
-#include <gst_pipes_plugin_base.h>
+#include <gst_pipeline/gst_pipes_plugin_base.h>
 
 #include <gst_msgs/msg/frame_gate.hpp>
 
@@ -54,4 +54,4 @@ private:
 
 }  // namespace gst_pipes
 
-#endif  //GST_PIPELINE__GST_PIPES_PLUGIN_FRAMEGATE_H_
+#endif  //GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_FRAMEGATE_H_
