@@ -3,9 +3,13 @@
 
 #include <gst_pipes_plugin_webrtc_base.h>
 
+
+// For signalling 
+#include <libsoup/soup.h>  // gir1.2-soup-2.4 libsoup2.4-dev
+#include <json-glib/json-glib.h>
+
 #include <std_msgs/msg/string.hpp>
 #include <gst_msgs/msg/webrtc_ice.hpp>
-
 #include "rclcpp/rclcpp.hpp"
 
 namespace gst_pipes
@@ -22,7 +26,7 @@ public:
 
   // ############ overide methods for signalling transport ############
 
-  void init_signalling_server_client() override
+  void init_signalling_server_client() override;
 
   void begin_negotiate() override;
 
@@ -60,8 +64,9 @@ private:
   };
 
 
-  
-
+  bool remote_is_offerer;
+  bool create_offer;
+  static SoupWebsocketConnection *ws_conn;
 
 
 };

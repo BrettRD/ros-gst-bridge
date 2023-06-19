@@ -7,13 +7,10 @@
 
 */
 
-// For signalling 
-#include <libsoup/soup.h>  // gir1.2-soup-3.0 libsoup-3.0-0 libsoup-3.0-dev libsoup-3.0-doc libsoup-3.0-common
-#include <json-glib/json-glib.h>
+
 
 
 /*
-
 
 
 The original example plays fast and loose with it's state transition table
@@ -120,14 +117,14 @@ void gst_pipes_webrtc_websockets::init_signalling_server_client()
 
 
 // called when webrtcbin is up
-void begin_negotiate()
+void gst_pipes_webrtc_websockets::begin_negotiate()
 {
   if (remote_is_offerer) {
     soup_websocket_connection_send_text (ws_conn, "OFFER_REQUEST");
   } else if (create_offer) {
     GstPromise *promise =
       gst_promise_new_with_change_func (on_offer_created, NULL, NULL);
-    g_signal_emit_by_name (webrtc1, "create-offer", NULL, promise);
+    g_signal_emit_by_name (webrtc_, "create-offer", NULL, promise);
 
   }
   // implicit default case: wait for a sdp offer from the remote peer
@@ -356,7 +353,7 @@ on_server_message(
         /* Set remote description on our pipeline */
         {
           GstPromise *promise = gst_promise_new ();
-          g_signal_emit_by_name (webrtc1, "set-remote-description", answer,
+          g_signal_emit_by_name (webrtc_, "set-remote-description", answer,
               promise);
           gst_promise_interrupt (promise);
           gst_promise_unref (promise);
@@ -376,7 +373,7 @@ on_server_message(
       sdpmlineindex = json_object_get_int_member (child, "sdpMLineIndex");
 
       /* Add ice candidate sent by remote peer */
-      g_signal_emit_by_name (webrtc1, "add-ice-candidate", sdpmlineindex,
+      g_signal_emit_by_name (webrtc_, "add-ice-candidate", sdpmlineindex,
           candidate);
     } else {
       gst_printerr ("Ignoring unknown JSON message:\n%s\n", text);

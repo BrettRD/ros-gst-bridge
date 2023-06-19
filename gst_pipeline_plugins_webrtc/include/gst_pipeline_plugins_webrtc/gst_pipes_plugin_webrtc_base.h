@@ -2,9 +2,14 @@
 #define GST_PIPELINE__GST_PIPES_PLUGIN_WEBRTC_BASE_H_
 
 #include <gst_bridge/gst_bridge.h>
-#include <gst_pipes_plugin_base.h>
+#include <gst_pipeline/gst_pipes_plugin_base.h>
 
 #include "rclcpp/rclcpp.hpp"
+
+#include <gst/gst.h>
+#include <gst/sdp/sdp.h>
+#define GST_USE_UNSTABLE_API
+#include <gst/webrtc/webrtc.h>
 
 namespace gst_pipes
 {
@@ -69,7 +74,7 @@ public:
   void
   sdp_received(
     // GstElement * object,               //the webrtcbin
-    GstWebRTCSessionDescription * desc,   //a GstWebRTCSessionDescription description
+    GstWebRTCSessionDescription * desc    //a GstWebRTCSessionDescription description
     //GstPromise * promise                //a GstPromise to be notified when it's set 
   );
 
@@ -78,7 +83,7 @@ public:
   ice_candidate_received(
     // GstElement * object,     // the webrtcbin
     guint mline_index,          // the index of the media description in the SDP
-    gchararray ice_candidate,   // an ice candidate or NULL/"" to mark that no more candidates will arrive
+    gchararray ice_candidate   // an ice candidate or NULL/"" to mark that no more candidates will arrive
   );
 
 
@@ -117,7 +122,7 @@ public:
   // this asks the bin to create a SDP answer,
   // the answer will be passed to create_answer_prom
   static void 
-  gst_pipes_webrtc::set_remote_description_prom(
+  set_remote_description_prom(
     GstPromise *promise,
     gpointer user_data
   );
@@ -126,7 +131,7 @@ public:
   // gst promise that is called after the bin creates a SDP answer,
   // This call is where we send the SDP answer to the remote peer
   static void 
-  gst_pipes_webrtc::create_answer_prom(
+  create_answer_prom(
     GstPromise *promise,
     gpointer user_data
   );
