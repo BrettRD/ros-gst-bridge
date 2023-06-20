@@ -96,7 +96,31 @@ namespace gst_pipes
 
 // ############ override virtual methods, signal with websockets ############
 
-void gst_pipes_webrtc_websockets::init_signalling_server_client()
+
+
+static gchar *
+get_string_from_json_object (JsonObject * object)
+{
+  JsonNode *root;
+  JsonGenerator *generator;
+  gchar *text;
+
+  /* Make it the root node */
+  root = json_node_init_object (json_node_alloc (), object);
+  generator = json_generator_new ();
+  json_generator_set_root (generator, root);
+  text = json_generator_to_data (generator, NULL);
+
+  /* Release everything */
+  g_object_unref (generator);
+  json_node_free (root);
+  return text;
+}
+
+
+
+void
+gst_pipes_webrtc_websockets::init_signalling_server_client()
 {
 
   // XXX collect from parameter server:
@@ -171,7 +195,8 @@ void gst_pipes_webrtc_websockets::send_sdp(
 
 }
 
-void gst_pipes_webrtc_websockets::send_ice_candidate(
+void
+gst_pipes_webrtc_websockets::send_ice_candidate(
   guint mline_index,
   gchararray candidate
 ){
@@ -187,7 +212,7 @@ void gst_pipes_webrtc_websockets::send_ice_candidate(
   // package and send the ice payload
   ice = json_object_new ();
   json_object_set_string_member (ice, "candidate", candidate);
-  json_object_set_int_member (ice, "sdpMLineIndex", mlineindex);
+  json_object_set_int_member (ice, "sdpMLineIndex", mline_index);
   msg = json_object_new ();
   json_object_set_object_member (msg, "ice", ice);
   text = get_string_from_json_object (msg);
@@ -202,7 +227,7 @@ void gst_pipes_webrtc_websockets::send_ice_candidate(
 
 
 void
-on_server_message(
+gst_pipes_webrtc_websockets::on_server_message(
   SoupWebsocketConnection * conn,
   SoupWebsocketDataType type,
   GBytes * message,
@@ -216,7 +241,7 @@ on_server_message(
       return;
     case SOUP_WEBSOCKET_DATA_TEXT:{
       gsize size;
-      const gchar *data = g_bytes_get_data (message, &size);
+      const gchar* data = (const char*) g_bytes_get_data (message, &size);
       /* Convert to NULL-terminated string */
       text = g_strndup (data, size);
       break;
@@ -366,14 +391,14 @@ on_server_message(
 
     } else if (json_object_has_member (object, "ice")) {
       const gchar *candidate;
-      gint sdpmlineindex;
+      gint sdp_mline_index;
 
       child = json_object_get_object_member (object, "ice");
       candidate = json_object_get_string_member (child, "candidate");
-      sdpmlineindex = json_object_get_int_member (child, "sdpMLineIndex");
+      sdp_mline_index = json_object_get_int_member (child, "sdpMLineIndex");
 
       /* Add ice candidate sent by remote peer */
-      g_signal_emit_by_name (webrtc_, "add-ice-candidate", sdpmlineindex,
+      g_signal_emit_by_name (webrtc_, "add-ice-candidate", sdp_mline_index,
           candidate);
     } else {
       gst_printerr ("Ignoring unknown JSON message:\n%s\n", text);

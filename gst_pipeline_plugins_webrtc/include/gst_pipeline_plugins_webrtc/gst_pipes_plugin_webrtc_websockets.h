@@ -40,6 +40,12 @@ public:
 private:
 
 
+void on_server_message(
+  SoupWebsocketConnection * conn,
+  SoupWebsocketDataType type,
+  GBytes * message,
+  gpointer user_data
+);
 
 
   enum AppState
@@ -64,6 +70,8 @@ private:
   };
 
 
+  gchar *our_id;
+  AppState app_state;
   bool remote_is_offerer;
   bool create_offer;
   static SoupWebsocketConnection *ws_conn;
