@@ -51,13 +51,16 @@ public:
   // we're ready to start a call, or receive incoming calls
   virtual void begin_negotiate();
 
-  // called when the webrtcbin wants to send a SDP answer
-  // default calls  send_sdp(descr)
-  virtual void send_sdp_answer(GstWebRTCSessionDescription * desc);
+  // create a sdp offer, and begin the call stack to send it to the remote peer
+  virtual void create_offer();
 
   // called when the webrtcbin is instructed to send a sdp offer
   // default calls  send_sdp(descr)
   virtual void send_sdp_offer(GstWebRTCSessionDescription * desc);
+
+  // called when the webrtcbin wants to send a SDP answer
+  // default calls  send_sdp(descr)
+  virtual void send_sdp_answer(GstWebRTCSessionDescription * desc);
 
   // send a sdp description to the remote server
   virtual void send_sdp(GstWebRTCSessionDescription * desc) = 0;
@@ -71,19 +74,17 @@ public:
   // to be called by the implementation when the remote peer has a SDP answer
   
   // thin wrapper over g_signal_emit_by_name(webrtc_, "set-remote-description", desc, promise);
-  void
-  sdp_received(
-    // GstElement * object,               //the webrtcbin
-    GstWebRTCSessionDescription * desc    //a GstWebRTCSessionDescription description
-    //GstPromise * promise                //a GstPromise to be notified when it's set 
-  );
+  void sdp_offer_received (GstSDPMessage * sdp);
+  void sdp_offer_received(GstWebRTCSessionDescription * offer);
+
+  // thin wrapper over g_signal_emit_by_name(webrtc_, "set-remote-description", desc, promise);
+  void sdp_answer_received (GstSDPMessage * sdp);
+  void sdp_answer_received(GstWebRTCSessionDescription * answer);
 
   // thin wrapper over g_signal_emit_by_name(webrtc_, "add-ice-candidate", mline_index, ice_candidate);
-  void
-  ice_candidate_received(
-    // GstElement * object,     // the webrtcbin
+  void ice_candidate_received(
     guint mline_index,          // the index of the media description in the SDP
-    gchararray ice_candidate   // an ice candidate or NULL/"" to mark that no more candidates will arrive
+    const gchar* ice_candidate   // an ice candidate or NULL/"" to mark that no more candidates will arrive
   );
 
 
@@ -116,7 +117,8 @@ public:
   );
 
 
-  // ########## Callbacks for waiting on functions in the webrtcbin ##########
+
+  // ########## static callbacks for waiting on functions in the webrtcbin ##########
 
   // gst promise that is called after set_remote_description completes.
   // this asks the bin to create a SDP answer,
@@ -127,9 +129,15 @@ public:
     gpointer user_data
   );
 
+  // gst promise that is called after the bin creates a SDP offer,
+  static void
+  create_offer_prom(
+    GstPromise * promise,
+    gpointer user_data
+  );
+
 
   // gst promise that is called after the bin creates a SDP answer,
-  // This call is where we send the SDP answer to the remote peer
   static void 
   create_answer_prom(
     GstPromise *promise,

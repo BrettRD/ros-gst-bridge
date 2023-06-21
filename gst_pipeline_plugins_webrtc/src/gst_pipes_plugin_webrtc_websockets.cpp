@@ -131,12 +131,121 @@ gst_pipes_webrtc_websockets::init_signalling_server_client()
   //  remote peer ID
 
 
-
   // start a web socket to the signalling server
+  connect_to_websocket_server_async();
   // announce our local peer id
   // conditionally request a session with the remote peer
 
 
+}
+
+
+
+void gst_pipes_webrtc_websockets::connect_to_websocket_server_async (void)
+{
+  SoupLogger *logger;
+  SoupMessage *message;
+  SoupSession *session;
+  const char *https_aliases[] = { "wss", NULL };
+  session = soup_session_new_with_options(
+    SOUP_SESSION_SSL_STRICT,
+    !disable_ssl,
+    SOUP_SESSION_SSL_USE_SYSTEM_CA_FILE,
+    TRUE,
+    //SOUP_SESSION_SSL_CA_FILE, "/etc/ssl/certs/ca-bundle.crt",
+    SOUP_SESSION_HTTPS_ALIASES,
+    https_aliases,
+    NULL
+  );
+
+  logger = soup_logger_new (SOUP_LOGGER_LOG_BODY, -1);
+  soup_session_add_feature (session, SOUP_SESSION_FEATURE (logger));
+  g_object_unref (logger);
+  message = soup_message_new (SOUP_METHOD_GET, server_url);
+  gst_print ("Connecting to server...\n");
+  /* Once connected, we will register */
+  soup_session_websocket_connect_async (
+    session,
+    message,
+    NULL,
+    NULL,
+    NULL,
+    (GAsyncReadyCallback) on_server_connected,
+    message
+  );
+
+  app_state = SERVER_CONNECTING;
+}
+
+
+void gst_pipes_webrtc_websockets::on_server_connected(
+  SoupSession * session,
+  GAsyncResult * res,
+  gpointer user_data )
+{
+  gst_pipes_webrtc_websockets* this_ptr = (gst_pipes_webrtc_websockets*) user_data;
+  GError *error = NULL;
+  
+  this_ptr->ws_conn = soup_session_websocket_connect_finish (session, res, &error);
+  if (error) {
+    this_ptr->cleanup_and_quit_loop (error->message, SERVER_CONNECTION_ERROR);
+    g_error_free (error);
+    return;
+  }
+  g_assert_nonnull (this_ptr->ws_conn);
+  this_ptr->app_state = SERVER_CONNECTED;
+  gst_print ("Connected to signalling server\n");
+  g_signal_connect (this_ptr->ws_conn, "closed", G_CALLBACK (on_server_closed), this_ptr);
+  g_signal_connect (this_ptr->ws_conn, "message", G_CALLBACK (on_server_message), this_ptr);
+  /* Register with the server so it knows about us and can accept commands */
+  this_ptr->register_with_server ();
+}
+
+
+gboolean gst_pipes_webrtc_websockets::register_with_server ()
+{
+  gchar *hello;
+  if (soup_websocket_connection_get_state (ws_conn) !=
+      SOUP_WEBSOCKET_STATE_OPEN)
+    return FALSE;
+
+  gst_print ("Registering id %s with server\n", our_id);
+  hello = g_strdup_printf ("HELLO %s", our_id);
+
+  app_state = SERVER_REGISTERING;
+
+  soup_websocket_connection_send_text (ws_conn, hello);
+  g_free (hello);
+  return TRUE;
+}
+
+
+gboolean gst_pipes_webrtc_websockets::setup_call()
+{
+  gchar *msg;
+
+  if (soup_websocket_connection_get_state (ws_conn) !=
+      SOUP_WEBSOCKET_STATE_OPEN)
+    return FALSE;
+
+  gst_print ("Setting up signalling server call with %s\n", peer_id);
+  app_state = PEER_CONNECTING;
+  msg = g_strdup_printf ("SESSION %s", peer_id);
+  soup_websocket_connection_send_text (ws_conn, msg);
+  g_free (msg);
+  return TRUE;
+}
+
+
+void gst_pipes_webrtc_websockets::on_server_closed(
+  SoupWebsocketConnection * conn,
+  gpointer user_data)
+{
+  (void) conn;
+  gst_pipes_webrtc_websockets* this_ptr = (gst_pipes_webrtc_websockets*) user_data;
+
+  this_ptr->app_state = SERVER_CLOSED;
+  this_ptr->cleanup_and_quit_loop ("Server connection closed", 0);
 }
 
 
@@ -145,11 +254,8 @@ void gst_pipes_webrtc_websockets::begin_negotiate()
 {
   if (remote_is_offerer) {
     soup_websocket_connection_send_text (ws_conn, "OFFER_REQUEST");
-  } else if (create_offer) {
-    GstPromise *promise =
-      gst_promise_new_with_change_func (on_offer_created, NULL, NULL);
-    g_signal_emit_by_name (webrtc_, "create-offer", NULL, promise);
-
+  } else if (local_is_offerer) {
+    create_offer();
   }
   // implicit default case: wait for a sdp offer from the remote peer
 
@@ -233,6 +339,8 @@ gst_pipes_webrtc_websockets::on_server_message(
   GBytes * message,
   gpointer user_data
 ){
+  (void) conn;
+  gst_pipes_webrtc_websockets* this_ptr = (gst_pipes_webrtc_websockets*) user_data;
   gchar *text;
 
   switch (type) {
@@ -253,73 +361,68 @@ gst_pipes_webrtc_websockets::on_server_message(
   if (g_strcmp0 (text, "HELLO") == 0) {
     /* Server has accepted our registration, we are ready to send commands */
 
-    if (app_state != SERVER_REGISTERING) {
-      cleanup_and_quit_loop ("ERROR: Received HELLO when not registering",
+    if (this_ptr->app_state != SERVER_REGISTERING) {
+      this_ptr->cleanup_and_quit_loop ("ERROR: Received HELLO when not registering",
           APP_STATE_ERROR);
       goto out;
     }
-    app_state = SERVER_REGISTERED;
+    this_ptr->app_state = SERVER_REGISTERED;
     gst_print ("Registered with server\n");
-    if (!our_id) {
-      /* Ask signalling server to connect us with a specific peer */
-      if (!setup_call ()) {
-        cleanup_and_quit_loop ("ERROR: Failed to setup call", PEER_CALL_ERROR);
+    if (this_ptr->peer_id) {
+      // Ask signalling server to connect us with a specific peer
+      if (!this_ptr->setup_call ()) {
+        this_ptr->cleanup_and_quit_loop ("ERROR: Failed to setup call", PEER_CALL_ERROR);
         goto out;
       }
     } else {
-      gst_println ("Waiting for connection from peer (our-id: %s)", our_id);
+      gst_println ("Waiting for connection from peer (our-id: %s)", this_ptr->our_id);
     }
 
 
   } else if (g_strcmp0 (text, "SESSION_OK") == 0) {
     /* The call initiated by us has been setup by the server; now we can start
      * negotiation */
-    if (app_state != PEER_CONNECTING) {
-      cleanup_and_quit_loop ("ERROR: Received SESSION_OK when not calling",
+    if (this_ptr->app_state != PEER_CONNECTING) {
+      this_ptr->cleanup_and_quit_loop ("ERROR: Received SESSION_OK when not calling",
           PEER_CONNECTION_ERROR);
       goto out;
     }
 
-    app_state = PEER_CONNECTED;
+    this_ptr->app_state = PEER_CONNECTED;
     /* Start negotiation (exchange SDP and ICE candidates) */
-    if (!start_pipeline (TRUE, RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT))
-      cleanup_and_quit_loop ("ERROR: failed to start pipeline",
-          PEER_CALL_ERROR);
+    this_ptr->create_offer();
 
 
 
   } else if (g_strcmp0 (text, "OFFER_REQUEST") == 0) {
-    if (app_state != SERVER_REGISTERED) {
+    if (this_ptr->app_state != SERVER_REGISTERED) {
       gst_printerr ("Received OFFER_REQUEST at a strange time, ignoring\n");
       goto out;
     }
     gst_print ("Received OFFER_REQUEST, sending offer\n");
-    /* Peer wants us to start negotiation (exchange SDP and ICE candidates) */
-    if (!start_pipeline (TRUE, RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT))
-      cleanup_and_quit_loop ("ERROR: failed to start pipeline",
-          PEER_CALL_ERROR);
+    this_ptr->create_offer();
 
 
   } else if (g_str_has_prefix (text, "ERROR")) {
     /* Handle errors */
-    switch (app_state) {
+    switch (this_ptr->app_state) {
       case SERVER_CONNECTING:
-        app_state = SERVER_CONNECTION_ERROR;
+        this_ptr->app_state = SERVER_CONNECTION_ERROR;
         break;
       case SERVER_REGISTERING:
-        app_state = SERVER_REGISTRATION_ERROR;
+        this_ptr->app_state = SERVER_REGISTRATION_ERROR;
         break;
       case PEER_CONNECTING:
-        app_state = PEER_CONNECTION_ERROR;
+        this_ptr->app_state = PEER_CONNECTION_ERROR;
         break;
       case PEER_CONNECTED:
       case PEER_CALL_NEGOTIATING:
-        app_state = PEER_CALL_ERROR;
+        this_ptr->app_state = PEER_CALL_ERROR;
         break;
       default:
-        app_state = APP_STATE_ERROR;
+        this_ptr->app_state = APP_STATE_ERROR;
     }
-    cleanup_and_quit_loop (text, 0);
+    this_ptr->cleanup_and_quit_loop (text, 0);
   } else {
     /* Look for JSON messages containing SDP and ICE candidates */
     JsonNode *root;
@@ -344,14 +447,13 @@ gst_pipes_webrtc_websockets::on_server_message(
       int ret;
       GstSDPMessage *sdp;
       const gchar *text, *sdptype;
-      GstWebRTCSessionDescription *answer;
 
-      app_state = PEER_CALL_NEGOTIATING;
+      this_ptr->app_state = PEER_CALL_NEGOTIATING;
 
       child = json_object_get_object_member (object, "sdp");
 
       if (!json_object_has_member (child, "type")) {
-        cleanup_and_quit_loop ("ERROR: received SDP without 'type'",
+        this_ptr->cleanup_and_quit_loop ("ERROR: received SDP without 'type'",
             PEER_CALL_ERROR);
         goto out;
       }
@@ -371,22 +473,13 @@ gst_pipes_webrtc_websockets::on_server_message(
 
       if (g_str_equal (sdptype, "answer")) {
         gst_print ("Received answer:\n%s\n", text);
-        answer = gst_webrtc_session_description_new (GST_WEBRTC_SDP_TYPE_ANSWER,
-            sdp);
-        g_assert_nonnull (answer);
 
-        /* Set remote description on our pipeline */
-        {
-          GstPromise *promise = gst_promise_new ();
-          g_signal_emit_by_name (webrtc_, "set-remote-description", answer,
-              promise);
-          gst_promise_interrupt (promise);
-          gst_promise_unref (promise);
-        }
-        app_state = PEER_CALL_STARTED;
+        this_ptr->sdp_answer_received(sdp);
+
+        this_ptr->app_state = PEER_CALL_STARTED;
       } else {
         gst_print ("Received offer:\n%s\n", text);
-        on_offer_received (sdp);
+        this_ptr->sdp_offer_received (sdp);
       }
 
     } else if (json_object_has_member (object, "ice")) {
@@ -398,8 +491,8 @@ gst_pipes_webrtc_websockets::on_server_message(
       sdp_mline_index = json_object_get_int_member (child, "sdpMLineIndex");
 
       /* Add ice candidate sent by remote peer */
-      g_signal_emit_by_name (webrtc_, "add-ice-candidate", sdp_mline_index,
-          candidate);
+      this_ptr->ice_candidate_received(sdp_mline_index, candidate);
+
     } else {
       gst_printerr ("Ignoring unknown JSON message:\n%s\n", text);
     }

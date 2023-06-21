@@ -40,7 +40,24 @@ public:
 private:
 
 
-void on_server_message(
+void connect_to_websocket_server_async();
+
+static void on_server_connected(
+  SoupSession * session,
+  GAsyncResult * res,
+  gpointer user_data);
+
+gboolean register_with_server();
+
+gboolean setup_call();
+
+
+
+static void on_server_closed(
+  SoupWebsocketConnection * conn,
+  gpointer user_data);
+
+static void on_server_message(
   SoupWebsocketConnection * conn,
   SoupWebsocketDataType type,
   GBytes * message,
@@ -69,11 +86,14 @@ void on_server_message(
     PEER_CALL_ERROR,
   };
 
-
-  gchar *our_id;
+  gchar* server_url;
+  bool disable_ssl;
+  
+  gchar* our_id;
+  gchar* peer_id;
   AppState app_state;
   bool remote_is_offerer;
-  bool create_offer;
+  bool local_is_offerer;
   static SoupWebsocketConnection *ws_conn;
 
 
