@@ -76,12 +76,7 @@ ament_target_dependencies(${PROJECT_NAME}
   GSTREAMER
 )
 
-target_include_directories(${PROJECT_NAME} PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-)
-
-pluginlib_export_plugin_description_file(${PROJECT_NAME} plugins.xml)
+pluginlib_export_plugin_description_file(gst_pipeline plugins.xml)
 
 #if(BUILD_TESTING)
 #  find_package(ament_cmake_clang_format REQUIRED)
