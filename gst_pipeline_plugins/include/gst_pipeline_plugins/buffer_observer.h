@@ -1,14 +1,14 @@
-#ifndef GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_BUFFER_OBSERVER_H_
-#define GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_BUFFER_OBSERVER_H_
+#ifndef GST_PIPELINE_PLUGINS__BUFFER_OBSERVER_H_
+#define GST_PIPELINE_PLUGINS__BUFFER_OBSERVER_H_
 
 #include <gst_bridge/gst_bridge.h>
-#include <gst_pipeline/gst_pipes_plugin_base.h>
+#include <gst_pipeline/plugin_base.h>
 
 #include <gst_msgs/msg/buffer_event.hpp>
 
 #include "rclcpp/rclcpp.hpp"
 
-namespace gst_pipes
+namespace gst_pipeline_plugins
 {
 /*
     A class publishes the gstreamer buffer PTS time as a ROSTime to topic `/{mysrc}/gst_pts`.
@@ -16,7 +16,7 @@ namespace gst_pipes
 
     TODO build-in the functionality of ros2 topic hz to reduce chatter on the DDS
 */
-class gst_pipes_buffer_observer : public gst_pipes_plugin
+class buffer_observer : public gst_pipeline::plugin_base
 {
 public:
   // during init, we need to
@@ -48,6 +48,6 @@ private:
 
 };
 
-}  // namespace gst_pipes
+}  // namespace gst_pipeline_plugins
 
-#endif  //GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_BUFFER_OBSERVER_H_
+#endif  //GST_PIPELINE_PLUGINS__BUFFER_OBSERVER_H_

@@ -56,14 +56,14 @@ find_package(builtin_interfaces REQUIRED)
 
 include_directories(include/${PROJECT_NAME})
 
-add_library(gst_pipeline_plugins SHARED
-  src/gst_pipes_plugin_bridge.cpp
-  src/gst_pipes_plugin_pause_srv.cpp
-  src/gst_pipes_plugin_buffer_observer.cpp
-  src/gst_pipes_plugin_framegate.cpp
+add_library(${PROJECT_NAME} SHARED
+  src/bridge.cpp
+  src/pause_srv.cpp
+  src/buffer_observer.cpp
+  src/framegate.cpp
 )
 
-ament_target_dependencies(gst_pipeline_plugins
+ament_target_dependencies(${PROJECT_NAME}
   gst_pipeline
   gst_bridge
   pluginlib
@@ -76,6 +76,12 @@ ament_target_dependencies(gst_pipeline_plugins
   GSTREAMER
 )
 
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+pluginlib_export_plugin_description_file(${PROJECT_NAME} plugins.xml)
 
 #if(BUILD_TESTING)
 #  find_package(ament_cmake_clang_format REQUIRED)
@@ -102,18 +108,6 @@ ament_target_dependencies(gst_pipeline_plugins
 #endif()
 
 
-pluginlib_export_plugin_description_file(gst_pipeline_plugins plugins.xml)
-
-ament_export_include_directories(include)
-
-ament_export_libraries(
-  gst_pipeline_plugins
-)
-ament_export_targets(
-  export_${PROJECT_NAME}
-)
-
-
 # install headers
 install(
   DIRECTORY include/
@@ -129,12 +123,22 @@ install(
 
 
 # install pluginlib plugins
-install(TARGETS gst_pipeline_plugins
+install(TARGETS ${PROJECT_NAME}
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+
+
+ament_export_include_directories(include)
+
+ament_export_libraries(${PROJECT_NAME})
+
+ament_export_targets(
+  export_${PROJECT_NAME}
+)
+
 
 ament_export_dependencies(
   rclcpp

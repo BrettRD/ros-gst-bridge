@@ -1,24 +1,24 @@
-#ifndef GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_FRAMEGATE_H_
-#define GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_FRAMEGATE_H_
+#ifndef GST_PIPELINE_PLUGINS__FRAMEGATE_H_
+#define GST_PIPELINE_PLUGINS__FRAMEGATE_H_
 
 #include <atomic>
 
 #include <gst_bridge/gst_bridge.h>
-#include <gst_pipeline/gst_pipes_plugin_base.h>
+#include <gst_pipeline/plugin_base.h>
 
 #include <gst_msgs/msg/frame_gate.hpp>
 
 #include "rclcpp/rclcpp.hpp"
 
 
-namespace gst_pipes
+namespace gst_pipeline_plugins
 {
 /*
   This plugin inserts a callback into the sink pad of the target element,
   controlling the flow of frames according the last recieved FrameGate message
   mode on a ros subscription.
 */
-class gst_pipes_framegate : public gst_pipes_plugin
+class framegate : public gst_pipeline::plugin_base
 {
 public:
   // during init, we need to
@@ -52,6 +52,6 @@ private:
   rclcpp::Subscription<gst_msgs::msg::FrameGate>::SharedPtr gate_sub_;
 };
 
-}  // namespace gst_pipes
+}  // namespace gst_pipeline_plugins
 
-#endif  //GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_FRAMEGATE_H_
+#endif  //GST_PIPELINE_PLUGINS__FRAMEGATE_H_

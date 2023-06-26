@@ -1,7 +1,7 @@
-#ifndef GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_PAUSE_SRV_H_
-#define GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_PAUSE_SRV_H_
+#ifndef GST_PIPELINE_PLUGINS__PAUSE_SRV_H_
+#define GST_PIPELINE_PLUGINS__PAUSE_SRV_H_
 
-#include <gst_pipeline/gst_pipes_plugin_base.h>
+#include <gst_pipeline/plugin_base.h>
 
 //#include <rclcpp/node_interfaces/node_interfaces.hpp>  //not in galactic
 //#include <rclcpp/node_interfaces/node_base_interface.hpp>
@@ -13,20 +13,17 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-namespace gst_pipes
+namespace gst_pipeline_plugins
 {
 /*
 
 Play/Pause:
   provide a ROS service with a Gazebo style play/pause API
 
-  This might be small enough and generally useful enough to load by default
-  we'll leave it as a pluginlib plugin for now
-
 */
 
 // a ros service that can pause and resume the pipeline
-class gst_pipes_pause_srv : public gst_pipes_plugin
+class pause_srv : public gst_pipeline::plugin_base
 {
 public:
   // during init, we need to
@@ -53,6 +50,6 @@ private:
   rclcpp::Service<gst_msgs::srv::Seek>::SharedPtr seek_service_;
 };
 
-}  // namespace gst_pipes
+}  // namespace gst_pipeline_plugins
 
-#endif  //GST_PIPELINE_PLUGINS__GST_PIPES_PLUGIN_PAUSE_SRV_H_
+#endif  //GST_PIPELINE_PLUGINS__PAUSE_SRV_H_

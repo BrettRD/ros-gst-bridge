@@ -1,12 +1,12 @@
-#ifndef GST_PIPELINE_PLUGINs__GST_PIPES_PLUGIN_BRIDGE_H_
-#define GST_PIPELINE_PLUGINs__GST_PIPES_PLUGIN_BRIDGE_H_
+#ifndef GST_PIPELINE_PLUGINS__BRIDGE_H_
+#define GST_PIPELINE_PLUGINS__BRIDGE_H_
 
 #include <gst_bridge/gst_bridge.h>
-#include <gst_pipeline/gst_pipes_plugin_base.h>
+#include <gst_pipeline/plugin_base.h>
 
 #include "rclcpp/rclcpp.hpp"
 
-namespace gst_pipes
+namespace gst_pipeline_plugins
 {
 /*
 
@@ -16,7 +16,7 @@ namespace gst_pipes
   to offer zero-copy messaging between ROS2 and GStreamer
 
 */
-class gst_pipes_bridge : public gst_pipes_plugin
+class bridge : public gst_pipeline::plugin_base
 {
 public:
   // during init, we need to
@@ -34,6 +34,6 @@ private:
   GstElement * bin_;
 };
 
-}  // namespace gst_pipes
+}  // namespace gst_pipeline_plugins
 
-#endif  //GST_PIPELINE_PLUGINs__GST_PIPES_PLUGIN_BRIDGE_H_
+#endif  //GST_PIPELINE_PLUGINS__BRIDGE_H_

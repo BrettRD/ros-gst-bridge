@@ -1,20 +1,20 @@
-#include <gst_pipes.h>
+#include <gst_pipeline.h>
 #include <gtest/gtest.h>
 
 TEST(Test, gst_pipeline_loader)
 {
-  std::unique_ptr<pluginlib::ClassLoader<gst_pipes::gst_pipes_plugin>> loader;
+  std::unique_ptr<pluginlib::ClassLoader<gst_pipeline::plugin_base>> loader;
 
   std::unordered_map<std::string, std::string> ros_plugin_types = {
-    {"bridge", "gst_pipes::gst_pipes_bridge"},
-    {"pause", "gst_pipes::gst_pipes_pause_srv"},
-    {"snapshooter", "gst_pipes::gst_pipes_snapshooter"}};
+    {"bridge", "gst_pipeline_plugins::bridge"},
+    {"pause", "gst_pipeline_plugins::pause_srv"},
+    {"framegate", "gst_pipeline_plugins::framegate"}};
 
-  std::unordered_map<std::string, std::shared_ptr<gst_pipes::gst_pipes_plugin>> element_handlers;
+  std::unordered_map<std::string, std::shared_ptr<gst_pipeline::plugin_base>> element_handlers;
 
   // instantiate the pluginlib classloader
-  loader = std::make_unique<pluginlib::ClassLoader<gst_pipes::gst_pipes_plugin>>(
-    "gst_pipeline", "gst_pipes::gst_pipes_plugin");
+  loader = std::make_unique<pluginlib::ClassLoader<gst_pipeline::plugin_base>>(
+    "gst_pipeline", "gst_pipeline::plugin_base");
 
   EXPECT_NE(loader, nullptr);
 

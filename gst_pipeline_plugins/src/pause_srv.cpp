@@ -1,4 +1,4 @@
-#include <gst_pipes_plugin_pause_srv.h>
+#include <pause_srv.h>
 
 /*
 
@@ -7,9 +7,10 @@ Play/Pause:
 
 */
 
-namespace gst_pipes
+namespace gst_pipeline_plugins
 {
-void gst_pipes_pause_srv::initialise(
+
+void pause_srv::initialise(
   std::string name,  // the config name of the plugin
   std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
 {
@@ -25,23 +26,23 @@ void gst_pipes_pause_srv::initialise(
   pause_service_ = rclcpp::create_service<std_srvs::srv::Empty>(
     node_if_->base, node_if_->services, "pause",
     std::bind(
-      &gst_pipes_pause_srv::pause_srv_cb, this, std::placeholders::_1, std::placeholders::_2),
+      &pause_srv::pause_srv_cb, this, std::placeholders::_1, std::placeholders::_2),
     rclcpp::ServicesQoS().get_rmw_qos_profile(), nullptr);
 
   play_service_ = rclcpp::create_service<std_srvs::srv::Empty>(
     node_if_->base, node_if_->services, "play",
     std::bind(
-      &gst_pipes_pause_srv::play_srv_cb, this, std::placeholders::_1, std::placeholders::_2),
+      &pause_srv::play_srv_cb, this, std::placeholders::_1, std::placeholders::_2),
     rclcpp::ServicesQoS().get_rmw_qos_profile(), nullptr);
 
   seek_service_ = rclcpp::create_service<gst_msgs::srv::Seek>(
     node_if_->base, node_if_->services, "seek",
     std::bind(
-      &gst_pipes_pause_srv::seek_srv_cb, this, std::placeholders::_1, std::placeholders::_2),
+      &pause_srv::seek_srv_cb, this, std::placeholders::_1, std::placeholders::_2),
     rclcpp::ServicesQoS().get_rmw_qos_profile(), nullptr);
 }
 
-void gst_pipes_pause_srv::pause_srv_cb(
+void pause_srv::pause_srv_cb(
   std_srvs::srv::Empty::Request::SharedPtr, std_srvs::srv::Empty::Response::SharedPtr)
 {
   GstStateChangeReturn state_return = gst_element_set_state(pipeline_, GST_STATE_PAUSED);
@@ -50,7 +51,7 @@ void gst_pipes_pause_srv::pause_srv_cb(
   }
 }
 
-void gst_pipes_pause_srv::play_srv_cb(
+void pause_srv::play_srv_cb(
   std_srvs::srv::Empty::Request::SharedPtr, std_srvs::srv::Empty::Response::SharedPtr)
 {
   GstStateChangeReturn state_return = gst_element_set_state(pipeline_, GST_STATE_PLAYING);
@@ -59,7 +60,7 @@ void gst_pipes_pause_srv::play_srv_cb(
   }
 }
 
-void gst_pipes_pause_srv::seek_srv_cb(
+void pause_srv::seek_srv_cb(
   gst_msgs::srv::Seek::Request::SharedPtr req, gst_msgs::srv::Seek::Response::SharedPtr res)
 {
   gint64 seek_pos_ns = req->seek_time;
@@ -78,7 +79,7 @@ void gst_pipes_pause_srv::seek_srv_cb(
   res->message = "";
 }
 
-}  // namespace gst_pipes
+}  // namespace gst_pipeline_plugins
 
 #include <pluginlib/class_list_macros.hpp>
-PLUGINLIB_EXPORT_CLASS(gst_pipes::gst_pipes_pause_srv, gst_pipes::gst_pipes_plugin)
+PLUGINLIB_EXPORT_CLASS(gst_pipeline_plugins::pause_srv, gst_pipeline::plugin_base)

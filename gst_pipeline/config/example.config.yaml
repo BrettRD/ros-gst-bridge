@@ -1,4 +1,4 @@
-gst_pipes_node:
+gst_pipeline_node:
   ros__parameters:
 
 
@@ -6,11 +6,11 @@ gst_pipes_node:
       - 'install/gst_bridge/lib/gst_bridge/'
     # XXX use the colcon package finder too
 
-    pipeline_base_descr: "videotestsrc name=mysrc is-live=true ! videoconvert ! ximagesink"
+    # pipeline_base_descr: "videotestsrc name=mysrc is-live=true ! videoconvert ! ximagesink"
     # pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! rosimagesink name=mysink"
     # pipeline_base_descr: "v4l2src name=mysrc ! videoconvert ! ximagesink"
     # pipeline_base_descr: "filesrc location=tears-of-steel.mp4 ! decodebin ! videoconvert ! ximagesink"
-    # pipeline_base_descr: "filesrc location=tears-of-steel.mp4 ! decodebin ! videoconvert ! rosimagesink name=mysink"
+    pipeline_base_descr: "filesrc location=tears-of-steel.mp4 ! decodebin ! videoconvert ! rosimagesink name=mysink"
 
     ros_plugin_names:
       - "buffer_observer"
@@ -21,21 +21,21 @@ gst_pipes_node:
 
 
     pause:
-      type: "gst_pipes::gst_pipes_pause_srv"
+      type: "gst_pipeline_plugins::pause_srv"
 
     src_handler:
-      type: "gst_pipes::gst_pipes_bridge"
+      type: "gst_pipeline_plugins::bridge"
       element_name: "mysrc"
 
     sink_handler:
-      type: "gst_pipes::gst_pipes_bridge"
+      type: "gst_pipeline_plugins::bridge"
       element_name: "mysink"
 
     buffer_observer:
-      type: "gst_pipes::gst_pipes_buffer_observer"
+      type: "gst_pipeline_plugins::buffer_observer"
       element_name: "mysrc"
 
     framegate:
-      type: "gst_pipes::gst_pipes_framegate"
+      type: "gst_pipeline_plugins::framegate"
       element_name: "mysrc"
       pass_on_startup: true

@@ -1,18 +1,18 @@
 <library path="gst_pipeline_plugins">
 
-  <class type="gst_pipes::gst_pipes_bridge" base_class_type="gst_pipes::gst_pipes_plugin">
+  <class type="gst_pipeline_plugins::bridge" base_class_type="gst_pipeline::plugin_base">
     <description>
-    A class that passes the gst_pipes node interfaces to a gst_bridge element.
+    A class that passes the gst_pipeline node interfaces to a gst_bridge element.
     </description>
   </class>
 
-  <class type="gst_pipes::gst_pipes_pause_srv" base_class_type="gst_pipes::gst_pipes_plugin">
+  <class type="gst_pipeline_plugins::pause_srv" base_class_type="gst_pipeline::plugin_base">
     <description>
     Play and pause a GStreamer pipeline with a Gazebo style service call
     </description>
   </class>
 
-  <class type="gst_pipes::gst_pipes_framegate" base_class_type="gst_pipes::gst_pipes_plugin">
+  <class type="gst_pipeline_plugins::framegate" base_class_type="gst_pipeline::plugin_base">
     <description>
       This plugin inserts a callback into the sink pad of the target element,
       controlling the flow of frames according the last recieved FrameGate message
@@ -20,7 +20,7 @@
     </description>
   </class>
 
-  <class type="gst_pipes::gst_pipes_buffer_observer" base_class_type="gst_pipes::gst_pipes_plugin">
+  <class type="gst_pipeline_plugins::buffer_observer" base_class_type="gst_pipeline::plugin_base">
     <description>
       Publishes the presentation timestamp (PTS) of gstreamer buffers to topic `/{mysrc}/gst_pts`.
       This can be used with `ros2 topic hz` to measure the frame rate of video

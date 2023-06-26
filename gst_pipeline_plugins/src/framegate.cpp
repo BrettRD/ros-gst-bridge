@@ -1,8 +1,8 @@
-#include <gst_pipes_plugin_framegate.h>
+#include <framegate.h>
 
-namespace gst_pipes
+namespace gst_pipeline_plugins
 {
-void gst_pipes_framegate::initialise(
+void framegate::initialise(
   std::string name,  // the config name of the plugin
   std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
 {
@@ -40,13 +40,13 @@ void gst_pipes_framegate::initialise(
 
   gate_sub_ = rclcpp::create_subscription<gst_msgs::msg::FrameGate>(
     node_if_->parameters, node_if_->topics, gate_topic_, qos,
-    std::bind(&gst_pipes_framegate::gate_sub_cb, this, std::placeholders::_1));
+    std::bind(&framegate::gate_sub_cb, this, std::placeholders::_1));
 
   if (GST_IS_BIN(pipeline_)) {
     bin_ = gst_bin_get_by_name(GST_BIN_CAST(pipeline_), elem_name_.c_str());
     if (bin_) {
       RCLCPP_INFO(
-        node_if->logging->get_logger(), "plugin gst_pipes_framegate '%s' found '%s'",
+        node_if->logging->get_logger(), "plugin framegate '%s' found '%s'",
         name_.c_str(), elem_name_.c_str());
 
       // find the src pad of the element
@@ -54,30 +54,30 @@ void gst_pipes_framegate::initialise(
       // attach our callback to whenever a buffer crosses the pad
       gst_pad_add_probe(
         pad, GST_PAD_PROBE_TYPE_BUFFER,
-        (GstPadProbeCallback)gst_pipes_framegate::gst_pad_probe_cb, &gate_mode_, NULL);
+        (GstPadProbeCallback)framegate::gst_pad_probe_cb, &gate_mode_, NULL);
 
     }
 
     else {
       RCLCPP_ERROR(
         node_if->logging->get_logger(),
-        "plugin gst_pipes_framegate '%s' failed to locate a gstreamer element called '%s'",
+        "plugin framegate '%s' failed to locate a gstreamer element called '%s'",
         name_.c_str(), elem_name_.c_str());
     }
   } else {
     RCLCPP_ERROR(
       node_if->logging->get_logger(),
-      "plugin gst_pipes_framegate '%s' received invalid pipeline in initialisation",
+      "plugin framegate '%s' received invalid pipeline in initialisation",
       name_.c_str());
   }
 }
 
-void gst_pipes_framegate::gate_sub_cb(const gst_msgs::msg::FrameGate::SharedPtr msg)
+void framegate::gate_sub_cb(const gst_msgs::msg::FrameGate::SharedPtr msg)
 {
   gate_mode_ = msg->mode;
 }
 
-GstPadProbeReturn gst_pipes_framegate::gst_pad_probe_cb(
+GstPadProbeReturn framegate::gst_pad_probe_cb(
   GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
 {
   (void)pad;
@@ -102,7 +102,7 @@ GstPadProbeReturn gst_pipes_framegate::gst_pad_probe_cb(
   
 }
 
-}  // namespace gst_pipes
+}  // namespace gst_pipeline_plugins
 
 #include <pluginlib/class_list_macros.hpp>
-PLUGINLIB_EXPORT_CLASS(gst_pipes::gst_pipes_framegate, gst_pipes::gst_pipes_plugin)
+PLUGINLIB_EXPORT_CLASS(gst_pipeline_plugins::framegate, gst_pipeline::plugin_base)

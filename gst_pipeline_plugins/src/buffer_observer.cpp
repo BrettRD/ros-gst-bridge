@@ -1,8 +1,8 @@
-#include <gst_pipes_plugin_buffer_observer.h>
+#include <buffer_observer.h>
 
-namespace gst_pipes
+namespace gst_pipeline_plugins
 {
-void gst_pipes_buffer_observer::initialise(
+void buffer_observer::initialise(
   std::string name,  // the config name of the plugin
   std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
 {
@@ -32,7 +32,7 @@ void gst_pipes_buffer_observer::initialise(
     bin_ = gst_bin_get_by_name(GST_BIN_CAST(pipeline_), elem_name_.c_str());
     if (bin_) {
       RCLCPP_INFO(
-        node_if->logging->get_logger(), "plugin gst_pipes_buffer_observer '%s' found '%s'",
+        node_if->logging->get_logger(), "plugin buffer_observer '%s' found '%s'",
         name_.c_str(), elem_name_.c_str());
 
       // find the src pad of the element
@@ -40,30 +40,30 @@ void gst_pipes_buffer_observer::initialise(
       // attach our callback to whenever a buffer crosses the pad
       gst_pad_add_probe(
         pad, GST_PAD_PROBE_TYPE_BUFFER,
-        (GstPadProbeCallback)gst_pipes_buffer_observer::gst_pad_probe_cb, static_cast<gpointer>(this), NULL);
+        (GstPadProbeCallback)buffer_observer::gst_pad_probe_cb, static_cast<gpointer>(this), NULL);
 
     }
 
     else {
       RCLCPP_ERROR(
         node_if->logging->get_logger(),
-        "plugin gst_pipes_buffer_observer '%s' failed to locate a gstreamer element called '%s'",
+        "plugin buffer_observer '%s' failed to locate a gstreamer element called '%s'",
         name_.c_str(), elem_name_.c_str());
     }
   } else {
     RCLCPP_ERROR(
       node_if->logging->get_logger(),
-      "plugin gst_pipes_buffer_observer '%s' received invalid pipeline in initialisation",
+      "plugin buffer_observer '%s' received invalid pipeline in initialisation",
       name_.c_str());
   }
 }
 
-GstPadProbeReturn gst_pipes_buffer_observer::gst_pad_probe_cb(
+GstPadProbeReturn buffer_observer::gst_pad_probe_cb(
   GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
 {
   GstPadProbeReturn ret;
   (void)pad;
-  auto* ptr = static_cast<gst_pipes_buffer_observer*>(user_data);
+  auto* ptr = static_cast<buffer_observer*>(user_data);
 
   GstBuffer *buf = GST_PAD_PROBE_INFO_BUFFER(info);
 
@@ -81,7 +81,7 @@ GstPadProbeReturn gst_pipes_buffer_observer::gst_pad_probe_cb(
   return ret;
 }
 
-}  // namespace gst_pipes
+}  // namespace gst_pipeline_plugins
 
 #include <pluginlib/class_list_macros.hpp>
-PLUGINLIB_EXPORT_CLASS(gst_pipes::gst_pipes_buffer_observer, gst_pipes::gst_pipes_plugin)
+PLUGINLIB_EXPORT_CLASS(gst_pipeline_plugins::buffer_observer, gst_pipeline::plugin_base)

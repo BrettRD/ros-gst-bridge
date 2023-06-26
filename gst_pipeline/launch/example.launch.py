@@ -21,9 +21,9 @@ def generate_launch_description():
       config_filename, TextSubstitution(text='.config.yaml')]),
 
     Node(
-      name='gst_pipes_node',
+      name='gst_pipeline_node',
       package='gst_pipeline',
-      executable='gst_pipes_node',
+      executable='gst_pipeline_node',
       #arguments=['--ros-args', '--log-level', 'debug'],
       parameters=[config_filepath],
       #prefix=['xterm -e gdb -ex=r --args'],

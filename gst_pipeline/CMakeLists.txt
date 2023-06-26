@@ -53,7 +53,7 @@ include_directories(include/${PROJECT_NAME})
 
 
 add_library(gst_pipeline SHARED
-  src/gst_pipes.cpp
+  src/gst_pipeline.cpp
   src/syntax_sugar.cpp
 )
 
@@ -73,8 +73,8 @@ ament_target_dependencies(gst_pipeline
 
 rclcpp_components_register_node(
   gst_pipeline
-  PLUGIN "gst_pipes::gst_pipes"
-  EXECUTABLE gst_pipes_node
+  PLUGIN "gst_pipeline::gst_pipeline"
+  EXECUTABLE gst_pipeline_node
 )
 
 
