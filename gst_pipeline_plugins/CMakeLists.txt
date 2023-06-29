@@ -60,6 +60,7 @@ add_library(${PROJECT_NAME} SHARED
   src/bridge.cpp
   src/pause_srv.cpp
   src/buffer_observer.cpp
+  src/multifilesink_observer.cpp
   src/framegate.cpp
 )
 

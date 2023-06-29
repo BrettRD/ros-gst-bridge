@@ -19,13 +19,24 @@
       mode on a ros subscription.
     </description>
   </class>
-
+y
   <class type="gst_pipeline_plugins::buffer_observer" base_class_type="gst_pipeline::plugin_base">
-    <description>
-      Publishes the presentation timestamp (PTS) of gstreamer buffers to topic `/{mysrc}/gst_pts`.
-      This can be used with `ros2 topic hz` to measure the frame rate of video
-    </description>
+      <description>
+          Publishes the presentation timestamp (PTS) of gstreamer buffers to topic `/{mysrc}/gst_pts`.
+          This can be used with `ros2 topic hz` to measure the frame rate of video
+      </description>
   </class>
+
+  <class type="gst_pipeline_plugins::multifilesink_observer" base_class_type="gst_pipeline::plugin_base">
+      <description>
+          A class publishes the gstreamer multifilesink messages if
+          post-message=true is passed as a to a topic `/{mysrc}/gst_multifilesink`.
+
+          This can be used with `ros2 topic hz` to measure the serialisation rate of the stream
+      </description>
+  </class>
+
+
 
 </library>
 

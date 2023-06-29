@@ -10,12 +10,14 @@ gst_pipeline_node:
     # pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! rosimagesink name=mysink"
     # pipeline_base_descr: "v4l2src name=mysrc ! videoconvert ! ximagesink"
     # pipeline_base_descr: "filesrc location=tears-of-steel.mp4 ! decodebin ! videoconvert ! ximagesink"
-    pipeline_base_descr: "filesrc location=tears-of-steel.mp4 ! decodebin ! videoconvert ! rosimagesink name=mysink"
+    # pipeline_base_descr: "filesrc location=tears-of-steel.mp4 ! decodebin ! videoconvert ! rosimagesink name=mysink"
+    pipeline_base_descr: "v4l2src name=mysrc ! videoconvert ! pngenc ! multifilesink name=mysink post-messages=true location=frame%d.png"
 
     ros_plugin_names:
-      - "buffer_observer"
-      - "pause"
-      - "framegate"
+#      - "buffer_observer"
+#      - "pause"
+#      - "framegate"
+      - "multifilesink_observer"
       #- "src_handler"
       #- "sink_handler"
 
@@ -39,3 +41,7 @@ gst_pipeline_node:
       type: "gst_pipeline_plugins::framegate"
       element_name: "mysrc"
       pass_on_startup: true
+
+    multifilesink_observer:
+      type: "gst_pipeline_plugins::multifilesink_observer"
+      element_name: "mysrc"

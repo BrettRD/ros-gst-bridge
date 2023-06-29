@@ -24,6 +24,7 @@ set(msg_files
   "msg/FrameGate.msg"
   "msg/WebrtcIce.msg"
   "msg/BufferEvent.msg"
+  "msg/MultifilesinkEvent.msg"
   "srv/Seek.srv"
 )
 
