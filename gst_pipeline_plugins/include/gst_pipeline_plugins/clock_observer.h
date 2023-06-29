@@ -4,7 +4,7 @@
 #include <gst_bridge/gst_bridge.h>
 #include <gst_pipeline/plugin_base.h>
 
-#include <gst_msgs/msg/buffer_event.hpp>
+#include <gst_msgs/msg/gst_clock_observation.hpp>
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -16,7 +16,7 @@ namespace gst_pipeline_plugins
 
     TODO build-in the functionality of ros2 topic hz to reduce chatter on the DDS
 */
-class buffer_observer : public gst_pipeline::plugin_base
+class clock_observer : public gst_pipeline::plugin_base
 {
 public:
   // during init, we need to
@@ -29,18 +29,17 @@ public:
 
   // This callback is run inside the pad of the sink element, the return will be ok or drop.
   //  This function needs to be static, we can pass a pointer to our logic in user-data
-  static GstPadProbeReturn gst_pad_probe_cb(
+  void timer_cb(
     GstPad * pad, GstPadProbeInfo * info, gpointer user_data);
 
 private:
   // the name of the target element in the pipeline
-  std::string elem_name_;
-
-  // a pointer to the target element in the pipeline
-  GstElement * bin_;
+  std::string topic_name_;
+  std::string frame_id_;
+  rclcpp::Duration observation_interval_;
 
   // the publisher for the statistics messages
-  rclcpp::Publisher<gst_msgs::msg::BufferEvent>::SharedPtr event_pub_;
+  rclcpp::Publisher<gst_msgs::msg::GstClockObservation>::SharedPtr obs_pub_;
 
   // the number of events since the last fps timer reset
   // std::atomic_int_least32_t event_count_;
