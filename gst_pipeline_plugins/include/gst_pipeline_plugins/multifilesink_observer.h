@@ -35,10 +35,10 @@ private:
   // the name of the target element in the pipeline
   std::string elem_name_;
   std::string frame_id_;
-
+  // a main loop for this message reader
+  //GMainLoop* loop_;
   // the publisher for the statistics messages
   rclcpp::Publisher<gst_msgs::msg::MultifilesinkEvent>::SharedPtr event_pub_;
-
 
 };
 
