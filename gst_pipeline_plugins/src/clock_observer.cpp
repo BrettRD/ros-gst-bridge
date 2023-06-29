@@ -17,14 +17,14 @@ void clock_observer::initialise(
 
   topic_name_ = node_if->parameters
                 ->declare_parameter(
-                  name_ + ".topic", rclcpp::ParameterValue("~/" + name_ + "/topic"),
+                  name_ + ".topic", rclcpp::ParameterValue("~/" + name_ + "/clock_observation"),
                   descr("the topic name to post observations", true))
                 .get<std::string>();
 
-  // XXX draw the node name from node_if
+
   frame_id_ = node_if->parameters
                 ->declare_parameter(
-                  name_ + ".frame_id", rclcpp::ParameterValue("pipeline"),
+                  name_ + ".frame_id", rclcpp::ParameterValue(node_if->base->get_name()),
                   descr("the frame_id denoting the clock", true))
                 .get<std::string>();
 
