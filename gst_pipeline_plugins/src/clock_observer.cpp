@@ -17,38 +17,37 @@ void clock_observer::initialise(
 
   topic_name_ = node_if->parameters
                 ->declare_parameter(
-                  name_ + ".topic", rclcpp::ParameterValue("~/" + elem_name_ + "/time"),
-                  descr("the topic name to post events from the source", true))
+                  name_ + ".topic", rclcpp::ParameterValue("~/" + name_ + "/topic"),
+                  descr("the topic name to post observations", true))
                 .get<std::string>();
 
+  // XXX draw the node name from node_if
   frame_id_ = node_if->parameters
                 ->declare_parameter(
                   name_ + ".frame_id", rclcpp::ParameterValue("pipeline"),
-                  descr("the topic name to post events from the source", true))
+                  descr("the frame_id denoting the clock", true))
                 .get<std::string>();
 
   // XXX convert this to a parameter callback to cast integer parameters from CLI
-  observation_interval_ = rclcpp::Duration(
-    (rcl_duration_value_t) (1e9  * 
-      node_if->parameters->declare_parameter(
-        name_ + ".period", rclcpp::ParameterValue(1.0),
-        descr("the number of seconds (in ros time) between clock observations", true)
-      ).get<double>()
-    )
-  );
+  observation_interval_ = node_if->parameters->declare_parameter(
+      name_ + ".period", rclcpp::ParameterValue(1.0),
+      descr("the number of seconds (in ros time) between clock observations", true)
+    ).get<double>();
 
 
   rclcpp::QoS qos = rclcpp::SensorDataQoS();
 
 
   timer_ = rclcpp::create_timer(
+    node_if_->base,
+    node_if_->timers,
     node_if_->clock->get_clock(),
-    observation_interval_,
-    std::bind(&clock_observer::timer_cb, this)
-    //optional callback group for threading
+    rclcpp::Duration::from_nanoseconds( 1e9 * observation_interval_),
+    std::bind(&clock_observer::timer_cb, this),
+    nullptr //optional callback group for threading
     );
 
-  obs_pub_ = rclcpp::create_publisher<gst_msgs::msg::GstClockObservation>(
+  obs_pub_ = rclcpp::create_publisher<gst_msgs::msg::ClockObservation>(
               node_if->parameters, node_if->topics, topic_name_, qos);
 
 
@@ -66,13 +65,25 @@ void clock_observer::initialise(
 void clock_observer::timer_cb()
 {
 
-  gst_msgs::msg::GstClockObservation msg;
+  gst_msgs::msg::ClockObservation msg;
   msg.header.frame_id = frame_id_;
-  // XXX probably do something to deref these pointers before actually sampling the clocks
-  msg.header.stamp = node_if_->clock->get_clock()->now();
-  msg.pipeline_time = gst_clock_get_time();
+  
+  // deref the pointers wrapping each clock
+  GstClock * pipe_clock = gst_pipeline_get_pipeline_clock (GST_PIPELINE_CAST(pipeline_));
+  rclcpp::Clock::SharedPtr ros_clock = node_if_->clock->get_clock();
+
+  // XXX may need additional magic to reduce jitter between these two calls
+  msg.header.stamp = ros_clock->now();
+  GstClockTime gst_clock_time = gst_clock_get_time(pipe_clock);
+
+  // deal with the offsets to yield running time
+  GstClockTime base_time = gst_element_get_base_time(GST_ELEMENT(pipeline_));
+  msg.pipeline_time = gst_clock_time - base_time;
+
   obs_pub_->publish(msg);
 
+  //cleanup
+  gst_object_unref(pipe_clock);
 }
 
 }  // namespace gst_pipeline_plugins

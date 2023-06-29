@@ -4,7 +4,7 @@
 #include <gst_bridge/gst_bridge.h>
 #include <gst_pipeline/plugin_base.h>
 
-#include <gst_msgs/msg/gst_clock_observation.hpp>
+#include <gst_msgs/msg/clock_observation.hpp>
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -27,22 +27,20 @@ public:
     std::string name,  // the config name of the plugin
     std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
 
-  // This callback is run inside the pad of the sink element, the return will be ok or drop.
-  //  This function needs to be static, we can pass a pointer to our logic in user-data
-  void timer_cb(
-    GstPad * pad, GstPadProbeInfo * info, gpointer user_data);
+
+  void timer_cb();
 
 private:
   // the name of the target element in the pipeline
   std::string topic_name_;
   std::string frame_id_;
-  rclcpp::Duration observation_interval_;
+  double observation_interval_;
 
   // the publisher for the statistics messages
-  rclcpp::Publisher<gst_msgs::msg::GstClockObservation>::SharedPtr obs_pub_;
+  rclcpp::Publisher<gst_msgs::msg::ClockObservation>::SharedPtr obs_pub_;
 
-  // the number of events since the last fps timer reset
-  // std::atomic_int_least32_t event_count_;
+  // the timer generating clock observation events
+  rclcpp::TimerBase::SharedPtr timer_;
 
 
 };

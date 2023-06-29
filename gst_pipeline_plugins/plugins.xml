@@ -27,5 +27,12 @@
     </description>
   </class>
 
+  <class type="gst_pipeline_plugins::clock_observer" base_class_type="gst_pipeline::plugin_base">
+    <description>
+      periodically measures ros time and pipeline stream time, publishing both to ~/clock_observations.
+      This plugin is used to reconstruct synchronicity between ROS messages and GStreamer buffers.
+    </description>
+  </class>
+
 </library>
 
