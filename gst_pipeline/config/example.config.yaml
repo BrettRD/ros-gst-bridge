@@ -46,3 +46,11 @@ gst_pipeline_node:
       type: "gst_pipeline_plugins::framegate"
       element_name: "mysrc"
       pass_on_startup: true
+
+    multifilesink_observer:
+      type: "gst_pipeline_plugins::multifilesink_observer"
+      element_name: "mysink"
+
+    multifilesink_observer_the_second:
+      type: "gst_pipeline_plugins::multifilesink_observer"
+      element_name: "myothersink"

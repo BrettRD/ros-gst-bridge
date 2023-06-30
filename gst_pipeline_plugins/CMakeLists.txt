@@ -59,6 +59,7 @@ include_directories(include/${PROJECT_NAME})
 add_library(${PROJECT_NAME} SHARED
   src/bridge.cpp
   src/pause_srv.cpp
+  src/multifilesink_observer.cpp
   src/framegate.cpp
   src/buffer_observer.cpp
   src/clock_observer.cpp
