@@ -26,6 +26,7 @@ set(msg_files
   "msg/BufferEvent.msg"
   "msg/ClockObservation.msg"
   "msg/MultifilesinkEvent.msg"
+  "msg/MetaMark.msg"
   "srv/Seek.srv"
 )
 

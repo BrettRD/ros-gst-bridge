@@ -63,6 +63,8 @@ add_library(${PROJECT_NAME} SHARED
   src/framegate.cpp
   src/buffer_observer.cpp
   src/clock_observer.cpp
+  src/metadata_hook.cpp
+  src/meta/gstmark.c
 )
 
 ament_target_dependencies(${PROJECT_NAME}

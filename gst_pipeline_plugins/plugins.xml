@@ -43,5 +43,11 @@ y
     </description>
   </class>
 
+  <class type="gst_pipeline_plugins::metadata_hook" base_class_type="gst_pipeline::plugin_base">
+    <description>
+      Attaches additional metadata to a buffer to preserve its timestamp when it's carried over rtp.
+    </description>
+  </class>
+
 </library>
 
