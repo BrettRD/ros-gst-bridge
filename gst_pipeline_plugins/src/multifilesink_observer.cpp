@@ -8,7 +8,6 @@ namespace gst_pipeline_plugins
     name_ = name;
     node_if_ = node_if;
     pipeline_ = pipeline;
-    //loop_ = g_main_loop_new(nullptr, true);
 
     frame_id_ = node_if_->parameters
       ->declare_parameter(
@@ -42,12 +41,17 @@ namespace gst_pipeline_plugins
 
         // Set messages posting cap manually
         g_object_set(bin, "post-messages", true, nullptr);
-        // Find the bus associated with the element
-        GstBus* bus = gst_element_get_bus(bin);
+        // Find the bus associated with the pipeline
+        GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE (pipeline_));
+
         // Attach our callback
+        // XXX this prevents any other plugin from using the bus.
+        //     This gst_bus_add_watch call needs to be moved to the gst_pipeline package
+        //     and the pipeline package needs some kind of message dispatch function that we hook into here.
         guint event_source_id = gst_bus_add_watch(bus, static_cast<GstBusFunc>(multifilesink_observer::gst_bus_cb), static_cast<gpointer>(this));
         // Safe to unref bus
         gst_object_unref(bus);
+        
         if (event_source_id != 0) {
           RCLCPP_INFO(
                       node_if->logging->get_logger(), "plugin multifilesink_observer '%s' attached watch callback on '%s'",
@@ -72,7 +76,6 @@ namespace gst_pipeline_plugins
                    name_.c_str());
     }
 
-    //g_main_loop_run(loop_);
   }
 
   gboolean multifilesink_observer::gst_bus_cb(GstBus* bus, GstMessage* message, gpointer user_data) {
@@ -80,13 +83,11 @@ namespace gst_pipeline_plugins
     auto* this_ptr = static_cast<multifilesink_observer*>(user_data);
     const GstStructure* s;
 
-    RCLCPP_INFO(this_ptr -> node_if_ -> logging -> get_logger(), "got bus callback");
-
     switch (GST_MESSAGE_TYPE(message)) {
     case GST_MESSAGE_ELEMENT:
       s = gst_message_get_structure(message);
-      RCLCPP_INFO(this_ptr -> node_if_ -> logging -> get_logger(), "got bus msg");
-      if (strcmp(gst_structure_get_name(s), "GstMultiFileSink")) {
+      RCLCPP_DEBUG(this_ptr -> node_if_ -> logging -> get_logger(), "got bus msg, %s", gst_structure_get_name(s));
+      if (0 == g_strcmp0(gst_structure_get_name(s), "GstMultiFileSink")) {
         // Create the ROS Message
         auto msg = gst_msgs::msg::MultifilesinkEvent();
         // Fill the standard header
