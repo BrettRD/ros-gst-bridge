@@ -2,6 +2,11 @@
 #include <multifilesink_observer.h>
 
 
+// XXX element should be an optional string, in which case the plugin would
+//     listen pipeline-wide for multifilesink bus messages and publish reports
+//     from all multifilesinks that it finds.
+
+
 namespace gst_pipeline_plugins
 {
   void multifilesink_observer::initialise(std::string name, std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline) {
@@ -71,32 +76,33 @@ namespace gst_pipeline_plugins
     auto* this_ptr = static_cast<multifilesink_observer*>(user_data);
     const GstStructure* s;
 
-    switch (GST_MESSAGE_TYPE(message)) {
-    case GST_MESSAGE_ELEMENT:
+    if(GST_MESSAGE_ELEMENT== GST_MESSAGE_TYPE(message)) {
       s = gst_message_get_structure(message);
-      RCLCPP_DEBUG(this_ptr -> node_if_ -> logging -> get_logger(), "got bus msg, %s", gst_structure_get_name(s));
       if (0 == g_strcmp0(gst_structure_get_name(s), "GstMultiFileSink")) {
-        // Create the ROS Message
-        auto msg = gst_msgs::msg::MultifilesinkEvent();
-        // Fill the standard header
-        rclcpp::Clock::SharedPtr ros_clock = this_ptr->node_if_->clock->get_clock();
-        msg.header.stamp = ros_clock->now();
-        msg.header.frame_id = this_ptr->frame_id_;
-        // Now populate it with the GST Message
-        msg.filename = std::string(gst_structure_get_string(s, "filename"));
-        gst_structure_get_int(s, "index", &msg.index);
-        gst_structure_get_clock_time(s, "timestamp", static_cast<GstClockTime*>(&msg.timestamp));
-        gst_structure_get_clock_time(s, "stream-time", static_cast<GstClockTime*>(&msg.stream_time));
-        gst_structure_get_clock_time(s, "running-time", static_cast<GstClockTime*>(&msg.running_time));
-        gst_structure_get_clock_time(s, "duration", static_cast<GstClockTime*>(&msg.duration));
-        gst_structure_get_uint64(s, "offset", &msg.offset);
-        gst_structure_get_uint64(s, "offset-end", &msg.offset_end);
-        // Publish
-        this_ptr -> event_pub_ -> publish(msg);
+        if (0 == g_strcmp0(GST_OBJECT_NAME (message->src), this_ptr->elem_name_.c_str())) {
+
+        RCLCPP_DEBUG(this_ptr -> node_if_ -> logging -> get_logger(), "got bus msg, %s, originating from %s",
+          gst_structure_get_name(s), GST_OBJECT_NAME (message->src));
+
+          // Create the ROS Message
+          auto msg = gst_msgs::msg::MultifilesinkEvent();
+          // Fill the standard header
+          rclcpp::Clock::SharedPtr ros_clock = this_ptr->node_if_->clock->get_clock();
+          msg.header.stamp = ros_clock->now();
+          msg.header.frame_id = this_ptr->frame_id_;
+          // Now populate it with the GST Message
+          msg.filename = std::string(gst_structure_get_string(s, "filename"));
+          gst_structure_get_int(s, "index", &msg.index);
+          gst_structure_get_clock_time(s, "timestamp", static_cast<GstClockTime*>(&msg.timestamp));
+          gst_structure_get_clock_time(s, "stream-time", static_cast<GstClockTime*>(&msg.stream_time));
+          gst_structure_get_clock_time(s, "running-time", static_cast<GstClockTime*>(&msg.running_time));
+          gst_structure_get_clock_time(s, "duration", static_cast<GstClockTime*>(&msg.duration));
+          gst_structure_get_uint64(s, "offset", &msg.offset);
+          gst_structure_get_uint64(s, "offset-end", &msg.offset_end);
+          // Publish
+          this_ptr -> event_pub_ -> publish(msg);
+        }
       }
-      break;
-    default:
-      break;
     }
 
     return true;
