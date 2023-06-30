@@ -18,6 +18,8 @@ gst_meta_marking_api_get_type (void)
 gboolean
 gst_meta_marking_init(GstMeta *meta, gpointer params, GstBuffer *buffer)
 {
+    (void) params;
+    (void) buffer;
     GstMetaMarking* marking_meta = (GstMetaMarking*)meta;
 
     marking_meta->timestamp = GST_CLOCK_TIME_NONE;
@@ -30,8 +32,12 @@ gst_meta_marking_transform (GstBuffer *dest_buf,
                              GstMeta *src_meta,
                              GstBuffer *src_buf,
                              GQuark type,
-                             gpointer data) {
-    GstMeta* dest_meta = GST_META_MARKING_ADD(dest_buf);
+                             gpointer data) 
+{
+    (void) src_buf;
+    (void) type;
+    (void) data;
+    GstMeta* dest_meta = (GstMeta*) GST_META_MARKING_ADD(dest_buf);
 
     GstMetaMarking* src_meta_marking = (GstMetaMarking*)src_meta;
     GstMetaMarking* dest_meta_marking = (GstMetaMarking*)dest_meta;
@@ -43,6 +49,8 @@ gst_meta_marking_transform (GstBuffer *dest_buf,
 
 void
 gst_meta_marking_free (GstMeta *meta, GstBuffer *buffer) {
+  (void) meta;
+  (void) buffer;
 }
 
 const GstMetaInfo *

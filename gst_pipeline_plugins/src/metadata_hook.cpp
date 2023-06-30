@@ -31,6 +31,12 @@ void metadata_hook::initialise(
                   descr("the topic name to post events from the source", true))
                 .get<std::string>();
 
+  frame_id_ = node_if_->parameters
+    ->declare_parameter(
+                        name_ + ".frame_id", rclcpp::ParameterValue(node_if_->base->get_name()),
+                        descr("the frame_id denoting the reporting frame", true))
+    .get<std::string>();
+
   rclcpp::QoS qos = rclcpp::SensorDataQoS();
 
   mark_pub_ = rclcpp::create_publisher<gst_msgs::msg::MetaMark>(
@@ -117,11 +123,26 @@ GstPadProbeReturn metadata_hook::report_cb(
   GstBuffer *buf = GST_PAD_PROBE_INFO_BUFFER(info);
 
   GstMetaMarking* meta = GST_META_MARKING_GET(buf);
+  
   if(meta){
     GstClockTime tx_pts = meta->timestamp;
     GstClockTime rx_pts = GST_BUFFER_PTS(buf);
 
+    if(rx_pts == GST_CLOCK_TIME_NONE){
+      // XXX hacky, stick any old pts on the buffer (stream time in this case)
+      GstClock* pipe_clock = gst_pipeline_get_pipeline_clock (GST_PIPELINE_CAST(this_ptr->pipeline_));
+      GstClockTime gst_clock_time = gst_clock_get_time(pipe_clock);
+      GstClockTime base_time = gst_element_get_base_time(GST_ELEMENT(this_ptr->pipeline_));
+      rx_pts = gst_clock_time - base_time;
+      GST_BUFFER_PTS(buf) = rx_pts;
+    }
+
+
+
     auto msg = gst_msgs::msg::MetaMark();
+
+    msg.header.stamp = this_ptr->node_if_->clock->get_clock()->now();
+    msg.header.frame_id = this_ptr->frame_id_;
 
     msg.buffer_pts = rx_pts;
     msg.mark_timestamp = tx_pts;

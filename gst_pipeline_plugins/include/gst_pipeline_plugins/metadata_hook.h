@@ -42,6 +42,7 @@ private:
 
   // the topic to publish on
   std::string topic_name_;
+  std::string frame_id_;
 
   // whether we mark the buffer or report on its marking
   bool mark_;
