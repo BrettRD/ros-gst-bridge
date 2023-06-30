@@ -21,6 +21,10 @@ public:
 
   // ### gstreamer components ###
   GstElement * pipeline_;
+  // a Glib main loop for async callbacks
+  GMainLoop* mainloop_;
+  std::thread mainloop_thread_;
+
 
   // ### pluginlib  ###
 
