@@ -102,6 +102,20 @@ gst_pipeline::gst_pipeline(const rclcpp::NodeOptions & options) : Node("gst_pipe
     }
   }
 
+
+  // start a thread to execute the glib main loop (required for bus callbacks)
+  mainloop_ = g_main_loop_new(nullptr, true);
+  mainloop_thread_ = std::thread(
+    [=](GMainLoop* l) { g_main_loop_run(l); },  // lambda spin
+    mainloop_
+  );
+
+  // Find the bus associated with the pipeline
+  GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE (pipeline_));
+  // attach the default bus watcher that converts messages to signals
+  gst_bus_add_signal_watch(bus);
+  gst_object_unref(bus);
+
   // XXX Connect to the pipeline clock
   // XXX Measure the ros clock offset and add a GstContext to the pipeline
   //     Plugins (both here and inside the pipeline) should refer to

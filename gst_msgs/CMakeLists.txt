@@ -25,6 +25,7 @@ set(msg_files
   "msg/WebrtcIce.msg"
   "msg/BufferEvent.msg"
   "msg/ClockObservation.msg"
+  "msg/MultifilesinkEvent.msg"
   "msg/MetaMark.msg"
   "srv/Seek.srv"
 )
