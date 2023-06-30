@@ -11,7 +11,7 @@ gst_pipeline_node:
     # pipeline_base_descr: "v4l2src name=mysrc ! videoconvert ! ximagesink"
     # pipeline_base_descr: "filesrc location=tears-of-steel.mp4 ! decodebin ! videoconvert ! ximagesink"
     # pipeline_base_descr: "filesrc location=tears-of-steel.mp4 ! decodebin ! videoconvert ! rosimagesink name=mysink"
-    pipeline_base_descr: "v4l2src name=mysrc ! videoconvert ! pngenc ! multifilesink name=mysink location=frame%d.png post-messages=true"
+    pipeline_base_descr: "v4l2src name=mysrc ! videoconvert ! pngenc ! multifilesink name=mysink location=frame%d.png"
 
     ros_plugin_names:
 #      - "buffer_observer"

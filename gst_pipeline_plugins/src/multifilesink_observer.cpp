@@ -41,29 +41,17 @@ namespace gst_pipeline_plugins
 
         // Set messages posting cap manually
         g_object_set(bin, "post-messages", true, nullptr);
-        // Find the bus associated with the pipeline
+
+        // hook to the async "message" signal emitted by the bus
         GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE (pipeline_));
-
-        // Attach our callback
-        // XXX this prevents any other plugin from using the bus.
-        //     This gst_bus_add_watch call needs to be moved to the gst_pipeline package
-        //     and the pipeline package needs some kind of message dispatch function that we hook into here.
-        guint event_source_id = gst_bus_add_watch(bus, static_cast<GstBusFunc>(multifilesink_observer::gst_bus_cb), static_cast<gpointer>(this));
-        // Safe to unref bus
+        g_signal_connect (bus, "message::element", (GCallback) multifilesink_observer::gst_bus_cb, static_cast<gpointer>(this));
         gst_object_unref(bus);
-        
-        if (event_source_id != 0) {
-          RCLCPP_INFO(
-                      node_if->logging->get_logger(), "plugin multifilesink_observer '%s' attached watch callback on '%s'",
-                      name_.c_str(), elem_name_.c_str());
 
-        } else {
-          RCLCPP_ERROR(
-                       node_if->logging->get_logger(), "plugin multifilesink_observer '%s' failed to attach watch callback on '%s' as an event source already exists",
-                       name_.c_str(), elem_name_.c_str());
+        RCLCPP_INFO(
+                    node_if->logging->get_logger(), "plugin multifilesink_observer '%s' attached signal callback for '%s'",
+                    name_.c_str(), elem_name_.c_str());
 
-        }
-      } else {
+    } else {
         RCLCPP_ERROR(
                      node_if->logging->get_logger(),
                      "plugin multifilesink_observer '%s' failed to locate a gstreamer element called '%s'",
@@ -108,8 +96,6 @@ namespace gst_pipeline_plugins
       }
       break;
     default:
-      RCLCPP_INFO(this_ptr -> node_if_ -> logging -> get_logger(), "message unknown");
-      /* adjust code here if segfaults */
       break;
     }
 
