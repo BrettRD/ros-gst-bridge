@@ -17,6 +17,7 @@
   <build_depend>std_msgs</build_depend>
   <build_depend>audio_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>
+  <build_depend>ament_cmake_clang_format</build_depend>
 
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>audio_msgs</exec_depend>
