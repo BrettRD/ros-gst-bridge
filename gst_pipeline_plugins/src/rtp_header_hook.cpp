@@ -213,18 +213,6 @@ GstPadProbeReturn rtp_header_hook::report_cb(
     GstClockTime tx_pts = timestamp;
     GstClockTime rx_pts = GST_BUFFER_PTS(buf);
 
-    // XXX the rtp depayloader doesn't set the timestamp,
-    //     stick on any old thing in this case, we only need it to be unique
-    //     Improve this by interrogating the latency of the pipeline
-    if(rx_pts == GST_CLOCK_TIME_NONE){
-      GstClock* pipe_clock = gst_pipeline_get_pipeline_clock (GST_PIPELINE_CAST(this_ptr->pipeline_));
-      GstClockTime gst_clock_time = gst_clock_get_time(pipe_clock);
-      GstClockTime base_time = gst_element_get_base_time(GST_ELEMENT(this_ptr->pipeline_));
-      rx_pts = gst_clock_time - base_time;
-      GST_BUFFER_PTS(buf) = rx_pts;
-    }
-
-
     // pack a ros message
     auto msg = gst_msgs::msg::MetaMark();
 
@@ -236,13 +224,16 @@ GstPadProbeReturn rtp_header_hook::report_cb(
 
     this_ptr -> mark_pub_->publish(msg);
   }
-  else
-  {
-    RCLCPP_ERROR(
-      this_ptr->node_if_->logging->get_logger(),
-      "plugin rtp_header_hook '%s' could not find a matching header extension",
-      this_ptr->name_.c_str());
-  }
+  // ### We only expect to see one rtp header per frame,
+  //     and a frame might be split across multiple packets
+  //     the remaining un-extended headers can be safely ignored
+  //else
+  //{
+  //  RCLCPP_ERROR(
+  //    this_ptr->node_if_->logging->get_logger(),
+  //    "plugin rtp_header_hook '%s' could not find a matching header extension",
+  //    this_ptr->name_.c_str());
+  //}
 
   // life is peachy
   ret = GST_PAD_PROBE_OK;
