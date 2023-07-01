@@ -49,5 +49,12 @@ y
     </description>
   </class>
 
+  <class type="gst_pipeline_plugins::rtp_header_hook" base_class_type="gst_pipeline::plugin_base">
+    <description>
+      passes metadata into an rtp header extension.
+      This plugin will be deprecated and replaced with a metadata payloader element
+    </description>
+  </class>
+
 </library>
 

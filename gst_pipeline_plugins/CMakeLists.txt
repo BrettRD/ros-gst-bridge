@@ -36,7 +36,7 @@ find_package(TinyXML2 REQUIRED)  # provided by tinyxml2 upstream, or tinyxml2_ve
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0 IMPORTED_TARGET)
 pkg_check_modules(GST_APP REQUIRED gstreamer-app-1.0 IMPORTED_TARGET)
-
+pkg_check_modules(GST_RTP REQUIRED gstreamer-rtp-1.0 IMPORTED_TARGET)
 
 
 ## Include messages
@@ -64,8 +64,9 @@ add_library(${PROJECT_NAME} SHARED
   src/buffer_observer.cpp
   src/clock_observer.cpp
   src/metadata_hook.cpp
-  src/meta/gstmark.c
-)
+    src/meta/gstmark.c
+  src/rtp_header_hook.cpp
+  )
 
 ament_target_dependencies(${PROJECT_NAME}
   gst_pipeline
@@ -78,6 +79,7 @@ ament_target_dependencies(${PROJECT_NAME}
   sensor_msgs
   gst_msgs
   GSTREAMER
+  GST_RTP
 )
 
 pluginlib_export_plugin_description_file(gst_pipeline plugins.xml)
