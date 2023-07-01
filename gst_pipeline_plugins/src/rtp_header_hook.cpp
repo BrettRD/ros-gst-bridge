@@ -202,14 +202,11 @@ GstPadProbeReturn rtp_header_hook::report_cb(
   );
   gst_rtp_buffer_unmap(&rtp_buf);
 
-
-  // unpack the payload according to our ext_id
-  memcpy(&timestamp, payload, sizeof(timestamp));
-
-
-
-
   if(ext_found){
+
+    // unpack the payload according to our ext_id
+    memcpy(&timestamp, payload, sizeof(timestamp));
+
     GstClockTime tx_pts = timestamp;
     GstClockTime rx_pts = GST_BUFFER_PTS(buf);
 
@@ -224,16 +221,7 @@ GstPadProbeReturn rtp_header_hook::report_cb(
 
     this_ptr -> mark_pub_->publish(msg);
   }
-  // ### We only expect to see one rtp header per frame,
-  //     and a frame might be split across multiple packets
-  //     the remaining un-extended headers can be safely ignored
-  //else
-  //{
-  //  RCLCPP_ERROR(
-  //    this_ptr->node_if_->logging->get_logger(),
-  //    "plugin rtp_header_hook '%s' could not find a matching header extension",
-  //    this_ptr->name_.c_str());
-  //}
+
 
   // life is peachy
   ret = GST_PAD_PROBE_OK;
