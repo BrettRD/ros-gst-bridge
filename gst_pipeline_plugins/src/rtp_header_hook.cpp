@@ -60,7 +60,8 @@ void rtp_header_hook::initialise(
         // bind to the source of the rtp payloader to edit the newly generated header
         pad = gst_element_get_static_pad(bin_, "src");
         gst_pad_add_probe(
-          pad, GST_PAD_PROBE_TYPE_BUFFER_LIST,
+          pad, 
+          (GstPadProbeType)(GST_PAD_PROBE_TYPE_BUFFER | GST_PAD_PROBE_TYPE_BUFFER_LIST),
           (GstPadProbeCallback)rtp_header_hook::mark_cb, static_cast<gpointer>(this), NULL);
       }
       else
@@ -95,7 +96,46 @@ GstPadProbeReturn rtp_header_hook::mark_cb(
   (void)pad;
   auto this_ptr = static_cast<rtp_header_hook*>(user_data);
 
-  GstBuffer *buf = GST_PAD_PROBE_INFO_BUFFER(info);
+
+
+
+  GstBuffer *buf;
+
+  if(GST_PAD_PROBE_TYPE_BUFFER_LIST & GST_PAD_PROBE_INFO_TYPE(info))
+  {
+    GstBufferList *buflist;
+    buflist = GST_PAD_PROBE_INFO_BUFFER_LIST(info);
+    buf = gst_buffer_list_get(buflist, 0);  // the buffer has been packed into multiple 
+  }
+  else if(GST_PAD_PROBE_TYPE_BUFFER & GST_PAD_PROBE_INFO_TYPE(info))
+  {
+    buf = GST_PAD_PROBE_INFO_BUFFER(info);
+  }
+
+/*
+  RCLCPP_INFO(
+    this_ptr->node_if_->logging->get_logger(),
+    "plugin rtp_header_hook '%s' pad probe type is %d, containing %d buffers",
+    this_ptr->name_.c_str(),
+    GST_PAD_PROBE_INFO_TYPE(info),
+    gst_buffer_list_length(buflist)
+  );
+
+  for(int i=0; i<gst_buffer_list_length(buflist); i++){
+    buf = gst_buffer_list_get(buflist, i);
+
+    RCLCPP_INFO(
+      this_ptr->node_if_->logging->get_logger(),
+      "                          buf %d pts is %d",
+      i,
+      buf->pts
+    );
+  }
+
+*/
+
+
+
   gboolean ext_added = false;
 
   GstClockTime timestamp = GST_BUFFER_PTS(buf);
@@ -108,6 +148,7 @@ GstPadProbeReturn rtp_header_hook::mark_cb(
   // https://stackoverflow.com/questions/67603364/rtp-extension-headers-over-udp
   GstRTPBuffer rtp_buf = GST_RTP_BUFFER_INIT;
   gst_rtp_buffer_map(buf, GST_MAP_READWRITE, &rtp_buf);
+  //gst_rtp_buffer_set_extension(rtp_buf, true);
   ext_added = gst_rtp_buffer_add_extension_twobytes_header(
     &rtp_buf,
     appbits,
