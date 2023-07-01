@@ -35,8 +35,12 @@ find_package(TinyXML2 REQUIRED)  # provided by tinyxml2 upstream, or tinyxml2_ve
 # Gstreamer doesn't provide CMake files
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0 IMPORTED_TARGET)
-pkg_check_modules(GST_APP REQUIRED gstreamer-app-1.0 IMPORTED_TARGET)
 pkg_check_modules(GST_RTP REQUIRED gstreamer-rtp-1.0 IMPORTED_TARGET)
+
+
+# XXX Hack around a linker bug
+add_library(mygstrtp SHARED IMPORTED)
+set_target_properties(mygstrtp PROPERTIES IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libgstrtp-1.0.so)
 
 
 ## Include messages
@@ -66,7 +70,9 @@ add_library(${PROJECT_NAME} SHARED
   src/metadata_hook.cpp
     src/meta/gstmark.c
   src/rtp_header_hook.cpp
-  )
+)
+
+target_link_libraries(${PROJECT_NAME} mygstrtp)
 
 ament_target_dependencies(${PROJECT_NAME}
   gst_pipeline
