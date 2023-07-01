@@ -37,10 +37,12 @@ void metadata_hook::initialise(
                         descr("the frame_id denoting the reporting frame", true))
     .get<std::string>();
 
-  rclcpp::QoS qos = rclcpp::SensorDataQoS();
 
-  mark_pub_ = rclcpp::create_publisher<gst_msgs::msg::MetaMark>(
-              node_if->parameters, node_if->topics, topic_name_, qos);
+  if(!mark_){
+    rclcpp::QoS qos = rclcpp::SensorDataQoS().reliable();
+    mark_pub_ = rclcpp::create_publisher<gst_msgs::msg::MetaMark>(
+                node_if->parameters, node_if->topics, topic_name_, qos);
+  }
 
 
   if (GST_IS_BIN(pipeline_)) {

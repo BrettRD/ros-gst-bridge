@@ -18,7 +18,7 @@ void buffer_observer::initialise(
 
   auto topic_name_ = node_if->parameters
                 ->declare_parameter(
-                  name_ + ".event_topic", rclcpp::ParameterValue("/" + elem_name_ + "/gst_pts"),
+                  name_ + ".event_topic", rclcpp::ParameterValue("~/" + name_ + "/gst_pts"),
                   descr("the topic name to post events from the source", true))
                 .get<std::string>();
 

@@ -30,7 +30,7 @@ void rtp_header_hook::initialise(
 
   topic_name_ = node_if->parameters
                 ->declare_parameter(
-                  name_ + ".report_topic", rclcpp::ParameterValue("~/" + name_ + "/metamark"),
+                  name_ + ".report_topic", rclcpp::ParameterValue("~/" + name_ + "/rtp_header_ext"),
                   descr("the topic name to post events from the source", true))
                 .get<std::string>();
 
@@ -40,10 +40,12 @@ void rtp_header_hook::initialise(
                         descr("the frame_id denoting the reporting frame", true))
     .get<std::string>();
 
-  rclcpp::QoS qos = rclcpp::SensorDataQoS();
 
-  mark_pub_ = rclcpp::create_publisher<gst_msgs::msg::MetaMark>(
-              node_if->parameters, node_if->topics, topic_name_, qos);
+  if(!mark_){
+    rclcpp::QoS qos = rclcpp::SensorDataQoS().reliable();
+    mark_pub_ = rclcpp::create_publisher<gst_msgs::msg::MetaMark>(
+                node_if->parameters, node_if->topics, topic_name_, qos);
+  }
 
 
   if (GST_IS_BIN(pipeline_)) {
