@@ -6,18 +6,19 @@ gst_pipeline_node:
       - 'install/gst_bridge/lib/gst_bridge/'
     # XXX use the colcon package finder too
 
-    pipeline_base_descr: "videotestsrc name=camera_src ! videoconvert ! queue           \
-      ! rtpgstpay name=pay pt=96 mtu=65507 config-interval=1 ! rtpstreampay ! queue                                        \
-      ! tcpserversink host=localhost port=8553                   \
-      "
+    pipeline_base_descr: "tcpclientsrc host=localhost port=8553    \
+      ! application/x-rtp-stream, encoding-name=X-GST, payload=96   \
+      ! rtpstreamdepay ! application/x-rtp, encoding-name=X-GST, payload=96 \
+      ! rtpgstdepay name=depay ! queue                  \
+      ! videoconvert ! ximagesink sync=false"
     # pipeline_base_descr: "videotestsrc name=mysrc ! videoconvert ! rosimagesink name=mysink"
     # pipeline_base_descr: "v4l2src name=mysrc ! videoconvert ! ximagesink"
     # pipeline_base_descr: "filesrc location=tears-of-steel.mp4 ! decodebin ! videoconvert ! ximagesink"
     # pipeline_base_descr: "filesrc location=tears-of-steel.mp4 ! decodebin ! videoconvert ! rosimagesink name=mysink"
 
     ros_plugin_names:
-      - "meta_mark"
-      #- "meta_report"
+      #- "meta_mark"
+      - "meta_report"
       #- "buffer_observer"
       #- "pause"
       #- "framegate"
