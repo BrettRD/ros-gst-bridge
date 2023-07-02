@@ -146,18 +146,12 @@ endif()
 
 
 ament_export_include_directories(include)
-#ament_export_libraries(gst_bridge src/gst_bridge.cpp)
+
 ament_export_libraries(gst_bridge)
 
 install(DIRECTORY include/
   DESTINATION include)
 
-
-install(DIRECTORY
-  config
-  launch
-  DESTINATION share/${PROJECT_NAME}
-)
 
 install(TARGETS ${PROJECT_NAME}
   EXPORT export_${PROJECT_NAME}

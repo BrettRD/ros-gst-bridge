@@ -1,0 +1,60 @@
+<library path="gst_pipeline_plugins">
+
+  <class type="gst_pipeline_plugins::bridge" base_class_type="gst_pipeline::plugin_base">
+    <description>
+    A class that passes the gst_pipeline node interfaces to a gst_bridge element.
+    </description>
+  </class>
+
+  <class type="gst_pipeline_plugins::pause_srv" base_class_type="gst_pipeline::plugin_base">
+    <description>
+    Play and pause a GStreamer pipeline with a Gazebo style service call
+    </description>
+  </class>
+
+  <class type="gst_pipeline_plugins::framegate" base_class_type="gst_pipeline::plugin_base">
+    <description>
+      This plugin inserts a callback into the sink pad of the target element,
+      controlling the flow of frames according the last recieved FrameGate message
+      mode on a ros subscription.
+    </description>
+  </class>
+y
+  <class type="gst_pipeline_plugins::buffer_observer" base_class_type="gst_pipeline::plugin_base">
+      <description>
+          Publishes the presentation timestamp (PTS) of gstreamer buffers to topic `/{mysrc}/gst_pts`.
+          This can be used with `ros2 topic hz` to measure the frame rate of video
+      </description>
+  </class>
+
+  <class type="gst_pipeline_plugins::multifilesink_observer" base_class_type="gst_pipeline::plugin_base">
+      <description>
+          A class publishes the gstreamer multifilesink messages if
+          post-message=true is passed as a to a topic `/{mysrc}/gst_multifilesink`.
+
+          This can be used with `ros2 topic hz` to measure the serialisation rate of the stream
+      </description>
+  </class>
+
+  <class type="gst_pipeline_plugins::clock_observer" base_class_type="gst_pipeline::plugin_base">
+    <description>
+      periodically measures ros time and pipeline stream time, publishing both to ~/clock_observations.
+      This plugin is used to reconstruct synchronicity between ROS messages and GStreamer buffers.
+    </description>
+  </class>
+
+  <class type="gst_pipeline_plugins::metadata_hook" base_class_type="gst_pipeline::plugin_base">
+    <description>
+      Attaches additional metadata to a buffer to preserve its timestamp when it's carried over rtp.
+    </description>
+  </class>
+
+  <class type="gst_pipeline_plugins::rtp_header_hook" base_class_type="gst_pipeline::plugin_base">
+    <description>
+      passes metadata into an rtp header extension.
+      This plugin will be deprecated and replaced with a metadata payloader element
+    </description>
+  </class>
+
+</library>
+

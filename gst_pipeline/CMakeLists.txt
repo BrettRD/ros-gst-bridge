@@ -33,7 +33,6 @@ find_package(TinyXML2 REQUIRED)  # provided by tinyxml2 upstream, or tinyxml2_ve
 # Gstreamer doesn't provide CMake files
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0 IMPORTED_TARGET)
-pkg_check_modules(GST_APP REQUIRED gstreamer-app-1.0 IMPORTED_TARGET)
 
 
 
@@ -52,12 +51,16 @@ find_package(builtin_interfaces REQUIRED)
 include_directories(include/${PROJECT_NAME})
 
 
-add_library(gstpipes SHARED
-  src/gst_pipes.cpp
+add_library(gst_pipeline SHARED
+  src/gst_pipeline.cpp
   src/syntax_sugar.cpp
 )
 
-ament_target_dependencies(gstpipes
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
+ament_target_dependencies(gst_pipeline
   gst_bridge
   pluginlib
   rcl
@@ -67,58 +70,10 @@ ament_target_dependencies(gstpipes
   GSTREAMER
 )
 
-add_library(gstpipes_plugins SHARED
-  src/syntax_sugar.cpp
-  src/gst_pipes_plugin_bridge.cpp
-  src/gst_pipes_plugin_pause_srv.cpp
-  src/gst_pipes_plugin_snapshooter.cpp
-)
-
-ament_target_dependencies(gstpipes_plugins
-  gst_bridge
-  pluginlib
-  rcl
-  rclcpp
-  std_msgs
-  std_srvs
-  sensor_msgs
-  gst_msgs
-  GSTREAMER
-)
-
-
 rclcpp_components_register_node(
-  gstpipes
-  PLUGIN "gst_pipes::gst_pipes"
-  EXECUTABLE gst_pipes_node
-)
-
-# install headers
-install(
-  DIRECTORY include/
-  DESTINATION include
-)
-
-# install static files
-install(DIRECTORY
-  config
-  launch
-  DESTINATION share/${PROJECT_NAME}
-)
-
-# install composable node
-install(TARGETS gstpipes
-  EXPORT export_${PROJECT_NAME}
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-)
-
-# install pluginlib plugins
-install(TARGETS gstpipes_plugins
-  EXPORT export_${PROJECT_NAME}
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
+  gst_pipeline
+  PLUGIN "gst_pipeline::gst_pipeline"
+  EXECUTABLE gst_pipeline_node
 )
 
 
@@ -134,7 +89,7 @@ if(BUILD_TESTING)
   )
 
   target_include_directories(${PROJECT_NAME}_test PRIVATE include src)
-  target_link_libraries(${PROJECT_NAME}_test gstpipes)
+  target_link_libraries(${PROJECT_NAME}_test gst_pipeline)
   ament_target_dependencies(${PROJECT_NAME}_test
     gst_bridge
     pluginlib
@@ -148,13 +103,33 @@ if(BUILD_TESTING)
 endif()
 
 
-pluginlib_export_plugin_description_file(gst_pipeline plugins.xml)
 
-ament_export_include_directories(include)
-
-ament_export_libraries(
-  gstpipes_plugins
+# install headers
+install(
+  DIRECTORY include/
+  DESTINATION include
 )
+
+# install static files
+install(DIRECTORY
+  config
+  launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
+# install composable node
+install(TARGETS gst_pipeline
+  EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+)
+
+ament_export_include_directories(
+  include
+)
+
+ament_export_libraries(gst_pipeline)
+
 ament_export_targets(
   export_${PROJECT_NAME}
 )

@@ -13,7 +13,7 @@ def generate_launch_description():
   config_filepath = LaunchConfiguration('config_filepath')
 
   return LaunchDescription([
-    DeclareLaunchArgument('config_filename', default_value='example'),
+    DeclareLaunchArgument('config_filename', default_value='example_rx'),
 
     DeclareLaunchArgument('config_filepath', default_value=[
       TextSubstitution(text=os.path.join(

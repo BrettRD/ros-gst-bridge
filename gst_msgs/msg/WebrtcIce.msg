@@ -1,3 +1,5 @@
-std_msgs/Header header  # 
+std_msgs/Header header 
 
-string ice_candidates   # ouptut of the webrtc ice candidates signal
+# ouptut of the webrtc ice candidates signal
+int64 mline_index
+string candidate

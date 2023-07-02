@@ -1,12 +1,12 @@
 
-#include <gst_pipes.h>
+#include <gst_pipeline.h>
 
 extern "C" {
 #include "gst/gst.h"
 }
 
 /*
-gst_pipes
+gst_pipeline
 This node replaces the gst_pipeline python node
 Many thanks to Clyde McQueen for his work on gscam2
 
@@ -15,9 +15,9 @@ This node loads via ros_components, and exposes node interfaces to a
 
 */
 
-namespace gst_pipes
+namespace gst_pipeline
 {
-gst_pipes::gst_pipes(const rclcpp::NodeOptions & options) : Node("gst_pipes_node", options)
+gst_pipeline::gst_pipeline(const rclcpp::NodeOptions & options) : Node("gst_pipes_node", options)
 {
   // get gstreamer ready
   // XXX can gstreamer args add easy functionality?
@@ -65,7 +65,7 @@ gst_pipes::gst_pipes(const rclcpp::NodeOptions & options) : Node("gst_pipes_node
       name + ".type", type,
       descr(
         "the type of the \"" + name +
-          "\" plugin this must be a pluginlib class name like \"gst_pipes::gst_pipes_appsink\"",
+          "\" plugin this must be a pluginlib class name like \"gst_pipeline_plugins::pause_srv\"",
         true));
     type = get_parameter(name + ".type").get_value<std::string>();
 
@@ -75,8 +75,8 @@ gst_pipes::gst_pipes(const rclcpp::NodeOptions & options) : Node("gst_pipes_node
   }
 
   // instantiate the pluginlib classloader
-  loader_ = std::make_unique<pluginlib::ClassLoader<gst_pipes_plugin> >(
-    "gst_pipeline", "gst_pipes::gst_pipes_plugin");
+  loader_ = std::make_unique<pluginlib::ClassLoader<plugin_base> >(
+    "gst_pipeline", "gst_pipeline::plugin_base");
 
   // load the ros plugins, but don't initialise
   for (auto name_type : ros_plugin_types_) {
@@ -101,6 +101,20 @@ gst_pipes::gst_pipes(const rclcpp::NodeOptions & options) : Node("gst_pipes_node
       //return false;
     }
   }
+
+
+  // start a thread to execute the glib main loop (required for bus callbacks)
+  mainloop_ = g_main_loop_new(nullptr, true);
+  mainloop_thread_ = std::thread(
+    [=](GMainLoop* l) { g_main_loop_run(l); },  // lambda spin
+    mainloop_
+  );
+
+  // Find the bus associated with the pipeline
+  GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE (pipeline_));
+  // attach the default bus watcher that converts messages to signals
+  gst_bus_add_signal_watch(bus);
+  gst_object_unref(bus);
 
   // XXX Connect to the pipeline clock
   // XXX Measure the ros clock offset and add a GstContext to the pipeline
@@ -141,7 +155,7 @@ gst_pipes::gst_pipes(const rclcpp::NodeOptions & options) : Node("gst_pipes_node
   }
 }
 
-}  // namespace gst_pipes
+}  // namespace gst_pipeline
 
 #include <rclcpp_components/register_node_macro.hpp>
-RCLCPP_COMPONENTS_REGISTER_NODE(gst_pipes::gst_pipes)
+RCLCPP_COMPONENTS_REGISTER_NODE(gst_pipeline::gst_pipeline)
