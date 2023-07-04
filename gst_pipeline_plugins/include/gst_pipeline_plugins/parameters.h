@@ -1,5 +1,5 @@
-#ifndef GST_PIPELINE__GST_PIPES_PLUGIN_PARAMETERS_H_
-#define GST_PIPELINE__GST_PIPES_PLUGIN_PARAMETERS_H_
+#ifndef GST_PIPELINE_PLUGINS__PARAMETERS_H_
+#define GST_PIPELINE_PLUGINS__PARAMETERS_H_
 
 #include <gst_bridge/gst_bridge.h>
 
@@ -10,7 +10,7 @@ namespace gst_pipes
 /*
   This plugin declares ros parameters for props on pipeline elements
 */
-class gst_pipes_parameters : public gst_pipes_plugin
+class parameters : public gst_pipeline_plugin
 {
 public:
   // during init, we need to
@@ -37,4 +37,4 @@ private:
 
 }  // namespace gst_pipes
 
-#endif  //GST_PIPELINE__GST_PIPES_PLUGIN_PARAMETERS_H_
+#endif  //GST_PIPELINE_PLUGINS__PARAMETERS_H_
