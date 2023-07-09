@@ -2,16 +2,20 @@
 #define GST_PIPELINE_PLUGINS__PARAMETERS_H_
 
 #include <gst_bridge/gst_bridge.h>
-#include <rcl_interfaces/msg/ParameterDescriptor.hpp>
+#include <gst_pipeline/plugin_base.h>
 
-#include "rclcpp/rclcpp.hpp"
+//#include <rcl_interfaces/msg/ParameterDescriptor.hpp>
+
+
+#include <node_parameters_interface.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 namespace gst_pipes
 {
 /*
   This plugin declares ros parameters for props on pipeline elements
 */
-class parameters : public gst_pipeline_plugin
+class parameters : public gst_pipeline::plugin_base
 {
 public:
 
@@ -25,7 +29,7 @@ public:
       // param.name
       // param.type
       // param.description
-  }
+  };
   // during init, we need to
   //  fetch a param from the node for the list of elements to track
   //  find the elements in the pipeline

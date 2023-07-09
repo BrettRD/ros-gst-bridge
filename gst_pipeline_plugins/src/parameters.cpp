@@ -252,12 +252,11 @@ bool ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value)
     case G_TYPE_BOOLEAN:
       if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_BOOL) {
         g_value_set_boolean(value, parameter.as_bool());
-        break;
       }
       if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
         g_value_set_boolean(value, 0 != parameter.as_int());
-        break;
       }
+      break;
 
 
     case G_TYPE_CHAR:
@@ -321,6 +320,8 @@ bool ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value)
     
     default:
       return false;
+      break;
+
   }
 
   return true;
@@ -366,7 +367,7 @@ rcl_interfaces::msg::SetParametersResult
         break;
       }
       // validate the g_value
-      if(param_value_validate(prop, &value)){
+      if(g_param_value_validate(prop, &value)){
         result.successful = false;
         result.reason = "the Gobject rejected the value";
         // ... " and suggested my_to_string(&value)."
@@ -403,9 +404,9 @@ void parameters::update_parameters(const rclcpp::Parameter &parameter)
     // recover the type of the prop
     GValue value;
     g_value_init (&value, prop->value_type);
-    ros_value_to_g_value(parameter, value);
-    param_value_validate(prop, &value)
-    g_object_set_property(element, prop->name, value);
+    ros_value_to_g_value(parameter, &value);
+    g_param_value_validate(prop, &value);
+    g_object_set_property(element, prop->name, &value);
 
   }
 }
