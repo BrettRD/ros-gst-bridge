@@ -28,6 +28,7 @@
 
 namespace gst_pipeline_plugins
 {
+
 void parameters::initialise(
   std::string name,  // the config name of the plugin
   std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
@@ -36,23 +37,45 @@ void parameters::initialise(
   node_if_ = node_if;
   pipeline_ = pipeline;
 
-  elem_names_param_ = node_if->parameters->declare_parameter(
-    name_ + ".element_names",
-    rclcpp::ParameterValue(std::vector<std::string>()),
-    descr("the name of the source element inside the pipeline", true));
+  elem_name_ = node_if->parameters
+                 ->declare_parameter(
+                   name_ + ".element_name", rclcpp::ParameterValue("mysrc"),
+                   descr("the name of the source element inside the pipeline", true))
+                 .get<std::string>();
 
-  if (elem_names_param.get_type() == rclcpp::PARAMETER_STRING_ARRAY) {
-    elem_names_ = elem_names_param.get<std::vector<std::string>>();
-  }
+  // dynamic parameter callbacks
+  // this callback allows us to reject invalid params before they take effect
+  validate_param_handle_ = node_if->parameters->add_on_set_parameters_callback(std::bind(
+    &parameters::validate_parameters, this, std::placeholders::_1));
+
+  //these callbacks update params with validated values
+  //param_handler_ = std::make_shared<rclcpp::ParameterEventHandler>(this);
+  // XXX this needs a node-like interfaces struct like Fuse has
+  //     https://github.com/ros2/rclcpp/pull/2041
 
   if (GST_IS_BIN(pipeline_)) {
-    // dynamic parameter callbacks
-    // this callback allows us to reject invalid params before they take effect
-    validate_param_handle_ = add_on_set_parameters_callback(std::bind(
-      &aprameters::validate_parameters, this, std::placeholders::_1));
 
-    //these callbacks update params with validated values
-    param_handler_ = std::make_shared<rclcpp::ParameterEventHandler>(this);
+    bin_ = G_OBJECT(gst_bin_get_by_name(GST_BIN_CAST(pipeline_), elem_name_.c_str()));
+
+
+    if (bin_)
+    {
+      RCLCPP_INFO(
+        node_if->logging->get_logger(), "plugin parameters '%s' found '%s'",
+        name_.c_str(), elem_name_.c_str());
+
+
+        iterate_props(bin_, elem_name_);
+
+    }
+    else
+    {
+      RCLCPP_ERROR(
+        node_if->logging->get_logger(),
+        "plugin parameters '%s' failed to locate a gstreamer element called '%s'",
+        name_.c_str(), elem_name_.c_str());
+    }
+
 
 
 
@@ -60,10 +83,14 @@ void parameters::initialise(
   else 
   {
     RCLCPP_ERROR(
-      node_if->logging->get_logger(),
+      node_if_->logging->get_logger(),
       "plugin parameters '%s' received invalid pipeline in initialisation",
       name_.c_str());
   }
+
+
+
+
 }
 
 
@@ -86,35 +113,38 @@ void iterate_elements(GstBin * item, std::string prefix)
 
 rclcpp::ParameterValue parameters::g_value_to_ros_value(GValue* value)
 {
+
+
   rclcpp::ParameterValue param_value = rclcpp::ParameterValue();
-  GType g_type = g_value_get_gtype(value)
+  GType g_type = G_VALUE_TYPE(value);
+
 
   switch(g_type){
 
     case G_TYPE_BOOLEAN:
-      param_value = rclcpp::ParameterValue(g_value_get_boolean(value));
+      param_value = rclcpp::ParameterValue((bool)g_value_get_boolean(value));
       break;
 
     case G_TYPE_CHAR:
-      param_value = rclcpp::ParameterValue(g_value_get_char(value));
+      param_value = rclcpp::ParameterValue((int64_t)g_value_get_schar(value));
       break;
     case G_TYPE_UCHAR:
-      param_value = rclcpp::ParameterValue(g_value_get_uchar(value));
+      param_value = rclcpp::ParameterValue((int64_t)g_value_get_uchar(value));
       break;
     case G_TYPE_INT:
-      param_value = rclcpp::ParameterValue(g_value_get_int(value));
+      param_value = rclcpp::ParameterValue((int64_t)g_value_get_int(value));
       break;
     case G_TYPE_UINT:
-      param_value = rclcpp::ParameterValue(g_value_get_uint(value));
+      param_value = rclcpp::ParameterValue((int64_t)g_value_get_uint(value));
       break;
     case G_TYPE_LONG:
-      param_value = rclcpp::ParameterValue(g_value_get_ulong(value));
+      param_value = rclcpp::ParameterValue((int64_t)g_value_get_ulong(value));
       break;
     case G_TYPE_ULONG:
-      param_value = rclcpp::ParameterValue(g_value_get_ulong(value));
+      param_value = rclcpp::ParameterValue((int64_t)g_value_get_ulong(value));
       break;
     case G_TYPE_INT64:
-      param_value = rclcpp::ParameterValue(g_value_get_int64(value));
+      param_value = rclcpp::ParameterValue((int64_t)g_value_get_int64(value));
       break;
 
     // XXX there's no safe way of allowing ROS to set or read this value
@@ -122,10 +152,10 @@ rclcpp::ParameterValue parameters::g_value_to_ros_value(GValue* value)
     //  param_value = rclcpp::ParameterValue(g_value_get_uint64());
 
     case G_TYPE_DOUBLE:
-      param_value = rclcpp::ParameterValue(g_value_get_float(value));
+      param_value = rclcpp::ParameterValue((double)g_value_get_float(value));
       break;
     case G_TYPE_FLOAT:
-      param_value = rclcpp::ParameterValue(g_value_get_double(value));
+      param_value = rclcpp::ParameterValue((double)g_value_get_double(value));
       break;
 
     case G_TYPE_STRING:
@@ -190,7 +220,7 @@ rclcpp::ParameterValue parameters::g_value_to_ros_value(GValue* value)
 
 
 
-void parameters::iterate_props(GstElement * element, std::string prefix)
+void parameters::iterate_props(GObject * element, std::string prefix)
 {
   guint n_props = 0;
   GParamSpec ** prop_list = // free prop_list after use
@@ -202,39 +232,44 @@ void parameters::iterate_props(GstElement * element, std::string prefix)
     std::string ros_param_name = prefix + '.' + g_param_spec_get_name(prop);
     std::string ros_description = g_param_spec_get_blurb(prop);
 
-    GValue prop_value;
-    g_value_init(&prop_value, prop->value_type);  // initialise the value according to the type
-    g_object_get_property(element, prop->name, prop_value);   // get the current value
-    
+    RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "prop: " << ros_param_name << " type: " << prop->value_type);
 
-    rclcpp::ParameterValue ros_value = g_value_to_ros_value(prop_value);
+    GValue prop_value = {0};
+    g_value_init(&prop_value, prop->value_type);
+    g_value_copy(g_param_spec_get_default_value(prop), &prop_value);
+    g_object_get_property(element, prop->name, &prop_value);   // get the current value
+
+    RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "converting");
+
+    rclcpp::ParameterValue ros_value = g_value_to_ros_value(&prop_value);
     // test the parameter has a sensible type
-    if(ros_value.get_type() ! rclcpp::ParameterType::PARAMETER_NOT_SET)
+
+    if(ros_value.get_type() != rclcpp::ParameterType::PARAMETER_NOT_SET)
     {
       // test if the parameter was already declared
-      if( ! node_if_->param->has_parameter(ros_param_name))
+      if( ! node_if_->parameters->has_parameter(ros_param_name))
       {
         // keep track of this pairing
         parameter_mapping map = {element, prop};
-        param_map_.push_back({ros_param_name, map});
+        param_map_.insert({ros_param_name, map});
 
         // declare the parameter with ROS
-        node_if_->param->declare_parameter(
+        node_if_->parameters->declare_parameter(
           ros_param_name,
           ros_value,
-          descr("the name of the source element inside the pipeline", true)
+          descr(ros_description, false)
         );
         // register a callback the parameter updates from ROS
-        param_handles_.push_back(
-          param_handler_->add_parameter_callback(
-            ros_param_name,
-            std::bind(
-              &parameters::update_parameters,
-              this,
-              std::placeholders::_1
-            )
-          )
-        );
+        //param_handles_.push_back(
+        //  param_handler_->add_parameter_callback(
+        //    ros_param_name,
+        //    std::bind(
+        //      &parameters::update_parameters,
+        //      this,
+        //      std::placeholders::_1
+        //    )
+        //  )
+        //);
 
       }
     }
@@ -242,9 +277,13 @@ void parameters::iterate_props(GstElement * element, std::string prefix)
 }
 
 
-bool ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value)
+bool parameters::ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value)
 {
-  GType g_type = g_value_get_gtype(value);
+
+
+  GType g_type = G_VALUE_TYPE(value);
+  RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "ros_value_to_g_value type: " << g_type);
+
 
 
   switch(g_type){
@@ -261,7 +300,7 @@ bool ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value)
 
     case G_TYPE_CHAR:
       if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
-        g_value_set_char(value, (gchar)parameter.as_int());
+        g_value_set_schar(value, (gchar)parameter.as_int());
       }
       break;
     case G_TYPE_UCHAR:
@@ -302,6 +341,8 @@ bool ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value)
       if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE) {
         g_value_set_float(value, (gfloat)parameter.as_double());
       }
+      RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "packing float: " << g_value_get_float(value));
+
       break;
     case G_TYPE_DOUBLE:
       if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
@@ -316,9 +357,12 @@ bool ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value)
       if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_STRING) {
         g_value_set_string(value, parameter.as_string().c_str());
       }
+      RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "packing string: " <<  g_value_get_string(value));
       break;
     
     default:
+      RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "unknown type");
+
       return false;
       break;
 
@@ -330,14 +374,15 @@ bool ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value)
 
 
 rcl_interfaces::msg::SetParametersResult
-  parameters::validate_parameters(
-    std::vector<rclcpp::Parameter> parameters
-){
+parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
+{
+  RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "validate");
+
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
 
   for (const rclcpp::Parameter& parameter : parameters) {
-    RCLCPP_DEBUG_STREAM(get_logger(), "validating: " << parameter);
+    RCLCPP_DEBUG_STREAM(node_if_->logging->get_logger(), "validating: " << parameter);
 
 
     // find the property matching the parameter
@@ -355,10 +400,11 @@ rcl_interfaces::msg::SetParametersResult
     if(NULL != prop)
     {
       // recover the type of the prop
-      GValue value;
+      GValue value = {0};
       g_value_init (&value, prop->value_type);
-      bool valid;
-      
+
+      RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "ros_value_to_g_value type: " << prop->value_type);
+
       // check the type and recover a corresponding gvalue
       if(! ros_value_to_g_value(parameter, &value)){
         result.successful = false;
@@ -366,12 +412,26 @@ rcl_interfaces::msg::SetParametersResult
         // ... " try a my_ros_type_string(prop->value_type)"
         break;
       }
+
+
       // validate the g_value
-      if(g_param_value_validate(prop, &value)){
-        result.successful = false;
-        result.reason = "the Gobject rejected the value";
-        // ... " and suggested my_to_string(&value)."
-        break;
+      if( 0 != (G_PARAM_WRITABLE & prop->flags)){
+
+        //if(! g_param_value_validate(prop, &value)){
+        //  result.successful = false;
+        //  result.reason = "the GObject rejected the value";
+        //  // ... " and suggested my_to_string(&value)."
+        //  break;
+        //}
+
+        // XXX this is strictly incorrect, but just about eveyone does it.
+        //     we should use the update parameters call below instead,
+        //     but our node interfaces aren't compatible
+        g_object_set_property(element, prop->name, &value);
+      }
+      else
+      {
+        RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "skipping read-only property");
       }
 
     }
@@ -385,7 +445,7 @@ rcl_interfaces::msg::SetParametersResult
 
 void parameters::update_parameters(const rclcpp::Parameter &parameter)
 {
-  RCLCPP_DEBUG_STREAM(get_logger(), "updating: " << parameter);
+  RCLCPP_DEBUG_STREAM(node_if_->logging->get_logger(), "updating: " << parameter);
 
   // find the property matching the parameter
   GObject* element = NULL;
@@ -429,4 +489,4 @@ void parameters::deep_element_removed_cb(
 }  // namespace gst_pipeline_plugins
 
 #include <pluginlib/class_list_macros.hpp>
-PLUGINLIB_EXPORT_CLASS(gst_pipeline_plugins::parameters, gst_pipeline::gst_pipeline_plugin)
+PLUGINLIB_EXPORT_CLASS(gst_pipeline_plugins::parameters, gst_pipeline::plugin_base)

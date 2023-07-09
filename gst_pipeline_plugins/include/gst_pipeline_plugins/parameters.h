@@ -1,16 +1,17 @@
 #ifndef GST_PIPELINE_PLUGINS__PARAMETERS_H_
 #define GST_PIPELINE_PLUGINS__PARAMETERS_H_
 
-#include <gst_bridge/gst_bridge.h>
 #include <gst_pipeline/plugin_base.h>
+
+#include <gst_bridge/gst_bridge.h>
 
 //#include <rcl_interfaces/msg/ParameterDescriptor.hpp>
 
 
-#include <node_parameters_interface.hpp>
+#include <rclcpp/node_interfaces/node_parameters_interface.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-namespace gst_pipes
+namespace gst_pipeline_plugins
 {
 /*
   This plugin declares ros parameters for props on pipeline elements
@@ -39,25 +40,33 @@ public:
     std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
 
 
-  void iterate_props(GstElement * element, std::string prefix);
+  void iterate_props(GObject * element, std::string prefix);
 
-  rclcpp::ParameterValue g_value_to_ros_value(GValue value);
+  rclcpp::ParameterValue g_value_to_ros_value(GValue* value);
 
+  bool ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value);
+
+  rcl_interfaces::msg::SetParametersResult
+  validate_parameters(std::vector<rclcpp::Parameter> parameters);
+
+  void update_parameters(const rclcpp::Parameter &parameter);
 
   // callback when the pipeline adds an element
   //  conditionally declare parameters
-  static void deep_element_added_cb(
-    GstBin * self, GstBin * sub_bin, GstElement * element, gpointer user_data);
+  //static void deep_element_added_cb(
+  //  GstBin * self, GstBin * sub_bin, GstElement * element, gpointer user_data);
 
   // callback when the pipeline removes an element
   //  undeclare any previously declared parameters
-  static void deep_element_removed_cb(
-    GstBin * self, GstBin * sub_bin, GstElement * element, gpointer user_data);
+  //static void deep_element_removed_cb(
+  //  GstBin * self, GstBin * sub_bin, GstElement * element, gpointer user_data);
 
 private:
-  std::vector<std::string> element_names_;
+  
+  GObject * bin_;
+  std::string elem_name_;
+  rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr validate_param_handle_;
 
-  OnSetParametersCallbackHandle::SharedPtr validate_param_handle_;
   std::shared_ptr<rclcpp::ParameterEventHandler> param_handler_;
   std::vector< rclcpp::ParameterCallbackHandle::SharedPtr > param_handles_;
 
@@ -65,6 +74,6 @@ private:
 
 };
 
-}  // namespace gst_pipes
+}  // namespace gst_pipeline_plugins
 
 #endif  //GST_PIPELINE_PLUGINS__PARAMETERS_H_
