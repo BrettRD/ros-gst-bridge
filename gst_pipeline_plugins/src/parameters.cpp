@@ -416,8 +416,9 @@ parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
 
       // validate the g_value
       if( 0 != (G_PARAM_WRITABLE & prop->flags)){
-
-        //if(! g_param_value_validate(prop, &value)){
+        //bool changed = g_param_value_validate(prop, &value);
+        //if(changed){
+        //  RCLCPP_WARN_STREAM(node_if_->logging->get_logger(), "value clamped");
         //  result.successful = false;
         //  result.reason = "the GObject rejected the value";
         //  // ... " and suggested my_to_string(&value)."
