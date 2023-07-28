@@ -1,7 +1,7 @@
-#ifndef GST_PIPELINE__GST_PIPES_PLUGIN_WEBRTC_WEBSOCKETS_H_
-#define GST_PIPELINE__GST_PIPES_PLUGIN_WEBRTC_WEBSOCKETS_H_
+#ifndef GST_PIPELINE_PLUGINS_WEBRTC__WEBSOCKETS_H_
+#define GST_PIPELINE_PLUGINS_WEBRTC__WEBSOCKETS_H_
 
-#include <gst_pipes_plugin_webrtc_base.h>
+#include <base.h>
 
 
 // For signalling 
@@ -12,14 +12,14 @@
 #include <gst_msgs/msg/webrtc_ice.hpp>
 #include "rclcpp/rclcpp.hpp"
 
-namespace gst_pipes
+namespace gst_pipeline_plugins_webrtc
 {
 /*
-  This plugin specialises gst_pipes_webrtc_base to use ros topics as the peer discovery mechanism
+  This plugin specialises base to use ros topics as the peer discovery mechanism
 
 
 */
-class gst_pipes_webrtc_websockets : public gst_pipes_webrtc_base
+class websockets : public base
 {
 public:
 
@@ -38,32 +38,6 @@ public:
 
 
 private:
-
-
-void connect_to_websocket_server_async();
-
-static void on_server_connected(
-  SoupSession * session,
-  GAsyncResult * res,
-  gpointer user_data);
-
-gboolean register_with_server();
-
-gboolean setup_call();
-
-
-
-static void on_server_closed(
-  SoupWebsocketConnection * conn,
-  gpointer user_data);
-
-static void on_server_message(
-  SoupWebsocketConnection * conn,
-  SoupWebsocketDataType type,
-  GBytes * message,
-  gpointer user_data
-);
-
 
   enum AppState
   {
@@ -86,6 +60,37 @@ static void on_server_message(
     PEER_CALL_ERROR,
   };
 
+
+void connect_to_websocket_server_async();
+
+static void on_server_connected(
+  SoupSession * session,
+  GAsyncResult * res,
+  gpointer user_data);
+
+gboolean register_with_server();
+
+gboolean setup_call();
+
+static void reset_connection (
+  websockets * this_ptr,
+  const gchar * msg,
+  enum AppState state
+);
+
+
+static void on_server_closed(
+  SoupWebsocketConnection * conn,
+  gpointer user_data);
+
+static void on_server_message(
+  SoupWebsocketConnection * conn,
+  SoupWebsocketDataType type,
+  GBytes * message,
+  gpointer user_data
+);
+
+
   gchar* server_url;
   bool disable_ssl;
   
@@ -99,6 +104,6 @@ static void on_server_message(
 
 };
 
-}  // namespace gst_pipes
+}  // namespace gst_pipeline_plugins_webrtc
 
-#endif  //GST_PIPELINE__GST_PIPES_PLUGIN_WEBRTC_WEBSOCKETS_H_
+#endif  //GST_PIPELINE_PLUGINS_WEBRTC__WEBSOCKETS_H_

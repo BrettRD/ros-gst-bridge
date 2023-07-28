@@ -46,8 +46,8 @@ find_package(gst_msgs REQUIRED)
 include_directories(include/${PROJECT_NAME})
 
 add_library(gst_plugins_webrtc SHARED
-  src/gst_pipes_plugin_webrtc_base.cpp
-  src/gst_pipes_plugin_webrtc_websockets.cpp
+  src/base.cpp
+  src/websockets.cpp
 )
 
 ament_target_dependencies(gst_plugins_webrtc

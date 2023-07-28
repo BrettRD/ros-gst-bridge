@@ -1,8 +1,8 @@
-#ifndef GST_PIPELINE__GST_PIPES_PLUGIN_WEBRTC_BASE_H_
-#define GST_PIPELINE__GST_PIPES_PLUGIN_WEBRTC_BASE_H_
+#ifndef GST_PIPELINE_PLUGINS_WEBRTC__BASE_H_
+#define GST_PIPELINE_PLUGINS_WEBRTC__BASE_H_
 
 #include <gst_bridge/gst_bridge.h>
-#include <gst_pipeline/gst_pipes_plugin_base.h>
+#include <gst_pipeline/plugin_base.h>
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -11,14 +11,14 @@
 #define GST_USE_UNSTABLE_API
 #include <gst/webrtc/webrtc.h>
 
-namespace gst_pipes
+namespace gst_pipeline_plugins_webrtc
 {
 /*
   This plugin manages the connection between a webrtcbin and its peer discovery mechanism
 
 
 */
-class gst_pipes_webrtc_base : public gst_pipes_plugin
+class base : public gst_pipeline::plugin_base
 {
 public:
   // during init, we need to
@@ -205,6 +205,6 @@ protected:
 
 };
 
-}  // namespace gst_pipes
+}  // namespace gst_pipeline_plugins_webrtc
 
-#endif  //GST_PIPELINE__GST_PIPES_PLUGIN_WEBRTC_BASE_H_
+#endif  //GST_PIPELINE_PLUGINS_WEBRTC__BASE_H_
