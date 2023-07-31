@@ -1,4 +1,4 @@
-gst_pipes_node:
+gst_pipeline_node:
   ros__parameters:
 
 
@@ -7,7 +7,7 @@ gst_pipes_node:
     # XXX use the colcon package finder too
 
     pipeline_base_descr: '''
-      webrtcbin name=sendrecv
+      webrtcbin name=sendrecv stun-server="stun://stun.l.google.com:19302" 
       audiotestsrc volume=0.2 wave=red-noise ! audioconvert ! queue ! opusenc ! rtpopuspay ! application/x-rtp,media=audio,encoding-name=OPUS,payload=96 ! queue ! sendrecv .
       videotestsrc pattern=ball ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay ! application/x-rtp,media=video,encoding-name=VP8,payload=97 ! queue ! sendrecv .
       '''
@@ -17,18 +17,17 @@ gst_pipes_node:
 
     webrtc_handler:
       # classloader plugin type
-      type: "gst_pipes::gst_pipes_webrtc_websockets"
-
-      # gst_pipes_webrtc_base parameters
+      type: "gst_pipeline_plugins_webrtc::websockets"
+      # the name of the element to manage
       element_name: "sendrecv"
+
+      # additional pipeline segments to load
       video_sink_bin_descr: ' queue ! videoconvert ! ximagesink'
       audio_sink_bin_descr: ' queue ! alsasink '
       # XXX some use cases will need to re-structure the pipeline when the a/v sink pads come up
       #  This might better left to a dedicated pipeline mangler plugin
 
-      # gst_pipes_webrtc_websockets parameters
-      #parameters for signalling over webrtc_transport_ws:
-      signalling_server: 'wss://webrtc.nirbheek.in:8443'
-      stun_server: 'stun://stun.l.google.com:19302'
-      node_id: 1125
-      peer_id: 4874
+      # signalling server implementation specific details
+      signalling_server: 'wss://webrtc.gstreamer.net:8443'
+      node_id: '1125'
+      peer_id: '4874'

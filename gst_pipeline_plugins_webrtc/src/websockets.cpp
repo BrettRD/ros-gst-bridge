@@ -123,13 +123,66 @@ void
 websockets::init_signalling_server_client()
 {
 
-  // XXX collect from parameter server:
-  //  server url and socket
-  //    server_url = "wss://webrtc.gstreamer.net:8443";
-  //  turn server address
-  //  local peer ID
-  //  remote peer ID
+  // collect config from parameter server:
+  // XXX  turn server address?
 
+  server_url = node_if_->parameters->declare_parameter(
+    name_ + ".server_url",
+    rclcpp::ParameterValue("wss://webrtc.gstreamer.net:8443"),
+    descr(
+      "the name of the source element inside the pipeline",
+      true
+    )
+  ).get<std::string>();
+
+
+  remote_is_offerer = node_if_->parameters->declare_parameter(
+    name_ + ".remote_is_offerer",
+    rclcpp::ParameterValue(false),
+    descr(
+      "Wait for incoming call",
+      true
+    )
+  ).get<bool>();
+
+  local_is_offerer = node_if_->parameters->declare_parameter(
+    name_ + ".local_is_offerer",
+    rclcpp::ParameterValue(false),
+    descr(
+      "Remote is waiting",
+      true
+    )
+  ).get<bool>();
+
+
+  our_id = node_if_->parameters->declare_parameter(
+    name_ + ".node_id",
+    rclcpp::ParameterValue("mysrc"),
+    descr(
+      "the name of the source element inside the pipeline",
+      true
+    )
+  ).get<std::string>();
+
+  peer_id = node_if_->parameters->declare_parameter(
+    name_ + ".peer_id",
+    rclcpp::ParameterValue("mysrc"),
+    descr(
+      "the name of the source element inside the pipeline",
+      true
+    )
+  ).get<std::string>();
+
+
+
+  disable_ssl = node_if_->parameters->declare_parameter(
+    name_ + ".disable_ssl",
+    rclcpp::ParameterValue(false),
+    descr(
+      "disable_ssl",
+      true
+    )
+  ).get<bool>();
 
   // start a web socket to the signalling server
   connect_to_websocket_server_async();
@@ -161,7 +214,7 @@ void websockets::connect_to_websocket_server_async (void)
   logger = soup_logger_new (SOUP_LOGGER_LOG_BODY, -1);
   soup_session_add_feature (session, SOUP_SESSION_FEATURE (logger));
   g_object_unref (logger);
-  message = soup_message_new (SOUP_METHOD_GET, server_url);
+  message = soup_message_new (SOUP_METHOD_GET, server_url.c_str());
   gst_print ("Connecting to server...\n");
   /* Once connected, we will register */
   soup_session_websocket_connect_async (
@@ -209,8 +262,8 @@ gboolean websockets::register_with_server ()
       SOUP_WEBSOCKET_STATE_OPEN)
     return FALSE;
 
-  gst_print ("Registering id %s with server\n", our_id);
-  hello = g_strdup_printf ("HELLO %s", our_id);
+  gst_print ("Registering id %s with server\n", our_id.c_str());
+  hello = g_strdup_printf ("HELLO %s", our_id.c_str());
 
   app_state = SERVER_REGISTERING;
 
@@ -228,9 +281,9 @@ gboolean websockets::setup_call()
       SOUP_WEBSOCKET_STATE_OPEN)
     return FALSE;
 
-  gst_print ("Setting up signalling server call with %s\n", peer_id);
+  gst_print ("Setting up signalling server call with %s\n", peer_id.c_str());
   app_state = PEER_CONNECTING;
-  msg = g_strdup_printf ("SESSION %s", peer_id);
+  msg = g_strdup_printf ("SESSION %s", peer_id.c_str());
   soup_websocket_connection_send_text (ws_conn, msg);
   g_free (msg);
   return TRUE;
@@ -329,8 +382,7 @@ websockets::send_ice_candidate(
 }
 
 
-// XXX websocket traffic callback
-
+// websocket traffic callback
 
 void
 websockets::on_server_message(
@@ -368,14 +420,16 @@ websockets::on_server_message(
     }
     this_ptr->app_state = SERVER_REGISTERED;
     gst_print ("Registered with server\n");
-    if (this_ptr->peer_id) {
+    // XXX logic error here, use the dialout flags
+    //if (this_ptr->peer_id.c_str()) {
+    if (this_ptr->remote_is_offerer || this_ptr->local_is_offerer){
       // Ask signalling server to connect us with a specific peer
       if (!this_ptr->setup_call ()) {
         reset_connection (this_ptr, "ERROR: Failed to setup call", PEER_CALL_ERROR);
         goto out;
       }
     } else {
-      gst_println ("Waiting for connection from peer (our-id: %s)", this_ptr->our_id);
+      gst_println ("Waiting for connection from peer (our-id: %s)", this_ptr->our_id.c_str());
     }
 
 

@@ -1,7 +1,7 @@
 <library path="gst_pipeline_plugins_webrtc">
 
 
-  <class type="gst_pipes::gst_pipes_webrtc_websockets" base_class_type="gst_pipes::gst_pipes_plugin">
+  <class type="gst_pipeline_plugins_webrtc::websockets" base_class_type="gst_pipeline::plugin_base">
     <description>
       Establishes a webrtc call for a webrtcbin using the same signalling method as https://webrtc.gstreamer.net
     </description>

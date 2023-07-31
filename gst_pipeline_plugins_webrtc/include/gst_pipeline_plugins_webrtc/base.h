@@ -196,7 +196,8 @@ protected:
 
   // the name of the target element in the pipeline
   std::string elem_name_;
-
+  std::string audio_sink_descr_;
+  std::string video_sink_descr_;
   // a pointer to the bridge elements in the pipeline
   GstElement * webrtc_;
 

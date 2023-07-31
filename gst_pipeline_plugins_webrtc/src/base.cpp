@@ -10,11 +10,33 @@ void base::initialise(
   node_if_ = node_if;
   pipeline_ = pipeline;
 
-  elem_name_ = node_if->parameters
-                 ->declare_parameter(
-                   name + ".element_name", rclcpp::ParameterValue("mysrc"),
-                   descr("the name of the source element inside the pipeline", true))
-                 .get<std::string>();
+  elem_name_ = node_if->parameters->declare_parameter(
+    name + ".element_name",
+    rclcpp::ParameterValue("mysrc"),
+    descr(
+      "the name of the source element inside the pipeline",
+      true)
+    ).get<std::string>();
+
+  audio_sink_descr_ = node_if->parameters->declare_parameter(
+    name + ".audio_sink_descr",
+    rclcpp::ParameterValue("audioconvert ! audioresample ! autoaudiosink"),
+    descr(
+      "the audio sink to process webrtc output",
+      true
+    )
+  ).get<std::string>();
+
+  video_sink_descr_ = node_if->parameters->declare_parameter(
+    name + ".video_sink_descr",
+    rclcpp::ParameterValue("videoconvert ! autovideosink"),
+    descr(
+      "the video sink to process webrtc output",
+      true
+    )
+  ).get<std::string>();
+
+
 
   if (GST_IS_BIN(pipeline_)) {
     GstElement * bin = gst_bin_get_by_name(GST_BIN_CAST(pipeline_), elem_name_.c_str());
@@ -48,7 +70,6 @@ void base::initialise(
       /* data channels requires gstreamer 1.18 or higher
       g_signal_connect(webrtc_, "on-data-channel", G_CALLBACK(on_data_channel_cb), this);
 
-      
       // data channels can be used to create tunnels for ROS serialised transports
 
       // the remote peer is offering a low latency data channel 
@@ -64,13 +85,16 @@ void base::initialise(
       RCLCPP_ERROR(
         node_if_->logging->get_logger(),
         "plugin gst_pipes_webrtc '%s' failed to locate a gstreamer element called '%s'",
-        name_.c_str(), elem_name_.c_str());
+        name_.c_str(),
+        elem_name_.c_str()
+      );
     }
   } else {
     RCLCPP_ERROR(
       node_if_->logging->get_logger(),
       "plugin gst_pipes_webrtc '%s' received invalid pipeline in initialisation",
-      name_.c_str());
+      name_.c_str()
+    );
   }
 }
 
@@ -78,52 +102,66 @@ void base::initialise(
 
 
 
-  // ############ virtual methods for different signalling servers ############
+// ############ virtual methods for different signalling servers ############
 
-  // connect to your signalling server
-  void base::init_signalling_server_client(){}
+// connect to your signalling server
+void base::init_signalling_server_client(){
+  RCLCPP_ERROR(
+    node_if_->logging->get_logger(),
+    "init_signalling_server_client called on base class"
+  );
+}
 
-  // called when the webrtcbin wants to send a SDP answer
-  // default calls  send_sdp(descr)
-  void base::send_sdp_answer(
-    GstWebRTCSessionDescription * desc
-  ){
-    RCLCPP_INFO(
-      node_if_->logging->get_logger(),
-      "plugin gst_pipes_webrtc '%s' sending sdp answer",
-      name_.c_str());
+// default implementation
+void base::begin_negotiate(){
+  RCLCPP_ERROR(
+    node_if_->logging->get_logger(),
+    "begin_negotiate called on base class"
+  );
+}
 
-    send_sdp(desc);
-  }
 
-  // called when the webrtcbin is instructed to send a sdp offer
-  // default calls  send_sdp(descr)
-  void base::send_sdp_offer(
-    GstWebRTCSessionDescription * desc
-  ){
-    RCLCPP_INFO(
-      node_if_->logging->get_logger(),
-      "plugin gst_pipes_webrtc '%s' sending sdp offer",
-      name_.c_str());
+// called when the webrtcbin wants to send a SDP answer
+// default calls  send_sdp(descr)
+void base::send_sdp_answer(
+  GstWebRTCSessionDescription * desc
+){
+  RCLCPP_INFO(
+    node_if_->logging->get_logger(),
+    "plugin gst_pipes_webrtc '%s' sending sdp answer",
+    name_.c_str());
 
-    send_sdp(desc);
-  }
+  send_sdp(desc);
+}
 
-  // send a sdp description to the remote server
-  void base::send_sdp(
-    GstWebRTCSessionDescription * desc
-  ){
-    (void) desc;
-  }
+// called when the webrtcbin is instructed to send a sdp offer
+// default calls  send_sdp(descr)
+void base::send_sdp_offer(
+  GstWebRTCSessionDescription * desc
+){
+  RCLCPP_INFO(
+    node_if_->logging->get_logger(),
+    "plugin gst_pipes_webrtc '%s' sending sdp offer",
+    name_.c_str());
 
-  // send an ice candidat to the remote server
-  void base::send_ice_candidate(
-    guint mline_index,
-    gchararray candidate
-  ){
-    (void) mline_index;
-    (void) candidate;
-  }
+  send_sdp(desc);
+}
+
+// send a sdp description to the remote server
+void base::send_sdp(
+  GstWebRTCSessionDescription * desc
+){
+  (void) desc;
+}
+
+// send an ice candidat to the remote server
+void base::send_ice_candidate(
+  guint mline_index,
+  gchararray candidate
+){
+  (void) mline_index;
+  (void) candidate;
+}
 
 
 
@@ -178,13 +216,41 @@ base::pad_added_cb(
   GstPad *pad,
   gpointer user_data
 ){
-  (void) webrtc;
-  (void) pad;
-  (void) user_data;
-  //base* this_ptr = (base*) user_data;
-  
-  // XXX test if the pad is audio or video, then build and attach the appropriate sink bin
-  // optionally shim a decodebin in for convenience
+  base* this_ptr = (base*) user_data;
+
+  GstCaps *caps;
+  const gchar *name;
+  GstElement* sink_bin = NULL;
+  std::string sink_bin_descr;
+  bool synced = true;
+  caps = gst_pad_get_current_caps (pad);
+  name = gst_structure_get_name (gst_caps_get_structure (caps, 0));
+
+
+  if (g_str_has_prefix (name, "video"))
+  {
+    sink_bin_descr = this_ptr->video_sink_descr_;
+  }
+  else if (g_str_has_prefix (name, "audio"))
+  {
+    sink_bin_descr = this_ptr->audio_sink_descr_;
+  }
+  else
+  {
+    gst_printerr ("Unknown pad %s, ignoring", GST_PAD_NAME (pad));
+    return;
+  }
+
+  sink_bin = gst_parse_bin_from_description(sink_bin_descr.c_str(), true, NULL);
+  gst_bin_add(GST_BIN(this_ptr->pipeline_), sink_bin);
+  synced &= gst_element_sync_state_with_parent(sink_bin);
+  gst_element_link(webrtc, sink_bin);
+  //synced &= gst_bin_sync_children_states(sink_bin);
+  if(!synced) {
+    gst_printerr ("could not synchronise '%s' with the webrtcbin", sink_bin_descr.c_str());
+  }
+
+
 }
 
 

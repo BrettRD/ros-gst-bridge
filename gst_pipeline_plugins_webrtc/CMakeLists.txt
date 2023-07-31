@@ -31,8 +31,20 @@ pkg_check_modules(GST_SDP REQUIRED gstreamer-sdp-1.0)
 pkg_check_modules(GST_WEBRTC REQUIRED gstreamer-webrtc-1.0)
 
 
-pkg_check_modules(SOUP REQUIRED libsoup-2.4)
-pkg_check_modules(JSONGLIB REQUIRED json-glib-1.0)
+# glib-2.0
+# gstreamer-1.0
+# gstreamer-rtp-1.0
+# gstreamer-sdp-1.0
+# gstreamer-webrtc-1.0
+# json-glib-1.0
+# libsoup-2.4
+# gstreamer-webrtc-nice-1.0
+
+pkg_check_modules(SOUP REQUIRED libsoup-2.4 IMPORTED_TARGET)
+pkg_check_modules(JSONGLIB REQUIRED json-glib-1.0 IMPORTED_TARGET)
+
+
+
 
 ## Include messages
 find_package(std_msgs REQUIRED)
@@ -45,12 +57,18 @@ find_package(gst_msgs REQUIRED)
 
 include_directories(include/${PROJECT_NAME})
 
-add_library(gst_plugins_webrtc SHARED
+add_library(${PROJECT_NAME} SHARED
   src/base.cpp
   src/websockets.cpp
 )
 
-ament_target_dependencies(gst_plugins_webrtc
+# XXX linker error regarding visibility of global variables provided by libsoup
+target_link_libraries(${PROJECT_NAME} soup-2.4)
+target_link_libraries(${PROJECT_NAME} json-glib-1.0 gio-2.0 gobject-2.0 glib-2.0)
+target_link_libraries(${PROJECT_NAME} gstsdp-1.0 gobject-2.0 glib-2.0)
+target_link_libraries(${PROJECT_NAME} gstwebrtc-1.0 gstbase-1.0 gstreamer-1.0 gobject-2.0 glib-2.0)
+
+ament_target_dependencies(${PROJECT_NAME}
   gst_pipeline
   gst_bridge
   pluginlib
@@ -75,8 +93,14 @@ install(
   DESTINATION include
 )
 
+# install static files
+install(DIRECTORY
+  config
+  launch
+  DESTINATION share/${PROJECT_NAME}
+)
 # install pluginlib plugins
-install(TARGETS gst_plugins_webrtc
+install(TARGETS ${PROJECT_NAME}
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -114,9 +138,8 @@ pluginlib_export_plugin_description_file(gst_pipeline plugins.xml)
 
 ament_export_include_directories(include)
 
-ament_export_libraries(
-  gst_plugins_webrtc
-)
+ament_export_libraries(${PROJECT_NAME})
+
 ament_export_targets(
   export_${PROJECT_NAME}
 )

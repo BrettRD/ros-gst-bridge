@@ -61,45 +61,45 @@ private:
   };
 
 
-void connect_to_websocket_server_async();
+  void connect_to_websocket_server_async();
 
-static void on_server_connected(
-  SoupSession * session,
-  GAsyncResult * res,
-  gpointer user_data);
+  static void on_server_connected(
+    SoupSession * session,
+    GAsyncResult * res,
+    gpointer user_data);
 
-gboolean register_with_server();
+  gboolean register_with_server();
 
-gboolean setup_call();
+  gboolean setup_call();
 
-static void reset_connection (
-  websockets * this_ptr,
-  const gchar * msg,
-  enum AppState state
-);
-
-
-static void on_server_closed(
-  SoupWebsocketConnection * conn,
-  gpointer user_data);
-
-static void on_server_message(
-  SoupWebsocketConnection * conn,
-  SoupWebsocketDataType type,
-  GBytes * message,
-  gpointer user_data
-);
+  static void reset_connection (
+    websockets * this_ptr,
+    const gchar * msg,
+    enum AppState state
+  );
 
 
-  gchar* server_url;
+  static void on_server_closed(
+    SoupWebsocketConnection * conn,
+    gpointer user_data);
+
+  static void on_server_message(
+    SoupWebsocketConnection * conn,
+    SoupWebsocketDataType type,
+    GBytes * message,
+    gpointer user_data
+  );
+
+
+  std::string server_url;
   bool disable_ssl;
   
-  gchar* our_id;
-  gchar* peer_id;
+  std::string our_id;
+  std::string peer_id;
   AppState app_state;
   bool remote_is_offerer;
   bool local_is_offerer;
-  static SoupWebsocketConnection *ws_conn;
+  SoupWebsocketConnection *ws_conn;
 
 
 };
