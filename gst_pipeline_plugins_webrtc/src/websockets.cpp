@@ -215,7 +215,10 @@ void websockets::connect_to_websocket_server_async (void)
   soup_session_add_feature (session, SOUP_SESSION_FEATURE (logger));
   g_object_unref (logger);
   message = soup_message_new (SOUP_METHOD_GET, server_url.c_str());
-  gst_print ("Connecting to server...\n");
+  RCLCPP_INFO(
+    node_if_->logging->get_logger(),
+    "Connecting to server...\n"
+  );
   /* Once connected, we will register */
   soup_session_websocket_connect_async (
     session,
@@ -247,7 +250,10 @@ void websockets::on_server_connected(
   }
   g_assert_nonnull (this_ptr->ws_conn);
   this_ptr->app_state = SERVER_CONNECTED;
-  gst_print ("Connected to signalling server\n");
+  RCLCPP_INFO(
+    this_ptr->node_if_->logging->get_logger(),
+    "Connected to signalling server\n"
+  );
   g_signal_connect (this_ptr->ws_conn, "closed", G_CALLBACK (on_server_closed), this_ptr);
   g_signal_connect (this_ptr->ws_conn, "message", G_CALLBACK (on_server_message), this_ptr);
   /* Register with the server so it knows about us and can accept commands */
@@ -262,7 +268,10 @@ gboolean websockets::register_with_server ()
       SOUP_WEBSOCKET_STATE_OPEN)
     return FALSE;
 
-  gst_print ("Registering id %s with server\n", our_id.c_str());
+  RCLCPP_INFO(
+    node_if_->logging->get_logger(),
+    "Registering id %s with server\n", our_id.c_str()
+  );
   hello = g_strdup_printf ("HELLO %s", our_id.c_str());
 
   app_state = SERVER_REGISTERING;
@@ -281,7 +290,11 @@ gboolean websockets::setup_call()
       SOUP_WEBSOCKET_STATE_OPEN)
     return FALSE;
 
-  gst_print ("Setting up signalling server call with %s\n", peer_id.c_str());
+  RCLCPP_INFO(
+    node_if_->logging->get_logger(),
+    "Setting up signalling server call with %s\n",
+    peer_id.c_str()
+  );
   app_state = PEER_CONNECTING;
   msg = g_strdup_printf ("SESSION %s", peer_id.c_str());
   soup_websocket_connection_send_text (ws_conn, msg);
@@ -305,6 +318,12 @@ void websockets::on_server_closed(
 // called when webrtcbin is up
 void websockets::begin_negotiate()
 {
+
+  if(app_state < SERVER_REGISTERED) {
+    // wait for the server to register
+    return;
+  }
+
   if (remote_is_offerer) {
     soup_websocket_connection_send_text (ws_conn, "OFFER_REQUEST");
   } else if (local_is_offerer) {
@@ -322,7 +341,7 @@ void websockets::send_sdp(
   JsonObject *msg, *sdp;
 
   // sanity check the state of the server
-  if (app_state < PEER_CALL_NEGOTIATING) {
+  if (app_state < SERVER_REGISTERED) {
     reset_connection (this, "Can't send SDP to peer, not in call",
         APP_STATE_ERROR);
     return;
@@ -368,6 +387,11 @@ websockets::send_ice_candidate(
     return;
   }
 
+  //RCLCPP_INFO(
+  //  node_if_->logging->get_logger(),
+  //  "sending ice candidate"
+  //);
+
   // package and send the ice payload
   ice = json_object_new ();
   json_object_set_string_member (ice, "candidate", candidate);
@@ -397,7 +421,10 @@ websockets::on_server_message(
 
   switch (type) {
     case SOUP_WEBSOCKET_DATA_BINARY:
-      gst_printerr ("Received unknown binary message, ignoring\n");
+      RCLCPP_ERROR(
+        this_ptr->node_if_->logging->get_logger(),
+        "Received unknown binary message, ignoring\n"
+      );
       return;
     case SOUP_WEBSOCKET_DATA_TEXT:{
       gsize size;
@@ -419,7 +446,10 @@ websockets::on_server_message(
       goto out;
     }
     this_ptr->app_state = SERVER_REGISTERED;
-    gst_print ("Registered with server\n");
+    RCLCPP_INFO(
+      this_ptr->node_if_->logging->get_logger(),
+      "Registered with server\n"
+    );
     // XXX logic error here, use the dialout flags
     //if (this_ptr->peer_id.c_str()) {
     if (this_ptr->remote_is_offerer || this_ptr->local_is_offerer){
@@ -429,7 +459,11 @@ websockets::on_server_message(
         goto out;
       }
     } else {
-      gst_println ("Waiting for connection from peer (our-id: %s)", this_ptr->our_id.c_str());
+      RCLCPP_INFO(
+        this_ptr->node_if_->logging->get_logger(),
+        "Waiting for connection from peer (our-id: %s)",
+        this_ptr->our_id.c_str()
+      );
     }
 
 
@@ -450,10 +484,16 @@ websockets::on_server_message(
 
   } else if (g_strcmp0 (text, "OFFER_REQUEST") == 0) {
     if (this_ptr->app_state != SERVER_REGISTERED) {
-      gst_printerr ("Received OFFER_REQUEST at a strange time, ignoring\n");
+      RCLCPP_ERROR(
+        this_ptr->node_if_->logging->get_logger(),
+        "Received OFFER_REQUEST at a strange time, ignoring\n"
+      );
       goto out;
     }
-    gst_print ("Received OFFER_REQUEST, sending offer\n");
+    RCLCPP_INFO(
+      this_ptr->node_if_->logging->get_logger(),
+      "Received OFFER_REQUEST, sending offer\n"
+    );
     this_ptr->create_offer();
 
 
@@ -483,14 +523,22 @@ websockets::on_server_message(
     JsonObject *object, *child;
     JsonParser *parser = json_parser_new ();
     if (!json_parser_load_from_data (parser, text, -1, NULL)) {
-      gst_printerr ("Unknown message '%s', ignoring\n", text);
+      RCLCPP_ERROR(
+        this_ptr->node_if_->logging->get_logger(),
+        "Unknown message '%s', ignoring\n",
+        text
+      );
       g_object_unref (parser);
       goto out;
     }
 
     root = json_parser_get_root (parser);
     if (!JSON_NODE_HOLDS_OBJECT (root)) {
-      gst_printerr ("Unknown json message '%s', ignoring\n", text);
+      RCLCPP_ERROR(
+        this_ptr->node_if_->logging->get_logger(),
+        "Unknown json message '%s', ignoring\n",
+        text
+      );
       g_object_unref (parser);
       goto out;
     }
@@ -526,13 +574,21 @@ websockets::on_server_message(
       g_assert_cmphex (ret, ==, GST_SDP_OK);
 
       if (g_str_equal (sdptype, "answer")) {
-        gst_print ("Received answer:\n%s\n", text);
+        //RCLCPP_INFO(
+        //  this_ptr->node_if_->logging->get_logger(),
+        //  "Received sdp answer"//:\n%s\n",
+        //  //text
+        //);
 
         this_ptr->sdp_answer_received(sdp);
 
         this_ptr->app_state = PEER_CALL_STARTED;
       } else {
-        gst_print ("Received offer:\n%s\n", text);
+        //RCLCPP_INFO(
+        //  this_ptr->node_if_->logging->get_logger(),
+        //  "Received sdp offer"//:\n%s\n",
+        //  //text
+        //);
         this_ptr->sdp_offer_received (sdp);
       }
 
@@ -548,7 +604,11 @@ websockets::on_server_message(
       this_ptr->ice_candidate_received(sdp_mline_index, candidate);
 
     } else {
-      gst_printerr ("Ignoring unknown JSON message:\n%s\n", text);
+      RCLCPP_ERROR(
+        this_ptr->node_if_->logging->get_logger(),
+        "Ignoring unknown JSON message:\n%s\n",
+        text
+      );
     }
     g_object_unref (parser);
   }
@@ -563,7 +623,10 @@ void
 websockets::reset_connection (websockets * this_ptr, const gchar * msg, enum AppState state)
 {
   if (msg)
-    gst_printerr ("%s\n", msg);
+    RCLCPP_ERROR(
+      this_ptr->node_if_->logging->get_logger(),
+      "%s\n", msg
+    );
 
   // XXX tell the webrtcbin to hang up?
 

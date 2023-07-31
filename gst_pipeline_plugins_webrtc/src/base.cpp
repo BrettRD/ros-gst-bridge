@@ -11,7 +11,7 @@ void base::initialise(
   pipeline_ = pipeline;
 
   elem_name_ = node_if->parameters->declare_parameter(
-    name + ".element_name",
+    name_ + ".element_name",
     rclcpp::ParameterValue("mysrc"),
     descr(
       "the name of the source element inside the pipeline",
@@ -19,7 +19,7 @@ void base::initialise(
     ).get<std::string>();
 
   audio_sink_descr_ = node_if->parameters->declare_parameter(
-    name + ".audio_sink_descr",
+    name_ + ".audio_sink_descr",
     rclcpp::ParameterValue("audioconvert ! audioresample ! autoaudiosink"),
     descr(
       "the audio sink to process webrtc output",
@@ -28,7 +28,7 @@ void base::initialise(
   ).get<std::string>();
 
   video_sink_descr_ = node_if->parameters->declare_parameter(
-    name + ".video_sink_descr",
+    name_ + ".video_sink_descr",
     rclcpp::ParameterValue("videoconvert ! autovideosink"),
     descr(
       "the video sink to process webrtc output",
@@ -128,8 +128,8 @@ void base::send_sdp_answer(
 ){
   RCLCPP_INFO(
     node_if_->logging->get_logger(),
-    "plugin gst_pipes_webrtc '%s' sending sdp answer",
-    name_.c_str());
+    "Sending sdp answer"
+  );
 
   send_sdp(desc);
 }
@@ -141,8 +141,8 @@ void base::send_sdp_offer(
 ){
   RCLCPP_INFO(
     node_if_->logging->get_logger(),
-    "plugin gst_pipes_webrtc '%s' sending sdp offer",
-    name_.c_str());
+    "Sending sdp offer"
+  );
 
   send_sdp(desc);
 }
@@ -176,6 +176,12 @@ base::on_negotiation_needed_cb(
 ){
   (void) object;
   base* this_ptr = (base*) user_data;
+
+  RCLCPP_INFO(
+    this_ptr->node_if_->logging->get_logger(),
+    "Starting negotiate"
+  );
+
   this_ptr->begin_negotiate();
 }
 
@@ -189,8 +195,12 @@ base::on_ice_candidate_cb(
 ){
   (void) object;
   base* this_ptr = (base*) user_data;
-  // our webrtcbin is ready to send an ice candidate to the remote peer,
-  // XXX package and publish the candidate
+
+  //RCLCPP_INFO(
+  //  this_ptr->node_if_->logging->get_logger(),
+  //  "Created ice candidate"
+  //);
+
   this_ptr->send_ice_candidate(mline_index, candidate);
 }
 
@@ -203,17 +213,40 @@ base::on_notify_ice_gathering_state_cb(
 ){
   (void) webrtcbin;
   (void) pspec;
-  (void) user_data;
-  //base* this_ptr = (base*) user_data;
   
-  // XXX this is purely a monitoring call, just print to debug, and maybe send a ros diagnostics update
+  base* this_ptr = (base*) user_data;
+
+  GstWebRTCICEGatheringState ice_gather_state;
+  const gchar *new_state = "unknown";
+
+  g_object_get (this_ptr->webrtc_, "ice-gathering-state", &ice_gather_state, NULL);
+  switch (ice_gather_state) {
+    case GST_WEBRTC_ICE_GATHERING_STATE_NEW:
+      new_state = "new";
+      break;
+    case GST_WEBRTC_ICE_GATHERING_STATE_GATHERING:
+      new_state = "gathering";
+      break;
+    case GST_WEBRTC_ICE_GATHERING_STATE_COMPLETE:
+      new_state = "complete";
+      break;
+  }
+
+
+
+  RCLCPP_INFO(
+    this_ptr->node_if_->logging->get_logger(),
+    "Ice gathering state: %s",
+    new_state
+  );
 }
 
 
+
 void
-base::pad_added_cb(
-  GstElement *webrtc,
-  GstPad *pad,
+base::on_incoming_decodebin_stream (
+  GstElement * decodebin,
+  GstPad * pad,
   gpointer user_data
 ){
   base* this_ptr = (base*) user_data;
@@ -237,18 +270,68 @@ base::pad_added_cb(
   }
   else
   {
-    gst_printerr ("Unknown pad %s, ignoring", GST_PAD_NAME (pad));
+    RCLCPP_ERROR(
+      this_ptr->node_if_->logging->get_logger(),
+      "pad_added_cb: Unknown pad %s, ignoring, name = '%s'",
+      GST_PAD_NAME (pad),
+      name
+    );
     return;
   }
 
+  RCLCPP_INFO(
+    this_ptr->node_if_->logging->get_logger(),
+    "Adding output '%s'",
+    sink_bin_descr.c_str()
+  );
   sink_bin = gst_parse_bin_from_description(sink_bin_descr.c_str(), true, NULL);
   gst_bin_add(GST_BIN(this_ptr->pipeline_), sink_bin);
   synced &= gst_element_sync_state_with_parent(sink_bin);
-  gst_element_link(webrtc, sink_bin);
+
+  //gst_element_link(decodebin, sink_bin);
+  GstPad * sinkpad = gst_element_get_static_pad (sink_bin, "sink");
+  gst_pad_link (pad, sinkpad);
+  gst_object_unref (sinkpad);
+
   //synced &= gst_bin_sync_children_states(sink_bin);
   if(!synced) {
-    gst_printerr ("could not synchronise '%s' with the webrtcbin", sink_bin_descr.c_str());
+    RCLCPP_ERROR(
+      this_ptr->node_if_->logging->get_logger(),
+      "pad_added_cb: could not synchronise '%s' with the webrtcbin",
+      sink_bin_descr.c_str()
+    );
   }
+}
+
+
+void
+base::pad_added_cb(
+  GstElement *webrtc,
+  GstPad *pad,
+  gpointer user_data
+){
+  base* this_ptr = (base*) user_data;
+
+  GstElement *decodebin;
+  GstPad *sinkpad;
+
+  if (GST_PAD_DIRECTION (pad) != GST_PAD_SRC)
+    return;
+
+  RCLCPP_INFO(
+    this_ptr->node_if_->logging->get_logger(),
+    "Adding decodebin"
+  );
+
+  decodebin = gst_element_factory_make ("decodebin", NULL);
+  g_signal_connect (decodebin, "pad-added",
+      G_CALLBACK (on_incoming_decodebin_stream), this_ptr);
+  gst_bin_add (GST_BIN (this_ptr->pipeline_), decodebin);
+  gst_element_sync_state_with_parent (decodebin);
+
+  sinkpad = gst_element_get_static_pad (decodebin, "sink");
+  gst_pad_link (pad, sinkpad);
+  gst_object_unref (sinkpad);
 
 
 }
@@ -266,9 +349,13 @@ base::pad_added_cb(
 void
 base::create_offer()
 {
-    GstPromise *promise =
-      gst_promise_new_with_change_func (create_offer_prom, this, NULL);
-    g_signal_emit_by_name (webrtc_, "create-offer", NULL, promise);
+  RCLCPP_INFO(
+    node_if_->logging->get_logger(),
+    "Creating sdp offer"
+  );
+  GstPromise *promise =
+    gst_promise_new_with_change_func (create_offer_prom, this, NULL);
+  g_signal_emit_by_name (webrtc_, "create-offer", NULL, promise);
 }
 
 
@@ -279,10 +366,13 @@ base::create_offer_prom (GstPromise * promise, gpointer user_data)
 {
   base* this_ptr = (base*) user_data;
 
+  RCLCPP_INFO(
+    this_ptr->node_if_->logging->get_logger(),
+    "Created sdp offer"
+  );
+
   GstWebRTCSessionDescription *offer = NULL;
   const GstStructure *reply;
-
-  // g_assert_cmphex (this_ptr->app_state, ==, PEER_CALL_NEGOTIATING); // XXX websockets related
 
   // retrieve the offer from the promise
   g_assert_cmphex (gst_promise_wait (promise), ==, GST_PROMISE_RESULT_REPLIED);
@@ -320,6 +410,11 @@ base::sdp_answer_received (GstWebRTCSessionDescription * answer)
 {
   g_assert_nonnull (answer);
   
+  RCLCPP_INFO(
+    node_if_->logging->get_logger(),
+    "Recieved sdp answer"
+  );
+
   GstPromise *promise = gst_promise_new ();
   g_signal_emit_by_name (webrtc_, "set-remote-description", answer,
     promise);
@@ -366,6 +461,11 @@ base::sdp_offer_received(
 ){
   g_assert_nonnull (offer);
 
+  RCLCPP_INFO(
+    node_if_->logging->get_logger(),
+    "Recieved sdp offer"
+  );
+
   GstPromise * promise = gst_promise_new_with_change_func(set_remote_description_prom, this, NULL);
 
   g_signal_emit_by_name(webrtc_, "set-remote-description", offer, promise);
@@ -380,6 +480,10 @@ base::set_remote_description_prom(
   base* this_ptr = (base*) user_data;
   gst_promise_unref(promise);
 
+  RCLCPP_INFO(
+    this_ptr->node_if_->logging->get_logger(),
+    "Remote desciption set"
+  );
 
   promise = gst_promise_new_with_change_func(create_answer_prom, (gpointer) this_ptr, NULL);
   g_signal_emit_by_name(this_ptr->webrtc_, "create-answer", NULL, promise);
@@ -396,6 +500,11 @@ base::create_answer_prom(
 
   GstWebRTCSessionDescription *answer = NULL;
   const GstStructure *reply;
+
+  RCLCPP_INFO(
+    this_ptr->node_if_->logging->get_logger(),
+    "Created sdp answer"
+  );
 
   // XXX sanity check the state of the promise
 
@@ -422,6 +531,12 @@ base::ice_candidate_received(
   guint mline_index,          // the index of the media description in the SDP
   const gchar* ice_candidate    // an ice candidate or NULL/"" to mark that no more candidates will arrive
 ){
+
+  //RCLCPP_INFO(
+  //  node_if_->logging->get_logger(),
+  //  "Received ice candidate"// '%s'",
+  //  //ice_candidate
+  //);
   g_signal_emit_by_name(webrtc_, "add-ice-candidate", mline_index, ice_candidate);
 }
 

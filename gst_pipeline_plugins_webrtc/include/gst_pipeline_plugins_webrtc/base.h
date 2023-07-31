@@ -146,9 +146,17 @@ public:
 
   // This callback is used to add sinks to the webrtcbin
   static void
+  on_incoming_decodebin_stream(
+    GstElement * decodebin,
+    GstPad * pad,
+    gpointer user_data
+  );
+
+  // This callback is used to add auto decoders to the webrtcbin
+  static void
   pad_added_cb(
-    GstElement *webrtc,
-    GstPad *pad,
+    GstElement * webrtc,
+    GstPad * pad,
     gpointer user_data
   );
 
