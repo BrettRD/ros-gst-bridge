@@ -67,6 +67,13 @@ void base::initialise(
       // webrtc will add new pads for audio or video, these need decoding, it's easy to just plug a decodebin into here
       g_signal_connect(webrtc_, "pad-added", G_CALLBACK(pad_added_cb), this);
 
+
+
+      // hook to the async "message" signal emitted by the bus
+      GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE (pipeline_));
+      g_signal_connect (bus, "message", (GCallback) base::gst_bus_cb, static_cast<gpointer>(this));
+      gst_object_unref(bus);
+
       /* data channels requires gstreamer 1.18 or higher
       g_signal_connect(webrtc_, "on-data-channel", G_CALLBACK(on_data_channel_cb), this);
 
@@ -310,6 +317,7 @@ base::pad_added_cb(
   GstPad *pad,
   gpointer user_data
 ){
+  (void) webrtc;
   base* this_ptr = (base*) user_data;
 
   GstElement *decodebin;
@@ -606,6 +614,81 @@ base::data_channel_on_close_cb(
   // base* this_ptr = (base*) user_data;
 }
 
+
+gboolean base::gst_bus_cb(GstBus* bus, GstMessage* message, gpointer user_data)
+{
+  (void)bus;
+  auto* this_ptr = static_cast<base*>(user_data);
+
+
+  // XXX check that the message comes from our webrtc element
+  //const GstStructure* s;
+  //s = gst_message_get_structure(message);
+  //if (0 == g_strcmp0(gst_structure_get_name(s), "GstWebrtcbin")) {  // XXX it's not called that
+  //if (0 == g_strcmp0(GST_OBJECT_NAME (message->src), this_ptr->elem_name_.c_str())) {
+
+
+  switch (GST_MESSAGE_TYPE (message)) {
+    case GST_MESSAGE_ASYNC_DONE:
+    {
+      RCLCPP_INFO(
+        this_ptr->node_if_->logging->get_logger(),
+        "Async done, making dotgraph"
+      );
+      GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS (GST_BIN (this_ptr->pipeline_),
+          GST_DEBUG_GRAPH_SHOW_ALL, "webrtc-sendrecv.async-done");
+      break;
+    }
+    case GST_MESSAGE_ERROR:
+    {
+      GError *error = NULL;
+      gchar *debug = NULL;
+
+      GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS (GST_BIN (this_ptr->pipeline_),
+          GST_DEBUG_GRAPH_SHOW_ALL, "webrtc-sendrecv.error");
+
+      gst_message_parse_error (message, &error, &debug);
+      //cleanup_and_quit_loop ("ERROR: Error on bus", APP_STATE_ERROR);
+      //g_warning ("Error on bus: %s (debug: %s)", error->message, debug);
+      RCLCPP_ERROR(
+        this_ptr->node_if_->logging->get_logger(),
+        "Error on bus: %s (debug: %s)",
+        error->message,
+        debug
+      );
+      g_error_free (error);
+      g_free (debug);
+      break;
+    }
+    case GST_MESSAGE_WARNING:
+    {
+      GError *error = NULL;
+      gchar *debug = NULL;
+
+      gst_message_parse_warning (message, &error, &debug);
+      RCLCPP_WARN(
+        this_ptr->node_if_->logging->get_logger(),
+        "Warning on bus: %s (debug: %s)",
+        error->message,
+        debug
+      );
+      g_error_free (error);
+      g_free (debug);
+      break;
+    }
+    case GST_MESSAGE_LATENCY:
+      gst_bin_recalculate_latency (GST_BIN (this_ptr->pipeline_));
+      RCLCPP_INFO(
+        this_ptr->node_if_->logging->get_logger(),
+        "Latency message"
+      );
+      break;
+    default:
+      break;
+  }
+
+  return G_SOURCE_CONTINUE;
+}
 
 
 }  // namespace gst_pipeline_plugins_webrtc

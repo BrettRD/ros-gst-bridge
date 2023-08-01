@@ -198,6 +198,15 @@ public:
   );
 
 
+  // ###################### Callbacks for housekeeping ######################
+
+  static gboolean
+  gst_bus_cb(
+    GstBus* bus,
+    GstMessage* message,
+    gpointer user_data
+  );
+
 
 
 protected:

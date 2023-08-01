@@ -11,11 +11,11 @@ gst_pipeline_node:
       audiotestsrc is-live=true wave=red-noise ! audioconvert ! audioresample \
       ! queue ! opusenc ! rtpopuspay name=audiopay pt=97  \
       ! application/x-rtp, encoding-name=OPUS ! queue \
-      ! sendrecv 
+      ! sendrecv. \
       videotestsrc is-live=true pattern=ball ! videoconvert ! queue \
       ! vp8enc deadline=1 keyframe-max-dist=2000 \
       ! rtpvp8pay name=videopay picture-id-mode=15-bit pt=96 ! queue \
-      ! sendrecv \
+      ! sendrecv. \
       "
 
     ros_plugin_names:

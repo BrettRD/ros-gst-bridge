@@ -114,6 +114,9 @@ gst_pipeline::gst_pipeline(const rclcpp::NodeOptions & options) : Node("gst_pipe
   GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE (pipeline_));
   // attach the default bus watcher that converts messages to signals
   gst_bus_add_signal_watch(bus);
+  // XXX consider using
+  //     gst_bus_enable_sync_message_emission(bus);
+  //     can we use both?
   gst_object_unref(bus);
 
   // XXX Connect to the pipeline clock
