@@ -28,10 +28,8 @@ gst_pipeline_node:
       element_name: "sendrecv"
 
       # additional pipeline segments to load
-      # video_sink_descr: ' queue ! videoconvert ! autoimagesink'
-      # audio_sink_descr: ' queue ! audioconvert ! autoaudiosink'
-      video_sink_descr: 'fakesink'
-      audio_sink_descr: 'fakesink'
+      video_sink_descr: ' queue ! videoconvert ! autovideosink'
+      audio_sink_descr: ' queue ! audioconvert ! autoaudiosink'
       # XXX some use cases will need to re-structure the pipeline when the a/v sink pads come up
       #  This might better left to a dedicated pipeline mangler plugin
 
