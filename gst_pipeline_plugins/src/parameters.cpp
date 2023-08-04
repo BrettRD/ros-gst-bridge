@@ -31,6 +31,18 @@
 namespace gst_pipeline_plugins
 {
 
+using rclcpp::ParameterType::PARAMETER_NOT_SET;
+using rclcpp::ParameterType::PARAMETER_BOOL;
+using rclcpp::ParameterType::PARAMETER_INTEGER;
+using rclcpp::ParameterType::PARAMETER_DOUBLE;
+using rclcpp::ParameterType::PARAMETER_STRING;
+using rclcpp::ParameterType::PARAMETER_BYTE_ARRAY;
+using rclcpp::ParameterType::PARAMETER_BOOL_ARRAY;
+using rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY;
+using rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY;
+using rclcpp::ParameterType::PARAMETER_STRING_ARRAY;
+
+
 void parameters::initialise(
   std::string name,  // the config name of the plugin
   std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
@@ -124,102 +136,119 @@ void parameters::iterate_elements(GstBin * item, std::string prefix)
 
 rclcpp::ParameterValue parameters::g_value_to_ros_value(const GValue* value)
 {
-  // XXX GLib offers a whole lot of duck-typing that we aren't using
-  rclcpp::ParameterValue param_value = rclcpp::ParameterValue();
-  GType g_type = G_VALUE_TYPE(value);
 
-  switch(g_type){
+  rclcpp::ParameterValue param_value = rclcpp::ParameterValue();
+
+  // XXX GLib offers a whole lot of duck-typing
+  //     https://github.com/GNOME/glib/blob/main/gobject/gvaluetransform.c
+  GValue value_trans;
+  g_value_unset(&value_trans);
+
+  switch(g_value_get_gtype(value)){
 
     case G_TYPE_BOOLEAN:
-      param_value = rclcpp::ParameterValue((bool)g_value_get_boolean(value));
-      break;
-
-    case G_TYPE_CHAR:
-      param_value = rclcpp::ParameterValue((int64_t)g_value_get_schar(value));
-      break;
-    case G_TYPE_UCHAR:
-      param_value = rclcpp::ParameterValue((int64_t)g_value_get_uchar(value));
-      break;
-    case G_TYPE_INT:
-      param_value = rclcpp::ParameterValue((int64_t)g_value_get_int(value));
-      break;
-    case G_TYPE_UINT:
-      param_value = rclcpp::ParameterValue((int64_t)g_value_get_uint(value));
-      break;
-    case G_TYPE_LONG:
-      param_value = rclcpp::ParameterValue((int64_t)g_value_get_ulong(value));
-      break;
-    case G_TYPE_ULONG:
-      param_value = rclcpp::ParameterValue((int64_t)g_value_get_ulong(value));
-      break;
-    case G_TYPE_INT64:
-      param_value = rclcpp::ParameterValue((int64_t)g_value_get_int64(value));
-      break;
-
-    // XXX there's no safe way of allowing ROS to set or read this value
-    //case G_TYPE_UINT64:
-    //  param_value = rclcpp::ParameterValue(g_value_get_uint64());
-
-    case G_TYPE_DOUBLE:
-      param_value = rclcpp::ParameterValue((double)g_value_get_float(value));
-      break;
-    case G_TYPE_FLOAT:
-      param_value = rclcpp::ParameterValue((double)g_value_get_double(value));
-      break;
-
-    case G_TYPE_STRING:
-      param_value = rclcpp::ParameterValue(g_value_get_string(value));
-      break;
-
-    /*
-    XXX Time pressure says no
-    case GST_TYPE_ARRAY:  // GSTreamer introduced an array type where each element is a GValue
     {
-      const GValue * first = gst_value_array_get_value(value);
-      GType arr_type = g_value_get_gtype(first);
-      // XXX sanity check that the rest of the array has the same type.
-
-      switch(arr_type){
-          // param_type =  rclcpp::ParameterType::PARAMETER_BYTE_ARRAY
-        case G_TYPE_BOOLEAN:
-        {
-          param_type = rclcpp::ParameterType::PARAMETER_BOOL_ARRAY
-        } break;
-
-        case G_TYPE_CHAR:
-        case G_TYPE_UCHAR:
-        case G_TYPE_INT:
-        case G_TYPE_UINT:
-        case G_TYPE_LONG:
-        case G_TYPE_ULONG:
-        case G_TYPE_INT64:
-        case G_TYPE_UINT64:
-        {
-          param_type = rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY
-        } break;
-
-        case G_TYPE_DOUBLE:
-        {
-          param_type = rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY
-        } break;
-
-        case G_TYPE_STRING:
-        {
-          param_type = rclcpp::ParameterType::PARAMETER_STRING_ARRAY
-        } break;
-
-        default:
-        {
-          param_type = rclcpp::ParameterType::PARAMETER_NOT_SET;
-        } break;
-
-      }
+      param_value = rclcpp::ParameterValue((bool)g_value_get_boolean(value));
     } break;
 
-    */
+    case G_TYPE_CHAR:
+    case G_TYPE_UCHAR:
+    case G_TYPE_INT:
+    case G_TYPE_UINT:
+    case G_TYPE_LONG:
+    case G_TYPE_ULONG:
+    case G_TYPE_INT64:
+    case G_TYPE_UINT64: // this will roll over but it's too useful to ignore
+    {
+      g_value_transform(value, g_value_init(&value_trans, G_TYPE_INT64));
+      param_value = rclcpp::ParameterValue((int64_t)g_value_get_int64(&value_trans));
+    } break;
+
+    case G_TYPE_FLOAT:
+    case G_TYPE_DOUBLE:
+    {
+      g_value_transform(value, g_value_init(&value_trans, G_TYPE_DOUBLE));
+      param_value = rclcpp::ParameterValue((double)g_value_get_double(&value_trans));
+    } break;
+
+    case G_TYPE_STRING:
+    {
+      param_value = rclcpp::ParameterValue(g_value_get_string(value));
+    } break;
+
+
     default:
-      param_value = rclcpp::ParameterValue();
-      break;
+    {
+      // GSTreamer introduced an array type where each element is a GValue
+      // GST_TYPE_ARRAY can't be resolved at compile time, so we do this.
+      if(GST_TYPE_ARRAY == g_value_get_gtype(value)) {
+        // XXX sanity check that the rest of the array has the same type.
+        size_t len = gst_value_array_get_size(value);
+        if(len > 0){
+          switch (g_value_get_gtype (gst_value_array_get_value (value, 0))) {
+
+            case G_TYPE_BOOLEAN:
+            {
+              std::vector<bool> vec;
+              for(size_t i=0; i<len; i++) {
+                vec.push_back(
+                  g_value_get_boolean(
+                    gst_value_array_get_value(value, i)));
+              }
+              param_value = rclcpp::ParameterValue(vec);
+            } break;
+
+            case G_TYPE_CHAR:
+            case G_TYPE_UCHAR:
+            case G_TYPE_INT:
+            case G_TYPE_UINT:
+            case G_TYPE_LONG:
+            case G_TYPE_ULONG:
+            case G_TYPE_INT64:
+            case G_TYPE_UINT64: // this will roll over but it's too useful to ignore
+            {
+              std::vector<int64_t> vec;
+              for(size_t i=0; i<len; i++) {
+                g_value_transform(
+                  gst_value_array_get_value(value, i),
+                    g_value_init(&value_trans, G_TYPE_INT64));
+                vec.push_back(
+                  g_value_get_int64(&value_trans));
+              }
+              param_value = rclcpp::ParameterValue(vec);
+            } break;
+
+            case G_TYPE_FLOAT:
+            case G_TYPE_DOUBLE:
+            {
+              std::vector<double> vec;
+              for(size_t i=0; i<len; i++) {
+                g_value_transform(
+                  gst_value_array_get_value(value, i),
+                    g_value_init(&value_trans, G_TYPE_DOUBLE));
+                vec.push_back(
+                  g_value_get_double(&value_trans));
+              }
+              param_value = rclcpp::ParameterValue(vec);
+            } break;
+
+            case G_TYPE_STRING:
+            {
+              std::vector<std::string> vec;
+              for(size_t i=0; i<len; i++) {
+                vec.push_back(
+                  g_value_get_string(
+                    gst_value_array_get_value(value, i)));
+              }
+              param_value = rclcpp::ParameterValue(vec);
+            } break;
+
+            default:
+              break;
+          }
+        }
+      }
+    } break;
   }
 
   return param_value;
@@ -256,7 +285,7 @@ void parameters::iterate_props(GstElement * element, std::string prefix)
     rclcpp::ParameterValue ros_value = g_value_to_ros_value(&prop_value);
     // test the parameter has a sensible type
 
-    if(ros_value.get_type() != rclcpp::ParameterType::PARAMETER_NOT_SET)
+    if(ros_value.get_type() != PARAMETER_NOT_SET)
     {
       // test if the parameter was already declared
       if( ! node_if_->parameters->has_parameter(ros_param_name))
@@ -309,93 +338,126 @@ void parameters::iterate_props(GstElement * element, std::string prefix)
 
 bool parameters::ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value)
 {
-
-
-  GType g_type = G_VALUE_TYPE(value);
-  RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "ros_value_to_g_value type: " << g_type);
-
-
-
-  switch(g_type){
-
-    case G_TYPE_BOOLEAN:
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_BOOL) {
-        g_value_set_boolean(value, parameter.as_bool());
-      }
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
-        g_value_set_boolean(value, 0 != parameter.as_int());
-      }
+  GValue v;
+  switch(parameter.get_type()){
+    case PARAMETER_BOOL:
+      g_value_set_bool(g_value_init(&v, G_TYPE_BOOL), parameter.as_bool());
+      break;
+    case PARAMETER_INTEGER:
+      g_value_set_int64(g_value_init(&v, G_TYPE_INT64), parameter.as_int());
+      break;
+    case PARAMETER_DOUBLE:
+      g_value_set_double(g_value_init(&v, G_TYPE_DOUBLE), parameter.as_double());
+      break;
+    case PARAMETER_STRING:
+      g_value_set_string(g_value_init(&v, G_TYPE_STRING), parameter.as_string().c_str());
       break;
 
+
+    case PARAMETER_BOOL_ARRAY:
+      g_value_init(&v, G_TYPE_STRING)
+      parameter.as_bool_array()
+      break;
+    case PARAMETER_BYTE_ARRAY:
+      parameter.as_byte_array();
+      break;
+    case PARAMETER_INTEGER_ARRAY:
+      parameter.as_integer_array();
+      break;
+    case PARAMETER_DOUBLE_ARRAY:
+      parameter.as_double_array();
+      break;
+    case PARAMETER_STRING_ARRAY:
+      parameter.as_string_array();
+      break;
+
+    default:
+      break;
+  }
+
+  switch(g_value_get_gtype(value)){
+    case G_TYPE_BOOLEAN:
+    {
+      if ((parameter.get_type() == PARAMETER_BOOL) ||
+          (parameter.get_type() == PARAMETER_INTEGER)) {
+        g_value_transform(&v,value);
+      }
+    } break;
 
     case G_TYPE_CHAR:
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
-        g_value_set_schar(value, (gchar)parameter.as_int());
-      }
-      break;
     case G_TYPE_UCHAR:
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
-        g_value_set_uchar(value, (guchar)parameter.as_int());
-      }
-      break;
     case G_TYPE_INT:
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
-        g_value_set_int(value, (gint)parameter.as_int());
-      }
-      break;
     case G_TYPE_UINT:
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
-        g_value_set_uint(value, (guint)parameter.as_int());
-      }
-      break;
     case G_TYPE_LONG:
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
-        g_value_set_long(value, (glong)parameter.as_int());
-      }
-      break;
     case G_TYPE_ULONG:
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
-        g_value_set_ulong(value, (gulong)parameter.as_int());
-      }
-      break;
     case G_TYPE_INT64:
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
-        g_value_set_int64(value, (gint64)parameter.as_int());
+    case G_TYPE_UINT64: // this will roll over but it's too useful to ignore
+    {
+      if (parameter.get_type() == PARAMETER_INTEGER) {
+        g_value_transform(&v,value);
       }
-      break;
+    } break;
 
     case G_TYPE_FLOAT:
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
-        g_value_set_float(value, (gfloat)parameter.as_int());
-      }
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE) {
-        g_value_set_float(value, (gfloat)parameter.as_double());
-      }
-      RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "packing float: " << g_value_get_float(value));
-
-      break;
     case G_TYPE_DOUBLE:
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
-        g_value_set_double(value, (gdouble)parameter.as_int());
+    {
+      if ((parameter.get_type() == PARAMETER_INTEGER) ||
+          (parameter.get_type() == PARAMETER_DOUBLE)) {
+        g_value_transform(&v,value);
       }
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE) {
-        g_value_set_double(value, (gdouble)parameter.as_double());
-      }
-      break;
+    } break;
 
     case G_TYPE_STRING:
-      if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_STRING) {
-        g_value_set_string(value, parameter.as_string().c_str());
+    {
+      if (parameter.get_type() == PARAMETER_STRING) {
+        g_value_transform(&v,value);
       }
-      RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "packing string: " <<  g_value_get_string(value));
-      break;
+    } break;
     
     default:
-      RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "unknown type");
 
-      return false;
+      // XXX Is it possible to reliably infer the cell type of an empty array value?
+      // https://docs.gtk.org/gobject/func.param_spec_value_array.html
+
+      // XXX G_TYPE_ARRAY // newer, limited docs and examples
+      // XXX G_TYPE_VALUE_ARRAY // deprecated in 2.32, we're running 2.35, still in use in gstreamer
+      // XXX GST_TYPE_ARRAY // seems to have transformer utilities available for value_array
+
+
+      // GSTreamer introduced an array type where each element is a GValue
+      // GST_TYPE_ARRAY can't be resolved at compile time, so we do this.
+      if(GST_TYPE_ARRAY == g_value_get_gtype(value)) {
+        // XXX sanity check that the rest of the array has the same type.
+        size_t len = gst_value_array_get_size(value);
+        if(len>0){
+          switch (g_value_get_gtype (gst_value_array_get_value (value, 0))) {
+            case G_TYPE_BOOLEAN:
+            {
+
+
+            }
+            case G_TYPE_CHAR:
+            case G_TYPE_UCHAR:
+            case G_TYPE_INT:
+            case G_TYPE_UINT:
+            case G_TYPE_LONG:
+            case G_TYPE_ULONG:
+            case G_TYPE_INT64:
+            case G_TYPE_UINT64: // this will roll over but it's too useful to ignore
+            {
+
+            }
+
+          }
+
+        }
+      }
+      else
+      {
+        RCLCPP_INFO(node_if_->logging->get_logger(), "unknown type");
+        return false;
+      }
       break;
-
   }
 
   return true;
@@ -406,15 +468,10 @@ bool parameters::ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue
 rcl_interfaces::msg::SetParametersResult
 parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
 {
-  RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "validate");
-
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
 
   for (const rclcpp::Parameter& parameter : parameters) {
-    RCLCPP_DEBUG_STREAM(node_if_->logging->get_logger(), "validating: " << parameter);
-
-
     // find the property matching the parameter
     GstElement* element = NULL;
     GParamSpec* prop = NULL;
@@ -429,14 +486,11 @@ parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
 
     if(NULL != prop)
     {
-      // recover the type of the prop
-      GValue value = {};
-      g_value_init (&value, prop->value_type);
-
-      RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "ros_value_to_g_value type: " << prop->value_type);
-
+      GValue value;
       // check the type and recover a corresponding gvalue
-      if(! ros_value_to_g_value(parameter, &value)){
+      // XXX we might need access to g_param_spec_get_default_value
+      //     to resolve the element types of array properties
+      if(! ros_value_to_g_value(parameter, g_value_init (&value, G_PARAM_SPEC_VALUE_TYPE(prop)))){
         result.successful = false;
         result.reason = "wrong type";
         // ... " try a my_ros_type_string(prop->value_type)"
@@ -448,7 +502,7 @@ parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
       if( 0 != (G_PARAM_WRITABLE & prop->flags)){
         bool changed = g_param_value_validate(prop, &value);
         if(changed){
-          RCLCPP_WARN_STREAM(node_if_->logging->get_logger(), "value clamped");
+          RCLCPP_WARN(node_if_->logging->get_logger(), "value clamped");
           result.successful = false;
           result.reason = "the GObject rejected the value";
           // ... " and suggested my_to_string(&value)."
@@ -467,7 +521,7 @@ parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
       }
       else
       {
-        RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "skipping read-only property");
+        RCLCPP_INFO(node_if_->logging->get_logger(), "skipping read-only property");
       }
 
     }
@@ -499,8 +553,7 @@ void parameters::update_parameters(const rclcpp::Parameter &parameter)
   {
     // recover the type of the prop
     GValue value;
-    g_value_init (&value, prop->value_type);
-    ros_value_to_g_value(parameter, &value);
+    ros_value_to_g_value(parameter, g_value_init (&value, prop->value_type));
     g_param_value_validate(prop, &value);
     // XXX Check that the new value differs
     g_object_set_property(G_OBJECT(element), prop->name, &value);
@@ -603,6 +656,7 @@ void parameters::property_changed_cb(
   
 
   // cast the GValue to a ros parameter
+  // XXX maybe hint g_value_to_ros_value with the ros param type
   rclcpp::ParameterValue param_val = g_value_to_ros_value(property_value);
 
   // check the value differs between ROS and GST
