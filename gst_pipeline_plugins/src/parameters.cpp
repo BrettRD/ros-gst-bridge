@@ -6,6 +6,17 @@
 //    iterate through sub_bin
 //  generate a map of elements, paths
 
+// on param update proposed:
+//  try to bounds check the prop
+//  return pass/fail
+
+// on prop param update confirm:
+//  set the prop
+
+// on tracked_params update:
+//  iterate through the list of declared parameters, undeclare parameters where elements are no longer tracked.
+//  iterate through the list of tracked elements, declare parameters for them if they now exist
+
 // on pipeline element added:
 //  iterate through the top level bin,
 //  find the path to the element added,
@@ -16,16 +27,6 @@
 //  find the path to the element removed,
 //  undeclare parameters
 
-// on prop param update proposed:
-//  try to bounds check the prop
-//  return pass/fail
-
-// on prop param update confirm:
-//  set the prop
-
-// on tracked_params update:
-//  iterate through the list of declared parameters, undeclare parameters where elements are no longer tracked.
-//  iterate through the list of tracked elements, declare parameters for them if they now exist
 
 namespace gst_pipeline_plugins
 {
@@ -508,12 +509,27 @@ void parameters::update_parameters(const rclcpp::Parameter &parameter)
 }
 
 
-/*
 // callback when the pipeline adds an element
 //  conditionally declare parameters
 void parameters::deep_element_added_cb(
   GstBin * self, GstBin * sub_bin, GstElement * element, gpointer user_data)
 {
+  (void) self;
+  (void) sub_bin;
+  auto* this_ptr = static_cast<parameters*>(user_data);
+
+  // XXX check if the elem_names_ list is empty
+    // recursively find parent bins until you find self
+    // build a ros param prefix
+    // iterate_props
+
+
+  // XXX check if this element is listed.
+    // build a ros param prefix
+    // iterate_props
+
+
+
 }
 
 // callback when the pipeline removes an element
@@ -521,8 +537,21 @@ void parameters::deep_element_added_cb(
 void parameters::deep_element_removed_cb(
   GstBin * self, GstBin * sub_bin, GstElement * element, gpointer user_data)
 {
+  (void) self;
+  (void) sub_bin;
+  auto* this_ptr = static_cast<parameters*>(user_data);
+
+  // find the ROS parameters associated with element
+  auto it = std::find_if(this_ptr->param_map_.begin(), this_ptr->param_map_.end(),
+    [element](std::pair<std::string,parameter_mapping> it){
+      return (it.second.element == element);}
+  );
+
+  for (; it != this_ptr->param_map_.end(); it++) {
+    this_ptr->node_if_->parameters->undeclare_parameter(it->first);
+    this_ptr->param_map_.erase(it);
+  }
 }
-*/
 
 void parameters::property_changed_cb(
   GstElement * element,
