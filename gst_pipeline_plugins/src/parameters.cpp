@@ -1,4 +1,5 @@
 #include <parameters.h>
+#include <algorithm> // std::find_if
 
 // on startup:
 //  iterate through bin
@@ -37,11 +38,11 @@ void parameters::initialise(
   node_if_ = node_if;
   pipeline_ = pipeline;
 
-  elem_name_ = node_if_->parameters
+  elem_names_ = node_if_->parameters
                  ->declare_parameter(
-                   name_ + ".element_name", rclcpp::ParameterValue("mysrc"),
-                   descr("the name of the source element inside the pipeline", true))
-                 .get<std::string>();
+                   name_ + ".element_names", rclcpp::ParameterValue(std::vector<std::string>()),
+                   descr("the names of elements to expose properties for", true))
+                 .get<std::vector<std::string>>();
 
   // dynamic parameter callbacks
   // this callback allows us to reject invalid params before they take effect
@@ -54,31 +55,34 @@ void parameters::initialise(
   //     https://github.com/ros2/rclcpp/pull/2041
 
   if (GST_IS_BIN(pipeline_)) {
+    std::string prefix = "props";
 
-    bin_ = G_OBJECT(gst_bin_get_by_name(GST_BIN_CAST(pipeline_), elem_name_.c_str()));
-
-
-    if (bin_)
-    {
+    // if the element list is empty, iterate through all elements
+    if(0 == elem_names_.size()){
       RCLCPP_INFO(
-        node_if->logging->get_logger(), "plugin parameters '%s' found '%s'",
-        name_.c_str(), elem_name_.c_str()
+        node_if->logging->get_logger(), "plugin parameters mapping all elements"
+      );
+      iterate_elements(GST_BIN_CAST(pipeline_), prefix);
+    }
+
+    // if the element list is not empty, find each element by name
+    for(std::string elem_name : elem_names_){
+
+      GstElement * bin_ = gst_bin_get_by_name(
+        GST_BIN_CAST(pipeline_),
+        elem_name.c_str()
       );
 
-      iterate_props(bin_, elem_name_);
+      if (bin_) {
+        iterate_props(GST_ELEMENT_CAST(bin_), prefix + "." + elem_name);
 
-
+      } else {
+        RCLCPP_ERROR(
+          node_if->logging->get_logger(),
+          "plugin parameters '%s' failed to locate a gstreamer element called '%s'",
+          name_.c_str(), elem_name.c_str());
+      }
     }
-    else
-    {
-      RCLCPP_ERROR(
-        node_if->logging->get_logger(),
-        "plugin parameters '%s' failed to locate a gstreamer element called '%s'",
-        name_.c_str(), elem_name_.c_str());
-    }
-
-
-
 
   }
   else 
@@ -89,36 +93,39 @@ void parameters::initialise(
       name_.c_str());
   }
 
-
-
-
 }
 
 
-/*
-  XXX doing single-elements for now
-void iterate_elements(GstBin * item, std::string prefix)
+// iterate over all elements
+void parameters::iterate_elements(GstBin * item, std::string prefix)
 {
-  GstIterator * it =
-    item->iterate_elements() iterator.foreach (self.build_param_table, prefix) if (GST_IS_BIN(item))
-  {
-    iterate_elements()
+  GstIterator * it = gst_bin_iterate_elements(item);
+
+  GValue it_val;
+  g_value_unset(&it_val);
+
+  while(GST_ITERATOR_OK == gst_iterator_next(it, &it_val)){
+    GstElement *item = GST_ELEMENT (g_value_get_object (&it_val) );
+    // Bin is a sub-class of Element, handle it first
+    if (GST_IS_BIN(item)) {
+      // create a new prefix denoting the name of the containing bin
+      iterate_elements(GST_BIN_CAST(item), prefix + "." + GST_OBJECT_NAME (item));
+    }
+    else if (GST_IS_ELEMENT(item)) {
+      // create a parameter for the prop under the name of the element that owns it
+      iterate_props(item, prefix + "." + GST_OBJECT_NAME (item));
+    }
   }
-  else if (GST_IS_ELEMENT(item))
-  {
-    // Bin is a sub-class of Element
-    iterate_props(item, prefix);
-  }
+  g_value_unset (&it_val);
+  gst_iterator_free (it);
 }
-*/
+
 
 rclcpp::ParameterValue parameters::g_value_to_ros_value(const GValue* value)
 {
-
-
+  // XXX GLib offers a whole lot of duck-typing that we aren't using
   rclcpp::ParameterValue param_value = rclcpp::ParameterValue();
   GType g_type = G_VALUE_TYPE(value);
-
 
   switch(g_type){
 
@@ -221,7 +228,7 @@ rclcpp::ParameterValue parameters::g_value_to_ros_value(const GValue* value)
 
 
 
-void parameters::iterate_props(GObject * element, std::string prefix)
+void parameters::iterate_props(GstElement * element, std::string prefix)
 {
   guint n_props = 0;
   GParamSpec ** prop_list = // free prop_list after use
@@ -241,7 +248,7 @@ void parameters::iterate_props(GObject * element, std::string prefix)
     GValue prop_value = {};
     g_value_init(&prop_value, prop->value_type);
     g_value_copy(g_param_spec_get_default_value(prop), &prop_value);
-    g_object_get_property(element, prop->name, &prop_value);   // get the current value
+    g_object_get_property(G_OBJECT(element), prop->name, &prop_value);   // get the current value
 
     RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "converting");
 
@@ -274,7 +281,7 @@ void parameters::iterate_props(GObject * element, std::string prefix)
         // send a bus message if any of these properties change value
         //  we expect to receive a GstMessage of type GST_MESSAGE_PROPERTY_NOTIFY
         gst_element_add_property_notify_watch(
-          GST_ELEMENT(element),
+          element,
           g_param_spec_get_name(prop),
           true
         );
@@ -408,7 +415,7 @@ parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
 
 
     // find the property matching the parameter
-    GObject* element = NULL;
+    GstElement* element = NULL;
     GParamSpec* prop = NULL;
     try {
       parameter_mapping map = param_map_.at(parameter.get_name());
@@ -455,7 +462,7 @@ parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
         //     ParameterEventHandler constructor.
         //     Waiting for the unified interfaces struct in ROS Iron
         // XXX Check that the new value differs
-        g_object_set_property(element, prop->name, &value);
+        g_object_set_property(G_OBJECT(element), prop->name, &value);
       }
       else
       {
@@ -476,7 +483,7 @@ void parameters::update_parameters(const rclcpp::Parameter &parameter)
   RCLCPP_DEBUG_STREAM(node_if_->logging->get_logger(), "updating: " << parameter);
 
   // find the property matching the parameter
-  GObject* element = NULL;
+  GstElement* element = NULL;
   GParamSpec* prop = NULL;
   try {
     parameter_mapping map = param_map_.at(parameter.get_name());
@@ -495,7 +502,7 @@ void parameters::update_parameters(const rclcpp::Parameter &parameter)
     ros_value_to_g_value(parameter, &value);
     g_param_value_validate(prop, &value);
     // XXX Check that the new value differs
-    g_object_set_property(element, prop->name, &value);
+    g_object_set_property(G_OBJECT(element), prop->name, &value);
 
   }
 }
@@ -518,18 +525,44 @@ void parameters::deep_element_removed_cb(
 */
 
 void parameters::property_changed_cb(
-  GstObject * object,
+  GstElement * element,
   const gchar * property_name,
   const GValue * property_value
 ){
 
   // find the ROS parameter name for the property
-  //std::string prefix = elem_name_;  // XXX Only valid for single-element case
-  std::string prefix = GST_OBJECT_NAME (object);
-  // XXX look up the param name from a stored association
-  std::string ros_param_name = prefix + '.' + property_name;
 
-  // check the parameter has been declared
+  //std::string prefix = GST_OBJECT_NAME (object);
+  //std::string ros_param_name = prefix + '.' + property_name;
+  std::string ros_param_name;
+
+  // define a match condition lambda for std::find_if
+  auto matching = [property_name, element](
+    std::pair<std::string,parameter_mapping> it
+  ){
+    return (0 == g_strcmp0(it.second.prop->name, property_name)) &&
+            (it.second.element == element);
+  };
+
+  // find the parameter matching the property
+  auto it = std::find_if(param_map_.begin(), param_map_.end(), matching);
+  if (it == param_map_.end())
+  {
+    RCLCPP_WARN(
+      node_if_->logging->get_logger(),
+      "Could not find a ros parameter name for '%s.%s'",
+      GST_OBJECT_NAME(element),
+      property_name
+    );
+    return;
+  }
+  else
+  {
+    ros_param_name = it->first;
+  }
+
+
+  // check the parameter has been declared (XXX should be redundant)
   if(! node_if_->parameters->has_parameter(ros_param_name)){
     RCLCPP_WARN(
       node_if_->logging->get_logger(),
@@ -612,12 +645,13 @@ gboolean parameters::gst_bus_cb(
       &property_value
     );
 
-    this_ptr->property_changed_cb(
-      object,
-      property_name,
-      property_value
-    );
-
+    if (GST_IS_ELEMENT(object)) {
+      this_ptr->property_changed_cb(
+        GST_ELEMENT_CAST(object),
+        property_name,
+        property_value
+      );
+    }
   }
 
 

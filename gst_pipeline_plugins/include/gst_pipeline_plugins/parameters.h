@@ -21,7 +21,7 @@ class parameters : public gst_pipeline::plugin_base
 public:
 
   struct parameter_mapping {
-    GObject* element;
+    GstElement* element;
     GParamSpec* prop;
       // prop->name
       // prop->value_type
@@ -39,8 +39,8 @@ public:
     std::string name,  // the config name of the plugin
     std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
 
-
-  void iterate_props(GObject * element, std::string prefix);
+  void iterate_elements(GstBin * item, std::string prefix);
+  void iterate_props(GstElement * element, std::string prefix);
 
   rclcpp::ParameterValue g_value_to_ros_value(const GValue* value);
 
@@ -67,7 +67,7 @@ public:
 
 
   void property_changed_cb(
-    GstObject * object,
+    GstElement * element,
     const gchar * property_name,
     const GValue * property_value
   );
@@ -79,9 +79,8 @@ public:
   );
 
 private:
-  
-  GObject * bin_;
-  std::string elem_name_;
+
+  std::vector<std::string> elem_names_;
   rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr validate_param_handle_;
 
   std::shared_ptr<rclcpp::ParameterEventHandler> param_handler_;
