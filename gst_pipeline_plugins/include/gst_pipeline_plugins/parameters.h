@@ -42,7 +42,7 @@ public:
 
   void iterate_props(GObject * element, std::string prefix);
 
-  rclcpp::ParameterValue g_value_to_ros_value(GValue* value);
+  rclcpp::ParameterValue g_value_to_ros_value(const GValue* value);
 
   bool ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value);
 
@@ -53,13 +53,30 @@ public:
 
   // callback when the pipeline adds an element
   //  conditionally declare parameters
-  //static void deep_element_added_cb(
-  //  GstBin * self, GstBin * sub_bin, GstElement * element, gpointer user_data);
+  static void deep_element_added_cb(
+    GstBin * self,GstBin * sub_bin, GstElement * element, gpointer user_data);
 
   // callback when the pipeline removes an element
   //  undeclare any previously declared parameters
-  //static void deep_element_removed_cb(
-  //  GstBin * self, GstBin * sub_bin, GstElement * element, gpointer user_data);
+  static void deep_element_removed_cb(
+    GstBin * self, GstBin * sub_bin, GstElement * element, gpointer user_data);
+
+  // property_changed_cb
+  // called after receiving a message containing the new property value
+  // uses the output of gst_message_parse_property_notify
+
+
+  void property_changed_cb(
+    GstObject * object,
+    const gchar * property_name,
+    const GValue * property_value
+  );
+
+  static gboolean gst_bus_cb(
+    GstBus* bus,
+    GstMessage* message,
+    gpointer user_data
+  );
 
 private:
   
