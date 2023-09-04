@@ -4,7 +4,8 @@ namespace gst_pipeline_plugins_webrtc
 {
 void base::initialise(
   std::string name,  // the config name of the plugin
-  std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
+  std::shared_ptr<gst_bridge::node_interface_collection> node_if,
+  GstPipeline * pipeline)
 {
   name_ = name;
   node_if_ = node_if;
@@ -46,7 +47,9 @@ void base::initialise(
         name_.c_str(), elem_name_.c_str());
 
       // XXX test if bin_ is a webrtcbin
-      webrtc_ = bin;
+      //if(GST_IS_WEBRTCBIN(bin)){
+        webrtc_ = GST_BIN_CAST(bin);
+      //}
 
 
       // webrtc peer discovery server comms:
@@ -292,7 +295,7 @@ base::on_incoming_decodebin_stream (
     sink_bin_descr.c_str()
   );
   sink_bin = gst_parse_bin_from_description(sink_bin_descr.c_str(), true, NULL);
-  gst_bin_add(GST_BIN(this_ptr->pipeline_), sink_bin);
+  gst_bin_add(GST_BIN_CAST(this_ptr->pipeline_), sink_bin);
   synced &= gst_element_sync_state_with_parent(sink_bin);
 
   //gst_element_link(decodebin, sink_bin);

@@ -15,7 +15,7 @@ public:
   //  pass a ros node interface, the pipeline, and a pointer to an element
   virtual void initialise(
     std::string name,  // the config name of the plugin
-    std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline) = 0;
+    std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstPipeline * pipeline) = 0;
 
   virtual ~plugin_base() {}
 
@@ -24,7 +24,7 @@ protected:
 
   std::string name_;
   std::shared_ptr<gst_bridge::node_interface_collection> node_if_;
-  GstElement * pipeline_;
+  GstPipeline* pipeline_;
 };
 
 }  // namespace gst_pipeline

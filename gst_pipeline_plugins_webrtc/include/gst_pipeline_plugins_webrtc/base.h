@@ -39,7 +39,7 @@ public:
   void initialise(
     std::string name,  // the config name of the plugin
     std::shared_ptr<gst_bridge::node_interface_collection> node_if,
-    GstElement * pipeline
+    GstPipeline * pipeline
   );
 
 
@@ -216,7 +216,7 @@ protected:
   std::string audio_sink_descr_;
   std::string video_sink_descr_;
   // a pointer to the bridge elements in the pipeline
-  GstElement * webrtc_;
+  GstBin * webrtc_;
 
   GstWebRTCDataChannel * data_channel_rx_;
   GstWebRTCDataChannel * data_channel_tx_;

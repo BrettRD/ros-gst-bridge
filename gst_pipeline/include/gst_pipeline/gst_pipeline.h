@@ -20,7 +20,7 @@ public:
   std::shared_ptr<plugin_base> load_handler();
 
   // ### gstreamer components ###
-  GstElement * pipeline_;
+  GstPipeline * pipeline_;
   // a Glib main loop for async callbacks
   GMainLoop* mainloop_;
   std::thread mainloop_thread_;

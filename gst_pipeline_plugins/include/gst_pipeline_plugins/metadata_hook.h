@@ -23,7 +23,8 @@ public:
   //  insert a probe into the pipeline on the sink pad of the target element
   void initialise(
     std::string name,  // the config name of the plugin
-    std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
+    std::shared_ptr<gst_bridge::node_interface_collection> node_if,
+    GstPipeline * pipeline);
 
   // This callback is run inside the pad of the sink element, the return will be ok or drop.
   //  This function needs to be static, we can pass a pointer to our logic in user-data

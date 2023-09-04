@@ -10,7 +10,7 @@ namespace gst_pipeline_plugins
 void rtp_header_hook::initialise(
   std::string name,  // the config name of the plugin
   std::shared_ptr<gst_bridge::node_interface_collection> node_if,
-  GstElement * pipeline)
+  GstPipeline * pipeline)
 {
   name_ = name;
   node_if_ = node_if;

@@ -25,7 +25,8 @@ public:
   //  insert a probe into the pipeline on the sink pad of the target element
   void initialise(
     std::string name,  // the config name of the plugin
-    std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
+    std::shared_ptr<gst_bridge::node_interface_collection> node_if,
+    GstPipeline * pipeline);
 
   // This callback is attached to the GstBus via:
   // https://gstreamer.freedesktop.org/documentation/gstreamer/gstbus.html?gi-language=c#gst_bus_add_watch

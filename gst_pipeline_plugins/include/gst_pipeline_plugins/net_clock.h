@@ -26,7 +26,8 @@ public:
   //  load the net clock into the pipeline
   void initialise(
     std::string name,  // the config-file name of the plugin (possibly unused)
-    std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
+    std::shared_ptr<gst_bridge::node_interface_collection> node_if,
+    GstPipeline * pipeline);
 
 private:
 

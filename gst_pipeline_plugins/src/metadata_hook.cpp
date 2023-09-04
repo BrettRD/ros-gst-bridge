@@ -7,7 +7,8 @@ namespace gst_pipeline_plugins
 {
 void metadata_hook::initialise(
   std::string name,  // the config name of the plugin
-  std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
+  std::shared_ptr<gst_bridge::node_interface_collection> node_if,
+  GstPipeline * pipeline)
 {
   name_ = name;
   node_if_ = node_if;
