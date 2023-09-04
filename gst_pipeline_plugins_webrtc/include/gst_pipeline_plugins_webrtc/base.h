@@ -36,6 +36,15 @@ public:
   //  connect callbacks to the webrtcbin
   protected:
 
+  // XXX lacking the imagination to do this elegantly
+  struct pad_swap_args_t{
+    base* this_ptr;
+    GstPad* new_src;
+    GstPad* sink_pad;
+    GstPad* old_src;
+  };
+
+
   void initialise(
     std::string name,  // the config name of the plugin
     std::shared_ptr<gst_bridge::node_interface_collection> node_if,
@@ -157,6 +166,14 @@ public:
   pad_added_cb(
     GstElement * webrtc,
     GstPad * pad,
+    gpointer user_data
+  );
+
+  // This callback is used to dynamically alter the pipeline after pad_added_cb
+  static GstPadProbeReturn
+  gst_pad_swap_cb(
+    GstPad * pad,
+    GstPadProbeInfo * info,
     gpointer user_data
   );
 

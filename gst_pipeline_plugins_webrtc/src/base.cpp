@@ -303,7 +303,34 @@ base::on_incoming_decodebin_stream (
   gst_pad_link (pad, sinkpad);
   gst_object_unref (sinkpad);
 
-  //synced &= gst_bin_sync_children_states(sink_bin);
+  // Optionally reconfigure the pipeline to form a loop
+  // test if the newly created sink bin has a dangling pad
+  GstPad *src_pad = gst_element_get_static_pad (sink_bin, "src");
+  if(src_pad){
+    // locate the destination element
+    GstElement* loop_bin = gst_bin_get_by_name_recurse_up(this_ptr->webrtc_, "loop_dest");  // make this name a parameter
+    // set a callback to connect the loop, and destruct the upstream elements
+
+    // XXX C style memory management is ugly here
+    pad_swap_args_t* pad_swap_args = (pad_swap_args_t*) malloc(sizeof(pad_swap_args_t));
+    pad_swap_args->this_ptr = this_ptr;
+    pad_swap_args->new_src = src_pad;
+    pad_swap_args->sink_pad = gst_element_get_static_pad(loop_bin, "sink");
+    pad_swap_args->old_src = gst_pad_get_peer(pad_swap_args->sink_pad);
+
+
+    gst_pad_add_probe(
+      src_pad,  // catch the pad immediately
+      GST_PAD_PROBE_TYPE_IDLE,
+      (GstPadProbeCallback)base::gst_pad_swap_cb,
+      static_cast<gpointer>(pad_swap_args),
+      NULL
+    );
+
+
+  }
+
+  // synced &= gst_bin_sync_children_states(sink_bin);
   if(!synced) {
     RCLCPP_ERROR(
       this_ptr->node_if_->logging->get_logger(),
@@ -313,6 +340,37 @@ base::on_incoming_decodebin_stream (
   }
 }
 
+GstPadProbeReturn
+base::gst_pad_swap_cb(
+  GstPad * pad,
+  GstPadProbeInfo * info,
+  gpointer user_data
+){
+  GstPadProbeReturn ret;
+
+  base* this_ptr = (static_cast<pad_swap_args_t*>(user_data))->this_ptr;
+  GstPad* new_src = (static_cast<pad_swap_args_t*>(user_data))->new_src;
+  GstPad* sink_pad = (static_cast<pad_swap_args_t*>(user_data))->sink_pad;
+  GstPad* old_src = (static_cast<pad_swap_args_t*>(user_data))->old_src;
+  free(user_data);
+
+
+  // XXX we probably need to use a blocking probe on sink_pad before we make the switch
+
+  // swap the streams over
+  bool success = true;
+  success &= gst_pad_unlink(old_src, sink_pad);
+  success &= gst_pad_link (new_src, sink_pad);
+
+  // XXX The shutdown and removal should happen async (glib idle task)
+  // shutdown and remove the old bin
+  GstElement* old_bin = gst_pad_get_parent_element(old_src);
+  gst_element_set_state(old_bin, GST_STATE_NULL);
+  gst_bin_remove(GST_BIN_CAST(this_ptr->pipeline_), old_bin);
+
+  ret = GST_PAD_PROBE_REMOVE;
+  return ret;
+}
 
 void
 base::pad_added_cb(
