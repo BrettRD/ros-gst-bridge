@@ -230,8 +230,11 @@ protected:
 
   // the name of the target element in the pipeline
   std::string elem_name_;
-  std::string audio_sink_descr_;
-  std::string video_sink_descr_;
+  std::string audio_sink_descr_;  // the audio sink to create on pickup
+  std::string video_sink_descr_;  // the video sink to create on pickup
+  std::string audio_loop_sink_;   // the element to feed audio back into
+  std::string video_loop_sink_;   // the element to feed video back into
+
   // a pointer to the bridge elements in the pipeline
   GstBin * webrtc_;
 

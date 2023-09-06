@@ -38,6 +38,24 @@ void base::initialise(
   ).get<std::string>();
 
 
+  audio_loop_sink_ = node_if->parameters->declare_parameter(
+    name_ + ".audio_loop_sink",
+    rclcpp::ParameterValue(""),
+    descr(
+      "used if the audio_sink_descr feeds back to the peer, this selects the element where it is fed back",
+      true
+    )
+  ).get<std::string>();
+
+  video_loop_sink_ = node_if->parameters->declare_parameter(
+    name_ + ".video_loop_sink",
+    rclcpp::ParameterValue(""),
+    descr(
+      "used if the video_sink_descr feeds back to the peer, this selects the element where it is fed back",
+      true
+    )
+  ).get<std::string>();
+
 
   if (GST_IS_BIN(pipeline_)) {
     GstElement * bin = gst_bin_get_by_name(GST_BIN_CAST(pipeline_), elem_name_.c_str());
@@ -254,37 +272,41 @@ base::on_notify_ice_gathering_state_cb(
 
 
 void
-base::on_incoming_decodebin_stream (
+base::on_incoming_decodebin_stream(
   GstElement * decodebin,
   GstPad * pad,
   gpointer user_data
 ){
+  (void) decodebin; // unused
   base* this_ptr = (base*) user_data;
 
   GstCaps *caps;
-  const gchar *name;
+  const gchar *caps_name;
   GstElement* sink_bin = NULL;
   std::string sink_bin_descr;
   bool synced = true;
   caps = gst_pad_get_current_caps (pad);
-  name = gst_structure_get_name (gst_caps_get_structure (caps, 0));
+  caps_name = gst_structure_get_name (gst_caps_get_structure (caps, 0));
+  std::string loop_sink_name;
 
-
-  if (g_str_has_prefix (name, "video"))
+  if (g_str_has_prefix (caps_name, "video"))
   {
     sink_bin_descr = this_ptr->video_sink_descr_;
+    loop_sink_name = this_ptr->video_loop_sink_;
+
   }
-  else if (g_str_has_prefix (name, "audio"))
+  else if (g_str_has_prefix (caps_name, "audio"))
   {
     sink_bin_descr = this_ptr->audio_sink_descr_;
+    loop_sink_name = this_ptr->audio_loop_sink_;
   }
   else
   {
     RCLCPP_ERROR(
       this_ptr->node_if_->logging->get_logger(),
-      "pad_added_cb: Unknown pad %s, ignoring, name = '%s'",
+      "on_incoming_decodebin_stream: Unknown pad %s, ignoring, caps_name = '%s'",
       GST_PAD_NAME (pad),
-      name
+      caps_name
     );
     return;
   }
@@ -308,25 +330,35 @@ base::on_incoming_decodebin_stream (
   GstPad *src_pad = gst_element_get_static_pad (sink_bin, "src");
   if(src_pad){
     // locate the destination element
-    GstElement* loop_bin = gst_bin_get_by_name_recurse_up(this_ptr->webrtc_, "loop_dest");  // make this name a parameter
+    GstElement* loop_bin = gst_bin_get_by_name_recurse_up(
+      this_ptr->webrtc_, loop_sink_name.c_str());
     // set a callback to connect the loop, and destruct the upstream elements
 
-    // XXX C style memory management is ugly here
-    pad_swap_args_t* pad_swap_args = (pad_swap_args_t*) malloc(sizeof(pad_swap_args_t));
-    pad_swap_args->this_ptr = this_ptr;
-    pad_swap_args->new_src = src_pad;
-    pad_swap_args->sink_pad = gst_element_get_static_pad(loop_bin, "sink");
-    pad_swap_args->old_src = gst_pad_get_peer(pad_swap_args->sink_pad);
+    if(loop_bin){
+      // XXX C style memory management is ugly here
+      pad_swap_args_t* pad_swap_args = (pad_swap_args_t*) malloc(sizeof(pad_swap_args_t));
+      pad_swap_args->this_ptr = this_ptr;
+      pad_swap_args->new_src = src_pad;
+      pad_swap_args->sink_pad = gst_element_get_static_pad(loop_bin, "sink");
+      pad_swap_args->old_src = gst_pad_get_peer(pad_swap_args->sink_pad);
 
 
-    gst_pad_add_probe(
-      src_pad,  // catch the pad immediately
-      GST_PAD_PROBE_TYPE_IDLE,
-      (GstPadProbeCallback)base::gst_pad_swap_cb,
-      static_cast<gpointer>(pad_swap_args),
-      NULL
-    );
-
+      gst_pad_add_probe(
+        src_pad,  // catch the pad immediately
+        GST_PAD_PROBE_TYPE_IDLE,
+        (GstPadProbeCallback)base::gst_pad_swap_cb,
+        static_cast<gpointer>(pad_swap_args),
+        NULL
+      );
+    }
+    else
+    {
+      RCLCPP_ERROR(
+        this_ptr->node_if_->logging->get_logger(),
+        "on_incoming_decodebin_stream: sink pipeline has dangling pads, but loop element '%s' was not found",
+        loop_sink_name.c_str()
+      );
+    }
 
   }
 
@@ -334,7 +366,7 @@ base::on_incoming_decodebin_stream (
   if(!synced) {
     RCLCPP_ERROR(
       this_ptr->node_if_->logging->get_logger(),
-      "pad_added_cb: could not synchronise '%s' with the webrtcbin",
+      "on_incoming_decodebin_stream: could not synchronise '%s' with the webrtcbin",
       sink_bin_descr.c_str()
     );
   }
@@ -346,8 +378,10 @@ base::gst_pad_swap_cb(
   GstPadProbeInfo * info,
   gpointer user_data
 ){
-  GstPadProbeReturn ret;
+  (void) pad; //unused
+  (void) info; //unused
 
+  GstPadProbeReturn ret;
   base* this_ptr = (static_cast<pad_swap_args_t*>(user_data))->this_ptr;
   GstPad* new_src = (static_cast<pad_swap_args_t*>(user_data))->new_src;
   GstPad* sink_pad = (static_cast<pad_swap_args_t*>(user_data))->sink_pad;
