@@ -28,13 +28,14 @@ gst_pipeline_node:
       type: "gst_pipeline_plugins_webrtc::websockets"
       # the name of the webrtc element to manage
       element_name: "sendrecv"
+      # write debug output
+      generate_debug_files: True
 
       # additional pipeline segments to load
       video_sink_descr: ' queue ! videoconvert ! agingtv ! queue '  # dangling
-      video_loop_sink: 'loop_dest'  # the name of the element to re-connect the video sink pipeline
       audio_sink_descr: ' queue ! audioconvert ! autoaudiosink'
-      # XXX some use cases will need to re-structure the pipeline when the a/v sink pads come up
-      #  This might better left to a dedicated pipeline mangler plugin
+      # XXX  This next bit might be better left to a dedicated pipeline mangler plugin
+      video_loop_sink: 'loop_dest'  # the name of the element to re-connect the video sink pipeline
 
       # signalling server implementation specific details
       signalling_server: 'wss://webrtc.gstreamer.net:8443'

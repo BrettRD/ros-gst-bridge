@@ -64,12 +64,12 @@ public:
   virtual void create_offer();
 
   // called when the webrtcbin is instructed to send a sdp offer
-  // default calls  send_sdp(descr)
-  virtual void send_sdp_offer(GstWebRTCSessionDescription * desc);
+  // default calls  send_sdp(offer)
+  virtual void send_sdp_offer(GstWebRTCSessionDescription * offer);
 
   // called when the webrtcbin wants to send a SDP answer
-  // default calls  send_sdp(descr)
-  virtual void send_sdp_answer(GstWebRTCSessionDescription * desc);
+  // default calls  send_sdp(answer)
+  virtual void send_sdp_answer(GstWebRTCSessionDescription * answer);
 
   // send a sdp description to the remote server
   virtual void send_sdp(GstWebRTCSessionDescription * desc) = 0;
@@ -234,6 +234,7 @@ protected:
   std::string video_sink_descr_;  // the video sink to create on pickup
   std::string audio_loop_sink_;   // the element to feed audio back into
   std::string video_loop_sink_;   // the element to feed video back into
+  bool generate_debug_files_;   // generate dotfiles and write sdp messages to file
 
   // a pointer to the bridge elements in the pipeline
   GstBin * webrtc_;

@@ -1,5 +1,7 @@
 #include <base.h>
 
+#include <fstream>  // writing sdp messages as debug output
+
 namespace gst_pipeline_plugins_webrtc
 {
 void base::initialise(
@@ -55,6 +57,16 @@ void base::initialise(
       true
     )
   ).get<std::string>();
+
+  generate_debug_files_ = node_if->parameters->declare_parameter(
+    name_ + ".generate_debug_files",
+    rclcpp::ParameterValue(false),
+    descr(
+      "generate dotfiles when the pipeline changes, and write sdp messages to file",
+      true
+    )
+  ).get<bool>();
+
 
 
   if (GST_IS_BIN(pipeline_)) {
@@ -152,27 +164,51 @@ void base::begin_negotiate(){
 // called when the webrtcbin wants to send a SDP answer
 // default calls  send_sdp(descr)
 void base::send_sdp_answer(
-  GstWebRTCSessionDescription * desc
+  GstWebRTCSessionDescription * answer
 ){
   RCLCPP_INFO(
     node_if_->logging->get_logger(),
     "Sending sdp answer"
   );
 
-  send_sdp(desc);
+  if(generate_debug_files_){
+    std::ofstream sdp_file;
+    sdp_file.open ("sdp_sent_answer.txt", std::ofstream::app);
+    sdp_file << "type: \n";
+    sdp_file << gst_webrtc_sdp_type_to_string(answer->type);
+    sdp_file << "\n";
+    sdp_file << "message: \n";
+    sdp_file << gst_sdp_message_as_text(answer->sdp);
+    sdp_file << "\n";
+    sdp_file.close();
+  }
+
+  send_sdp(answer);
 }
 
 // called when the webrtcbin is instructed to send a sdp offer
 // default calls  send_sdp(descr)
 void base::send_sdp_offer(
-  GstWebRTCSessionDescription * desc
+  GstWebRTCSessionDescription * offer
 ){
   RCLCPP_INFO(
     node_if_->logging->get_logger(),
     "Sending sdp offer"
   );
 
-  send_sdp(desc);
+  if(generate_debug_files_){
+    std::ofstream sdp_file;
+    sdp_file.open ("sdp_sent_offer.txt", std::ofstream::app);
+    sdp_file << "type: \n";
+    sdp_file << gst_webrtc_sdp_type_to_string(offer->type);
+    sdp_file << "\n";
+    sdp_file << "message: \n";
+    sdp_file << gst_sdp_message_as_text(offer->sdp);
+    sdp_file << "\n";
+    sdp_file.close();
+  }
+
+  send_sdp(offer);
 }
 
 // send a sdp description to the remote server
@@ -518,6 +554,18 @@ base::sdp_answer_received (GstWebRTCSessionDescription * answer)
     "Recieved sdp answer"
   );
 
+  if(generate_debug_files_){
+    std::ofstream sdp_file;
+    sdp_file.open ("sdp_received_answer.txt", std::ofstream::app);
+    sdp_file << "type: \n";
+    sdp_file << gst_webrtc_sdp_type_to_string(answer->type);
+    sdp_file << "\n";
+    sdp_file << "message: \n";
+    sdp_file << gst_sdp_message_as_text(answer->sdp);
+    sdp_file << "\n";
+    sdp_file.close();
+  }
+
   GstPromise *promise = gst_promise_new ();
   g_signal_emit_by_name (webrtc_, "set-remote-description", answer,
     promise);
@@ -568,6 +616,18 @@ base::sdp_offer_received(
     node_if_->logging->get_logger(),
     "Recieved sdp offer"
   );
+
+  if(generate_debug_files_){
+    std::ofstream sdp_file;
+    sdp_file.open ("sdp_received_offer.txt", std::ofstream::app);
+    sdp_file << "type: \n";
+    sdp_file << gst_webrtc_sdp_type_to_string(offer->type);
+    sdp_file << "\n";
+    sdp_file << "message: \n";
+    sdp_file << gst_sdp_message_as_text(offer->sdp);
+    sdp_file << "\n";
+    sdp_file.close();
+  }
 
   GstPromise * promise = gst_promise_new_with_change_func(set_remote_description_prom, this, NULL);
 
@@ -728,7 +788,7 @@ gboolean base::gst_bus_cb(GstBus* bus, GstMessage* message, gpointer user_data)
     {
       RCLCPP_INFO(
         this_ptr->node_if_->logging->get_logger(),
-        "Async done, making dotgraph"
+        "Async done"
       );
       GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS (GST_BIN (this_ptr->pipeline_),
           GST_DEBUG_GRAPH_SHOW_ALL, "webrtc-sendrecv.async-done");
