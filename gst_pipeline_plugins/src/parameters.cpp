@@ -114,11 +114,11 @@ void parameters::iterate_elements(GstBin * item, std::string prefix)
 {
   GstIterator * it = gst_bin_iterate_elements(item);
 
-  GValue it_val;
+  GValue it_val = {0,0};
   g_value_unset(&it_val);
 
   while(GST_ITERATOR_OK == gst_iterator_next(it, &it_val)){
-    GstElement *item = GST_ELEMENT (g_value_get_object (&it_val) );
+    GstElement *item = GST_ELEMENT_CAST (g_value_get_object (&it_val) );
     // Bin is a sub-class of Element, handle it first
     if (GST_IS_BIN(item)) {
       // create a new prefix denoting the name of the containing bin
@@ -141,16 +141,16 @@ rclcpp::ParameterValue parameters::g_value_to_ros_value(const GValue* value)
 
   // XXX GLib offers a whole lot of duck-typing
   //     https://github.com/GNOME/glib/blob/main/gobject/gvaluetransform.c
-  GValue value_trans;
+  GValue value_trans = {0,0};
   g_value_unset(&value_trans);
 
-  switch(g_value_get_gtype(value)){
+
+  switch(G_VALUE_TYPE(value)){
 
     case G_TYPE_BOOLEAN:
     {
       param_value = rclcpp::ParameterValue((bool)g_value_get_boolean(value));
     } break;
-
     case G_TYPE_CHAR:
     case G_TYPE_UCHAR:
     case G_TYPE_INT:
@@ -173,19 +173,27 @@ rclcpp::ParameterValue parameters::g_value_to_ros_value(const GValue* value)
 
     case G_TYPE_STRING:
     {
-      param_value = rclcpp::ParameterValue(g_value_get_string(value));
+      const char* val_str = g_value_get_string(value);
+      if(val_str == NULL) val_str = "";
+      param_value = rclcpp::ParameterValue(val_str);
     } break;
 
 
     default:
     {
+      if(G_TYPE_IS_ENUM(G_VALUE_TYPE(value))) {
+        g_value_transform(value, g_value_init(&value_trans, G_TYPE_INT64));
+        param_value = rclcpp::ParameterValue((int64_t)g_value_get_int64(&value_trans));
+        break;
+      }
+
       // GSTreamer introduced an array type where each element is a GValue
       // GST_TYPE_ARRAY can't be resolved at compile time, so we do this.
-      if(GST_TYPE_ARRAY == g_value_get_gtype(value)) {
+      if(GST_TYPE_ARRAY == G_VALUE_TYPE(value)) {
         // XXX sanity check that the rest of the array has the same type.
         size_t len = gst_value_array_get_size(value);
         if(len > 0){
-          switch (g_value_get_gtype (gst_value_array_get_value (value, 0))) {
+          switch (G_VALUE_TYPE (gst_value_array_get_value (value, 0))) {
 
             case G_TYPE_BOOLEAN:
             {
@@ -275,7 +283,7 @@ void parameters::iterate_props(GstElement * element, std::string prefix)
 
     RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "prop: " << ros_param_name << " type: " << prop->value_type);
 
-    GValue prop_value = {};
+    GValue prop_value = {0,0};
     g_value_init(&prop_value, prop->value_type);
     g_value_copy(g_param_spec_get_default_value(prop), &prop_value);
     g_object_get_property(G_OBJECT(element), prop->name, &prop_value);   // get the current value
@@ -338,7 +346,7 @@ void parameters::iterate_props(GstElement * element, std::string prefix)
 
 bool parameters::ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value)
 {
-  GValue v;
+  GValue v = {0,0};
   switch(parameter.get_type()){
     case PARAMETER_BOOL:
       g_value_set_boolean(g_value_init(&v, G_TYPE_BOOLEAN), parameter.as_bool());
@@ -380,7 +388,7 @@ bool parameters::ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue
       break;
   }
 
-  switch(g_value_get_gtype(value)){
+  switch(G_VALUE_TYPE(value)){
     case G_TYPE_BOOLEAN:
     {
       if ((parameter.get_type() == PARAMETER_BOOL) ||
@@ -388,7 +396,7 @@ bool parameters::ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue
         g_value_transform(&v,value);
       }
     } break;
-
+    case G_TYPE_ENUM:
     case G_TYPE_CHAR:
     case G_TYPE_UCHAR:
     case G_TYPE_INT:
@@ -420,7 +428,10 @@ bool parameters::ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue
     } break;
     
     default:
-
+      if(G_TYPE_IS_ENUM(G_VALUE_TYPE(value))) {
+        g_value_transform(&v, value);
+        break;
+      }
       // XXX Is it possible to reliably infer the cell type of an empty array value?
       // https://docs.gtk.org/gobject/func.param_spec_value_array.html
 
@@ -432,11 +443,11 @@ bool parameters::ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue
       // GST_TYPE_ARRAY can't be resolved at compile time, so we use an if statement.
 
       /*
-      if(GST_TYPE_ARRAY == g_value_get_gtype(value)) {
+      if(GST_TYPE_ARRAY == G_VALUE_TYPE(value)) {
         // XXX sanity check that the rest of the array has the same type.
         size_t len = gst_value_array_get_size(value);
         if(len>0){
-          switch (g_value_get_gtype (gst_value_array_get_value (value, 0))) {
+          switch (G_VALUE_TYPE (gst_value_array_get_value (value, 0))) {
             case G_TYPE_BOOLEAN:
             {
 
@@ -493,7 +504,7 @@ parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
 
     if(NULL != prop)
     {
-      GValue value;
+      GValue value = {0,0};
       // check the type and recover a corresponding gvalue
       // XXX we might need access to g_param_spec_get_default_value
       //     to resolve the element types of array properties
@@ -559,7 +570,7 @@ void parameters::update_parameters(const rclcpp::Parameter &parameter)
   if(NULL != prop)
   {
     // recover the type of the prop
-    GValue value;
+    GValue value = {0,0};
     ros_value_to_g_value(parameter, g_value_init (&value, prop->value_type));
     g_param_value_validate(prop, &value);
     // XXX Check that the new value differs
