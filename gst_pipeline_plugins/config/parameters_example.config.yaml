@@ -1,0 +1,17 @@
+gst_pipeline_node:
+  ros__parameters:
+
+
+    gst_plugin_paths:
+      - 'install/gst_bridge/lib/gst_bridge/'
+
+    pipeline_base_descr: "videotestsrc ! videoconvert ! queue           \
+      ! ximagesink                   \
+      "
+
+    ros_plugin_names:
+      - "parameters"
+
+    parameters:
+      type: "gst_pipeline_plugins::parameters"
+      #element_names: ""

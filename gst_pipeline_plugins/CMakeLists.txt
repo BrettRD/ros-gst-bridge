@@ -123,11 +123,11 @@ install(
 )
 
 # install static files
-#install(DIRECTORY
-#  config
-#  launch
-#  DESTINATION share/${PROJECT_NAME}
-#)
+install(DIRECTORY
+  config
+  launch
+  DESTINATION share/${PROJECT_NAME}
+)
 
 
 # install pluginlib plugins
