@@ -341,7 +341,7 @@ bool parameters::ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue
   GValue v;
   switch(parameter.get_type()){
     case PARAMETER_BOOL:
-      g_value_set_bool(g_value_init(&v, G_TYPE_BOOL), parameter.as_bool());
+      g_value_set_boolean(g_value_init(&v, G_TYPE_BOOLEAN), parameter.as_bool());
       break;
     case PARAMETER_INTEGER:
       g_value_set_int64(g_value_init(&v, G_TYPE_INT64), parameter.as_int());
@@ -353,23 +353,28 @@ bool parameters::ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue
       g_value_set_string(g_value_init(&v, G_TYPE_STRING), parameter.as_string().c_str());
       break;
 
-
+    /*
     case PARAMETER_BOOL_ARRAY:
-      g_value_init(&v, G_TYPE_STRING)
-      parameter.as_bool_array()
+      g_value_init(&v, G_VALUE_ARRAY);
+      parameter.as_bool_array();
       break;
     case PARAMETER_BYTE_ARRAY:
+      g_value_init(&v, G_VALUE_ARRAY);
       parameter.as_byte_array();
       break;
     case PARAMETER_INTEGER_ARRAY:
+      g_value_init(&v, G_VALUE_ARRAY);
       parameter.as_integer_array();
       break;
     case PARAMETER_DOUBLE_ARRAY:
+      g_value_init(&v, G_VALUE_ARRAY);
       parameter.as_double_array();
       break;
     case PARAMETER_STRING_ARRAY:
+      g_value_init(&v, G_VALUE_ARRAY);
       parameter.as_string_array();
       break;
+    */
 
     default:
       break;
@@ -423,9 +428,10 @@ bool parameters::ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue
       // XXX G_TYPE_VALUE_ARRAY // deprecated in 2.32, we're running 2.35, still in use in gstreamer
       // XXX GST_TYPE_ARRAY // seems to have transformer utilities available for value_array
 
-
       // GSTreamer introduced an array type where each element is a GValue
-      // GST_TYPE_ARRAY can't be resolved at compile time, so we do this.
+      // GST_TYPE_ARRAY can't be resolved at compile time, so we use an if statement.
+
+      /*
       if(GST_TYPE_ARRAY == g_value_get_gtype(value)) {
         // XXX sanity check that the rest of the array has the same type.
         size_t len = gst_value_array_get_size(value);
@@ -453,6 +459,7 @@ bool parameters::ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue
         }
       }
       else
+      */
       {
         RCLCPP_INFO(node_if_->logging->get_logger(), "unknown type");
         return false;
@@ -562,6 +569,7 @@ void parameters::update_parameters(const rclcpp::Parameter &parameter)
 }
 
 
+
 // callback when the pipeline adds an element
 //  conditionally declare parameters
 void parameters::deep_element_added_cb(
@@ -570,20 +578,37 @@ void parameters::deep_element_added_cb(
   (void) self;
   (void) sub_bin;
   auto* this_ptr = static_cast<parameters*>(user_data);
+  std::string prefix = "props";
 
-  // XXX check if the elem_names_ list is empty
-    // recursively find parent bins until you find self
-    // build a ros param prefix
-    // iterate_props
+  if (! GST_IS_BIN(element)) {  // ignore containers
 
+    // check if the elem_names_ list is empty
+    if(0 == this_ptr->elem_names_.size()){
+      GstElement * par = GST_ELEMENT_CAST(sub_bin);
+      std::string path = GST_OBJECT_NAME (element);
+      // recursively find parent bins until you find self
+      while((NULL != par) && (GST_ELEMENT_CAST(self) != par)) {
+        // build a ros param prefix
+        path = std::string(GST_OBJECT_NAME(par)) + "." + path;
+        par = GST_ELEMENT_PARENT(par);
+      }
+      this_ptr->iterate_props(element, prefix + "." + path);
+    }
+    else{
+      // check if this element is listed.
+      auto it = std::find_if(this_ptr->elem_names_.begin(), this_ptr->elem_names_.end(),
+        [element](std::string elem_name){
+          return (0 == g_strcmp0(elem_name.c_str(), GST_OBJECT_NAME (element)));}
+      );
 
-  // XXX check if this element is listed.
-    // build a ros param prefix
-    // iterate_props
-
-
-
+      if (it != this_ptr->elem_names_.end()){
+        this_ptr->iterate_props(element, prefix + "." + GST_OBJECT_NAME (element));
+      }
+    }
+  }
 }
+
+
 
 // callback when the pipeline removes an element
 //  undeclare any previously declared parameters
@@ -605,6 +630,7 @@ void parameters::deep_element_removed_cb(
     this_ptr->param_map_.erase(it);
   }
 }
+
 
 void parameters::property_changed_cb(
   GstElement * element,
@@ -653,7 +679,6 @@ void parameters::property_changed_cb(
     );
     return;
   }
-  
 
   // cast the GValue to a ros parameter
   // XXX maybe hint g_value_to_ros_value with the ros param type
@@ -688,9 +713,7 @@ void parameters::property_changed_cb(
       rclcpp::to_string(param_val).c_str(),
       res.reason.c_str()
     );
-    
   }
-
 }
 
 
@@ -736,8 +759,6 @@ gboolean parameters::gst_bus_cb(
       );
     }
   }
-
-
   return true;
 }
 
