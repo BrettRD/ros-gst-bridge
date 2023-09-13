@@ -71,6 +71,8 @@ add_library(${PROJECT_NAME} SHARED
     src/meta/gstmark.c
   src/rtp_header_hook.cpp
   src/parameters.cpp
+    src/parameters/parameter_conversions.cpp
+
 )
 
 target_link_libraries(${PROJECT_NAME} mygstrtp)

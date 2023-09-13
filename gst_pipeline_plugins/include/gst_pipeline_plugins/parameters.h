@@ -13,6 +13,19 @@
 
 namespace gst_pipeline_plugins
 {
+
+using rclcpp::ParameterType::PARAMETER_NOT_SET;
+using rclcpp::ParameterType::PARAMETER_BOOL;
+using rclcpp::ParameterType::PARAMETER_INTEGER;
+using rclcpp::ParameterType::PARAMETER_DOUBLE;
+using rclcpp::ParameterType::PARAMETER_STRING;
+using rclcpp::ParameterType::PARAMETER_BYTE_ARRAY;
+using rclcpp::ParameterType::PARAMETER_BOOL_ARRAY;
+using rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY;
+using rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY;
+using rclcpp::ParameterType::PARAMETER_STRING_ARRAY;
+
+
 /*
   This plugin declares ros parameters for props on pipeline elements
 */
@@ -41,6 +54,7 @@ public:
 
   void iterate_elements(GstBin * item, std::string prefix);
   void iterate_props(GstElement * element, std::string prefix);
+  void declare_property(GstElement * element, GParamSpec* prop, std::string ros_param_name);
 
   rclcpp::ParameterValue g_value_to_ros_value(const GValue* value);
 

@@ -31,16 +31,17 @@
 namespace gst_pipeline_plugins
 {
 
-using rclcpp::ParameterType::PARAMETER_NOT_SET;
-using rclcpp::ParameterType::PARAMETER_BOOL;
-using rclcpp::ParameterType::PARAMETER_INTEGER;
-using rclcpp::ParameterType::PARAMETER_DOUBLE;
-using rclcpp::ParameterType::PARAMETER_STRING;
-using rclcpp::ParameterType::PARAMETER_BYTE_ARRAY;
-using rclcpp::ParameterType::PARAMETER_BOOL_ARRAY;
-using rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY;
-using rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY;
-using rclcpp::ParameterType::PARAMETER_STRING_ARRAY;
+
+// XXX DELETE ME  waiting for backport of https://github.com/ros2/rclcpp/pull/2041
+class node_interfaces_node_t_getter_shim {
+  public:
+  node_interfaces_node_t_getter_shim(std::shared_ptr<gst_bridge::node_interface_collection> node_if):node_if_(node_if){}
+  rclcpp::node_interfaces::NodeTopicsInterface::SharedPtr
+  get_node_topics_interface(){return node_if_->topics;}
+  rclcpp::node_interfaces::NodeBaseInterface::SharedPtr
+  get_node_base_interface(){return node_if_->base;}
+  std::shared_ptr<gst_bridge::node_interface_collection> node_if_;
+};
 
 
 void parameters::initialise(
@@ -63,12 +64,12 @@ void parameters::initialise(
     &parameters::validate_parameters, this, std::placeholders::_1));
 
   //these callbacks update params with validated values
-  //param_handler_ = std::make_shared<rclcpp::ParameterEventHandler>(this);
-  // XXX this needs a node-like interfaces struct like Fuse has
-  //     https://github.com/ros2/rclcpp/pull/2041
+  param_handler_ = std::make_shared<rclcpp::ParameterEventHandler>(node_interfaces_node_t_getter_shim(node_if_));
 
   if (GST_IS_BIN(pipeline_)) {
-    std::string prefix = "props";
+    // prefixing under the plugin name means it will cause issues if anyone registers
+    //    an element called 'type' or 'element_names'
+    std::string prefix = name_;
 
     // if the element list is empty, iterate through all elements
     if(0 == elem_names_.size()){
@@ -134,137 +135,6 @@ void parameters::iterate_elements(GstBin * item, std::string prefix)
 }
 
 
-rclcpp::ParameterValue parameters::g_value_to_ros_value(const GValue* value)
-{
-
-  rclcpp::ParameterValue param_value = rclcpp::ParameterValue();
-
-  // XXX GLib offers a whole lot of duck-typing
-  //     https://github.com/GNOME/glib/blob/main/gobject/gvaluetransform.c
-  GValue value_trans = {0,0};
-  g_value_unset(&value_trans);
-
-
-  switch(G_VALUE_TYPE(value)){
-
-    case G_TYPE_BOOLEAN:
-    {
-      param_value = rclcpp::ParameterValue((bool)g_value_get_boolean(value));
-    } break;
-    case G_TYPE_CHAR:
-    case G_TYPE_UCHAR:
-    case G_TYPE_INT:
-    case G_TYPE_UINT:
-    case G_TYPE_LONG:
-    case G_TYPE_ULONG:
-    case G_TYPE_INT64:
-    case G_TYPE_UINT64: // this will roll over but it's too useful to ignore
-    {
-      g_value_transform(value, g_value_init(&value_trans, G_TYPE_INT64));
-      param_value = rclcpp::ParameterValue((int64_t)g_value_get_int64(&value_trans));
-    } break;
-
-    case G_TYPE_FLOAT:
-    case G_TYPE_DOUBLE:
-    {
-      g_value_transform(value, g_value_init(&value_trans, G_TYPE_DOUBLE));
-      param_value = rclcpp::ParameterValue((double)g_value_get_double(&value_trans));
-    } break;
-
-    case G_TYPE_STRING:
-    {
-      const char* val_str = g_value_get_string(value);
-      if(val_str == NULL) val_str = "";
-      param_value = rclcpp::ParameterValue(val_str);
-    } break;
-
-
-    default:
-    {
-      if(G_TYPE_IS_ENUM(G_VALUE_TYPE(value))) {
-        g_value_transform(value, g_value_init(&value_trans, G_TYPE_INT64));
-        param_value = rclcpp::ParameterValue((int64_t)g_value_get_int64(&value_trans));
-        break;
-      }
-
-      // GSTreamer introduced an array type where each element is a GValue
-      // GST_TYPE_ARRAY can't be resolved at compile time, so we do this.
-      if(GST_TYPE_ARRAY == G_VALUE_TYPE(value)) {
-        // XXX sanity check that the rest of the array has the same type.
-        size_t len = gst_value_array_get_size(value);
-        if(len > 0){
-          switch (G_VALUE_TYPE (gst_value_array_get_value (value, 0))) {
-
-            case G_TYPE_BOOLEAN:
-            {
-              std::vector<bool> vec;
-              for(size_t i=0; i<len; i++) {
-                vec.push_back(
-                  g_value_get_boolean(
-                    gst_value_array_get_value(value, i)));
-              }
-              param_value = rclcpp::ParameterValue(vec);
-            } break;
-
-            case G_TYPE_CHAR:
-            case G_TYPE_UCHAR:
-            case G_TYPE_INT:
-            case G_TYPE_UINT:
-            case G_TYPE_LONG:
-            case G_TYPE_ULONG:
-            case G_TYPE_INT64:
-            case G_TYPE_UINT64: // this will roll over but it's too useful to ignore
-            {
-              std::vector<int64_t> vec;
-              for(size_t i=0; i<len; i++) {
-                g_value_transform(
-                  gst_value_array_get_value(value, i),
-                    g_value_init(&value_trans, G_TYPE_INT64));
-                vec.push_back(
-                  g_value_get_int64(&value_trans));
-              }
-              param_value = rclcpp::ParameterValue(vec);
-            } break;
-
-            case G_TYPE_FLOAT:
-            case G_TYPE_DOUBLE:
-            {
-              std::vector<double> vec;
-              for(size_t i=0; i<len; i++) {
-                g_value_transform(
-                  gst_value_array_get_value(value, i),
-                    g_value_init(&value_trans, G_TYPE_DOUBLE));
-                vec.push_back(
-                  g_value_get_double(&value_trans));
-              }
-              param_value = rclcpp::ParameterValue(vec);
-            } break;
-
-            case G_TYPE_STRING:
-            {
-              std::vector<std::string> vec;
-              for(size_t i=0; i<len; i++) {
-                vec.push_back(
-                  g_value_get_string(
-                    gst_value_array_get_value(value, i)));
-              }
-              param_value = rclcpp::ParameterValue(vec);
-            } break;
-
-            default:
-              break;
-          }
-        }
-      }
-    } break;
-  }
-
-  return param_value;
-
-}
-
-
-
 
 void parameters::iterate_props(GstElement * element, std::string prefix)
 {
@@ -276,211 +146,75 @@ void parameters::iterate_props(GstElement * element, std::string prefix)
     GParamSpec* prop = prop_list[i];  // don't free prop
 
     std::string ros_param_name = prefix + '.' + g_param_spec_get_name(prop);
-    std::string ros_description = g_param_spec_get_blurb(prop);
 
-    // XXX save the association between the full param name and the element/prop pair
+    declare_property(element, prop, ros_param_name);
+
+  }
+}
 
 
-    RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "prop: " << ros_param_name << " type: " << prop->value_type);
+void parameters::declare_property(GstElement * element, GParamSpec* prop, std::string ros_param_name)
+{
+  // save the association between the full param name and the element/prop pair
 
-    GValue prop_value = {0,0};
-    g_value_init(&prop_value, prop->value_type);
-    g_value_copy(g_param_spec_get_default_value(prop), &prop_value);
-    g_object_get_property(G_OBJECT(element), prop->name, &prop_value);   // get the current value
+  RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "prop: " << ros_param_name << " type: " << prop->value_type);
 
-    RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "converting");
+  GValue prop_value = {0,0};
+  g_value_init(&prop_value, prop->value_type);
+  g_value_copy(g_param_spec_get_default_value(prop), &prop_value);
+  g_object_get_property(G_OBJECT(element), prop->name, &prop_value);   // get the current value
 
-    rclcpp::ParameterValue ros_value = g_value_to_ros_value(&prop_value);
-    // test the parameter has a sensible type
+  RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "converting");
 
-    if(ros_value.get_type() != PARAMETER_NOT_SET)
+  rclcpp::ParameterValue ros_value = g_value_to_ros_value(&prop_value);
+  // test the parameter has a sensible type
+
+  if(ros_value.get_type() != PARAMETER_NOT_SET)
+  {
+    // test if the parameter was already declared
+    if( ! node_if_->parameters->has_parameter(ros_param_name))
     {
-      // test if the parameter was already declared
-      if( ! node_if_->parameters->has_parameter(ros_param_name))
-      {
-        // keep track of this pairing
-        parameter_mapping map = {element, prop};
-        param_map_.insert({ros_param_name, map});
+      // keep track of this pairing
+      parameter_mapping map = {element, prop};
+      param_map_.insert({ros_param_name, map});
 
-        // declare the parameter with ROS
-        node_if_->parameters->declare_parameter(
+      // declare the parameter with ROS
+      node_if_->parameters->declare_parameter(
+        ros_param_name,
+        ros_value,
+        descr(g_param_spec_get_blurb(prop), false)
+      );
+
+      // hook to the async "message::property-notify" signal emitted by the bus
+      GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE (pipeline_));
+      g_signal_connect (bus, "message::property-notify", (GCallback) parameters::gst_bus_cb, static_cast<gpointer>(this));
+      gst_object_unref(bus);
+
+      // send a bus message if any of these properties change value
+      //  we expect to receive a GstMessage of type GST_MESSAGE_PROPERTY_NOTIFY
+      gst_element_add_property_notify_watch(
+        element,
+        g_param_spec_get_name(prop),
+        true
+      );
+
+      // register a callback the parameter updates from ROS
+      param_handles_.push_back(
+        param_handler_->add_parameter_callback(
           ros_param_name,
-          ros_value,
-          descr(ros_description, false)
-        );
+          std::bind(
+            &parameters::update_parameters,
+            this,
+            std::placeholders::_1
+          )
+        )
+      );
 
-
-        // hook to the async "message::property-notify" signal emitted by the bus
-        GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE (pipeline_));
-        g_signal_connect (bus, "message::property-notify", (GCallback) parameters::gst_bus_cb, static_cast<gpointer>(this));
-        gst_object_unref(bus);
-
-
-        // send a bus message if any of these properties change value
-        //  we expect to receive a GstMessage of type GST_MESSAGE_PROPERTY_NOTIFY
-        gst_element_add_property_notify_watch(
-          element,
-          g_param_spec_get_name(prop),
-          true
-        );
-
-
-
-        // register a callback the parameter updates from ROS
-        //param_handles_.push_back(
-        //  param_handler_->add_parameter_callback(
-        //    ros_param_name,
-        //    std::bind(
-        //      &parameters::update_parameters,
-        //      this,
-        //      std::placeholders::_1
-        //    )
-        //  )
-        //);
-
-      }
     }
   }
 }
 
 
-bool parameters::ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value)
-{
-  GValue v = {0,0};
-  switch(parameter.get_type()){
-    case PARAMETER_BOOL:
-      g_value_set_boolean(g_value_init(&v, G_TYPE_BOOLEAN), parameter.as_bool());
-      break;
-    case PARAMETER_INTEGER:
-      g_value_set_int64(g_value_init(&v, G_TYPE_INT64), parameter.as_int());
-      break;
-    case PARAMETER_DOUBLE:
-      g_value_set_double(g_value_init(&v, G_TYPE_DOUBLE), parameter.as_double());
-      break;
-    case PARAMETER_STRING:
-      g_value_set_string(g_value_init(&v, G_TYPE_STRING), parameter.as_string().c_str());
-      break;
-
-    /*
-    case PARAMETER_BOOL_ARRAY:
-      g_value_init(&v, G_VALUE_ARRAY);
-      parameter.as_bool_array();
-      break;
-    case PARAMETER_BYTE_ARRAY:
-      g_value_init(&v, G_VALUE_ARRAY);
-      parameter.as_byte_array();
-      break;
-    case PARAMETER_INTEGER_ARRAY:
-      g_value_init(&v, G_VALUE_ARRAY);
-      parameter.as_integer_array();
-      break;
-    case PARAMETER_DOUBLE_ARRAY:
-      g_value_init(&v, G_VALUE_ARRAY);
-      parameter.as_double_array();
-      break;
-    case PARAMETER_STRING_ARRAY:
-      g_value_init(&v, G_VALUE_ARRAY);
-      parameter.as_string_array();
-      break;
-    */
-
-    default:
-      break;
-  }
-
-  switch(G_VALUE_TYPE(value)){
-    case G_TYPE_BOOLEAN:
-    {
-      if ((parameter.get_type() == PARAMETER_BOOL) ||
-          (parameter.get_type() == PARAMETER_INTEGER)) {
-        g_value_transform(&v,value);
-      }
-    } break;
-    case G_TYPE_ENUM:
-    case G_TYPE_CHAR:
-    case G_TYPE_UCHAR:
-    case G_TYPE_INT:
-    case G_TYPE_UINT:
-    case G_TYPE_LONG:
-    case G_TYPE_ULONG:
-    case G_TYPE_INT64:
-    case G_TYPE_UINT64: // this will roll over but it's too useful to ignore
-    {
-      if (parameter.get_type() == PARAMETER_INTEGER) {
-        g_value_transform(&v,value);
-      }
-    } break;
-
-    case G_TYPE_FLOAT:
-    case G_TYPE_DOUBLE:
-    {
-      if ((parameter.get_type() == PARAMETER_INTEGER) ||
-          (parameter.get_type() == PARAMETER_DOUBLE)) {
-        g_value_transform(&v,value);
-      }
-    } break;
-
-    case G_TYPE_STRING:
-    {
-      if (parameter.get_type() == PARAMETER_STRING) {
-        g_value_transform(&v,value);
-      }
-    } break;
-    
-    default:
-      if(G_TYPE_IS_ENUM(G_VALUE_TYPE(value))) {
-        g_value_transform(&v, value);
-        break;
-      }
-      // XXX Is it possible to reliably infer the cell type of an empty array value?
-      // https://docs.gtk.org/gobject/func.param_spec_value_array.html
-
-      // XXX G_TYPE_ARRAY // newer, limited docs and examples
-      // XXX G_TYPE_VALUE_ARRAY // deprecated in 2.32, we're running 2.35, still in use in gstreamer
-      // XXX GST_TYPE_ARRAY // seems to have transformer utilities available for value_array
-
-      // GSTreamer introduced an array type where each element is a GValue
-      // GST_TYPE_ARRAY can't be resolved at compile time, so we use an if statement.
-
-      /*
-      if(GST_TYPE_ARRAY == G_VALUE_TYPE(value)) {
-        // XXX sanity check that the rest of the array has the same type.
-        size_t len = gst_value_array_get_size(value);
-        if(len>0){
-          switch (G_VALUE_TYPE (gst_value_array_get_value (value, 0))) {
-            case G_TYPE_BOOLEAN:
-            {
-
-
-            }
-            case G_TYPE_CHAR:
-            case G_TYPE_UCHAR:
-            case G_TYPE_INT:
-            case G_TYPE_UINT:
-            case G_TYPE_LONG:
-            case G_TYPE_ULONG:
-            case G_TYPE_INT64:
-            case G_TYPE_UINT64: // this will roll over but it's too useful to ignore
-            {
-
-            }
-
-          }
-
-        }
-      }
-      else
-      */
-      {
-        RCLCPP_INFO(node_if_->logging->get_logger(), "unknown type");
-        return false;
-      }
-      break;
-  }
-
-  return true;
-
-}
 
 
 rcl_interfaces::msg::SetParametersResult
@@ -491,11 +225,9 @@ parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
 
   for (const rclcpp::Parameter& parameter : parameters) {
     // find the property matching the parameter
-    GstElement* element = NULL;
     GParamSpec* prop = NULL;
     try {
       parameter_mapping map = param_map_.at(parameter.get_name());
-      element = map.element;
       prop = map.prop;
     }
     catch (const std::out_of_range& oor) {
@@ -527,15 +259,6 @@ parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
           break;
         }
 
-
-        // XXX Mutating the parameter here is strictly incorrect,
-        //     but just about eveyone does it.
-        //     we should use the update parameters call below instead,
-        //     but our node interfaces aren't compatible with the
-        //     ParameterEventHandler constructor.
-        //     Waiting for the unified interfaces struct in ROS Iron
-        // XXX Check that the new value differs
-        g_object_set_property(G_OBJECT(element), prop->name, &value);
       }
       else
       {
@@ -630,12 +353,13 @@ void parameters::deep_element_removed_cb(
   (void) sub_bin;
   auto* this_ptr = static_cast<parameters*>(user_data);
 
-  // find the ROS parameters associated with element
+  // find all ROS parameters associated with element
   auto it = std::find_if(this_ptr->param_map_.begin(), this_ptr->param_map_.end(),
     [element](std::pair<std::string,parameter_mapping> it){
       return (it.second.element == element);}
   );
 
+  // undeclare every parameter caught by the filter, remove the association from the map
   for (; it != this_ptr->param_map_.end(); it++) {
     this_ptr->node_if_->parameters->undeclare_parameter(it->first);
     this_ptr->param_map_.erase(it);
@@ -651,8 +375,6 @@ void parameters::property_changed_cb(
 
   // find the ROS parameter name for the property
 
-  //std::string prefix = GST_OBJECT_NAME (object);
-  //std::string ros_param_name = prefix + '.' + property_name;
   std::string ros_param_name;
 
   // define a match condition lambda for std::find_if
