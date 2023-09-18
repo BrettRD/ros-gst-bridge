@@ -33,9 +33,16 @@ class parameters : public gst_pipeline::plugin_base
 {
 public:
 
+  enum update_source_t {
+    UPDATE_SOURCE_NONE,
+    UPDATE_SOURCE_ROS,
+    UPDATE_SOURCE_GST
+  };
+
   struct parameter_mapping {
     GstElement* element;
     GParamSpec* prop;
+    update_source_t source;
       // prop->name
       // prop->value_type
       // g_param_spec_get_blurb(prop)
@@ -61,9 +68,10 @@ public:
   bool ros_value_to_g_value(const rclcpp::Parameter& parameter, GValue* value);
 
   rcl_interfaces::msg::SetParametersResult
-  validate_parameters(std::vector<rclcpp::Parameter> parameters);
+  validate_parameters_cb(std::vector<rclcpp::Parameter> parameters);
 
-  void update_parameters(const rclcpp::Parameter &parameter);
+  void
+  update_parameters_cb(const rclcpp::Parameter &parameter);
 
   // callback when the pipeline adds an element
   //  conditionally declare parameters
@@ -79,11 +87,18 @@ public:
   // called after receiving a message containing the new property value
   // uses the output of gst_message_parse_property_notify
 
+  void polling_timer_cb();
 
   void property_changed_cb(
     GstElement * element,
     const gchar * property_name,
     const GValue * property_value
+  );
+
+  void update_property(
+    std::string ros_param_name,
+    const GValue * property_value,
+    update_source_t* source
   );
 
   static gboolean gst_bus_cb(
@@ -95,12 +110,14 @@ public:
 private:
 
   std::vector<std::string> elem_names_;
+  double polling_interval_;
   rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr validate_param_handle_;
 
   std::shared_ptr<rclcpp::ParameterEventHandler> param_handler_;
   std::vector< rclcpp::ParameterCallbackHandle::SharedPtr > param_handles_;
 
   std::unordered_map<std::string, parameter_mapping > param_map_;  // use with std::find_if for reverse name lookup
+  rclcpp::TimerBase::SharedPtr polling_timer_;
 
 };
 

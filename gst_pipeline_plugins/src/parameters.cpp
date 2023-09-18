@@ -28,6 +28,17 @@
 //  undeclare parameters
 
 
+// state updates:
+// gst elements expose props through polling-mode getters
+// ros nodes hold a black-board separate from the node internals
+// this element needs to 
+//   update ros as though it were a cache of gst props
+//   update gst when an external update is called from ROS
+//   poll relevant elements when changes are expected
+// ros callbacks can't distinguih between local and remote updates,
+//   so we implement a simple lock per property, to prevent concurrent updates.
+
+
 namespace gst_pipeline_plugins
 {
 
@@ -52,21 +63,36 @@ void parameters::initialise(
   node_if_ = node_if;
   pipeline_ = pipeline;
 
-  elem_names_ = node_if_->parameters
-                 ->declare_parameter(
-                   name_ + ".element_names", rclcpp::ParameterValue(std::vector<std::string>()),
-                   descr("the names of elements to expose properties for", true))
-                 .get<std::vector<std::string>>();
+  elem_names_ = node_if_->parameters->declare_parameter(
+      name_ + ".element_names", rclcpp::ParameterValue(std::vector<std::string>()),
+      descr("the names of elements to expose properties for", true)
+    ).get<std::vector<std::string>>();
 
-  // dynamic parameter callbacks
-  // this callback allows us to reject invalid params before they take effect
-  validate_param_handle_ = node_if_->parameters->add_on_set_parameters_callback(std::bind(
-    &parameters::validate_parameters, this, std::placeholders::_1));
+  polling_interval_ = node_if->parameters->declare_parameter(
+      name_ + ".polling_interval", rclcpp::ParameterValue(1.0),
+      descr("number of seconds between we polls of the entire property tree", true)
+    ).get<double>();
 
-  //these callbacks update params with validated values
-  param_handler_ = std::make_shared<rclcpp::ParameterEventHandler>(node_interfaces_node_t_getter_shim(node_if_));
 
   if (GST_IS_BIN(pipeline_)) {
+    // dynamic parameter callbacks
+    // this callback allows us to reject invalid params before they take effect
+    validate_param_handle_ = node_if_->parameters->add_on_set_parameters_callback(std::bind(
+      &parameters::validate_parameters_cb, this, std::placeholders::_1));
+
+    //these callbacks update params with validated values
+    param_handler_ = std::make_shared<rclcpp::ParameterEventHandler>(node_interfaces_node_t_getter_shim(node_if_));
+
+    // hook to the async "message::property-notify" signal emitted by the bus
+    GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE (pipeline_));
+    g_signal_connect (bus, "message::property-notify", (GCallback) parameters::gst_bus_cb, static_cast<gpointer>(this));
+    g_signal_connect (bus, "message::async-done", (GCallback) parameters::gst_bus_cb, static_cast<gpointer>(this));
+    g_signal_connect (bus, "message", (GCallback) parameters::gst_bus_cb, static_cast<gpointer>(this));
+
+    gst_object_unref(bus);
+
+
+
     // prefixing under the plugin name means it will cause issues if anyone registers
     //    an element called 'type' or 'element_names'
     std::string prefix = name_;
@@ -97,6 +123,17 @@ void parameters::initialise(
           name_.c_str(), elem_name.c_str());
       }
     }
+
+
+    polling_timer_ = rclcpp::create_timer(
+      node_if_->base,
+      node_if_->timers,
+      node_if_->clock->get_clock(),
+      rclcpp::Duration::from_nanoseconds( 1e9 * polling_interval_),
+      std::bind(&parameters::polling_timer_cb, this),
+      nullptr //optional callback group for threading
+    );
+
 
   }
   else 
@@ -157,40 +194,39 @@ void parameters::declare_property(GstElement * element, GParamSpec* prop, std::s
 {
   // save the association between the full param name and the element/prop pair
 
-  RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "prop: " << ros_param_name << " type: " << prop->value_type);
+  //RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "prop: " << ros_param_name << " type: " << prop->value_type);
 
-  GValue prop_value = {0,0};
-  g_value_init(&prop_value, prop->value_type);
-  g_value_copy(g_param_spec_get_default_value(prop), &prop_value);
-  g_object_get_property(G_OBJECT(element), prop->name, &prop_value);   // get the current value
 
-  RCLCPP_INFO_STREAM(node_if_->logging->get_logger(), "converting");
-
-  rclcpp::ParameterValue ros_value = g_value_to_ros_value(&prop_value);
-  // test the parameter has a sensible type
-
-  if(ros_value.get_type() != PARAMETER_NOT_SET)
+  // test if the parameter was already declared
+  if( ! node_if_->parameters->has_parameter(ros_param_name))
   {
-    // test if the parameter was already declared
-    if( ! node_if_->parameters->has_parameter(ros_param_name))
+    // get the current value
+    GValue prop_value = {0,0};
+    g_value_init(&prop_value, prop->value_type);
+    g_object_get_property(G_OBJECT(element), prop->name, &prop_value);
+    GST_OBJECT_LOCK(element);
+    rclcpp::ParameterValue ros_value = g_value_to_ros_value(&prop_value);
+
+    // test the parameter has a sensible type
+    if(ros_value.get_type() != PARAMETER_NOT_SET)
     {
       // keep track of this pairing
-      parameter_mapping map = {element, prop};
+      parameter_mapping map = {element, prop, UPDATE_SOURCE_GST};
       param_map_.insert({ros_param_name, map});
 
       // declare the parameter with ROS
       node_if_->parameters->declare_parameter(
         ros_param_name,
         ros_value,
-        descr(g_param_spec_get_blurb(prop), false)
+        descr(
+          g_param_spec_get_blurb(prop),
+          false,
+          (0 != (G_PARAM_WRITABLE & prop->flags)) ? "Read Write" : "Read Only", // rclcpp readonly means const
+          true  // dynamic typing
+        )
       );
 
-      // hook to the async "message::property-notify" signal emitted by the bus
-      GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE (pipeline_));
-      g_signal_connect (bus, "message::property-notify", (GCallback) parameters::gst_bus_cb, static_cast<gpointer>(this));
-      gst_object_unref(bus);
-
-      // send a bus message if any of these properties change value
+      // send a bus message if any of the property changes value
       //  we expect to receive a GstMessage of type GST_MESSAGE_PROPERTY_NOTIFY
       gst_element_add_property_notify_watch(
         element,
@@ -198,12 +234,13 @@ void parameters::declare_property(GstElement * element, GParamSpec* prop, std::s
         true
       );
 
+
       // register a callback the parameter updates from ROS
       param_handles_.push_back(
         param_handler_->add_parameter_callback(
           ros_param_name,
           std::bind(
-            &parameters::update_parameters,
+            &parameters::update_parameters_cb,
             this,
             std::placeholders::_1
           )
@@ -211,6 +248,8 @@ void parameters::declare_property(GstElement * element, GParamSpec* prop, std::s
       );
 
     }
+    GST_OBJECT_UNLOCK(element);
+
   }
 }
 
@@ -218,7 +257,7 @@ void parameters::declare_property(GstElement * element, GParamSpec* prop, std::s
 
 
 rcl_interfaces::msg::SetParametersResult
-parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
+parameters::validate_parameters_cb(std::vector<rclcpp::Parameter> parameters)
 {
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
@@ -226,9 +265,20 @@ parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
   for (const rclcpp::Parameter& parameter : parameters) {
     // find the property matching the parameter
     GParamSpec* prop = NULL;
+    GstElement* element = NULL;
+    update_source_t* source;
+
+
+    RCLCPP_DEBUG(node_if_->logging->get_logger(), "validate %s -> %s",
+      parameter.get_name().c_str(),
+      parameter.value_to_string().c_str()
+    );
+
     try {
-      parameter_mapping map = param_map_.at(parameter.get_name());
+      parameter_mapping &map = param_map_.at(parameter.get_name());
       prop = map.prop;
+      element = map.element;
+      source = &map.source;
     }
     catch (const std::out_of_range& oor) {
       // not found, not our problem
@@ -236,69 +286,143 @@ parameters::validate_parameters(std::vector<rclcpp::Parameter> parameters)
 
     if(NULL != prop)
     {
-      GValue value = {0,0};
+      GValue new_value = {0,0};
       // check the type and recover a corresponding gvalue
       // XXX we might need access to g_param_spec_get_default_value
       //     to resolve the element types of array properties
-      if(! ros_value_to_g_value(parameter, g_value_init (&value, G_PARAM_SPEC_VALUE_TYPE(prop)))){
+      if(! ros_value_to_g_value(parameter, g_value_init (&new_value, G_PARAM_SPEC_VALUE_TYPE(prop)))){
         result.successful = false;
         result.reason = "wrong type";
         // ... " try a my_ros_type_string(prop->value_type)"
         break;
       }
 
-
+      if( 0 != (G_PARAM_WRITABLE & prop->flags)){  // writable?
       // validate the g_value
-      if( 0 != (G_PARAM_WRITABLE & prop->flags)){
-        bool changed = g_param_value_validate(prop, &value);
+        bool changed = g_param_value_validate(prop, &new_value);
         if(changed){
           RCLCPP_WARN(node_if_->logging->get_logger(), "value clamped");
           result.successful = false;
-          result.reason = "the GObject rejected the value";
-          // ... " and suggested my_to_string(&value)."
+          result.reason = "the GObject rejected the value and suggested '" +
+            rclcpp::to_string(g_value_to_ros_value(&new_value)) + "'";
           break;
         }
-
       }
       else
       {
-        RCLCPP_INFO(node_if_->logging->get_logger(), "skipping read-only property");
+        // Read-only on the gstreamer side, expect no change
+        //GValue old_value = {0,0};
+        //g_object_get_property(G_OBJECT(element), prop->name, &old_value);
+        if(
+          UPDATE_SOURCE_GST == *source
+          //parameter.get_parameter_value() == g_value_to_ros_value(&old_value)
+          )
+        {
+          RCLCPP_DEBUG(node_if_->logging->get_logger(),
+            "validate internal update to read-only property %s",
+            parameter.get_name().c_str()
+          );
+          break;
+        }
+        else
+        {
+          result.successful = false;
+          result.reason = "This GStreamer property is read-only";
+          break;
+        }
       }
-
     }
-
   }
 
   return result;
 }
 
 
-
-void parameters::update_parameters(const rclcpp::Parameter &parameter)
+// rclcpp fires this callback after a parameter has been validated
+void parameters::update_parameters_cb(const rclcpp::Parameter &parameter)
 {
   RCLCPP_DEBUG_STREAM(node_if_->logging->get_logger(), "updating: " << parameter);
 
   // find the property matching the parameter
   GstElement* element = NULL;
   GParamSpec* prop = NULL;
+  update_source_t* source;
   try {
-    parameter_mapping map = param_map_.at(parameter.get_name());
+    parameter_mapping &map = param_map_.at(parameter.get_name());
     element = map.element;
     prop = map.prop;
+    source = &map.source;
   }
   catch (const std::out_of_range& oor) {
     // not found, not our problem
   }
-
   if(NULL != prop)
   {
-    // recover the type of the prop
-    GValue value = {0,0};
-    ros_value_to_g_value(parameter, g_value_init (&value, prop->value_type));
-    g_param_value_validate(prop, &value);
-    // XXX Check that the new value differs
-    g_object_set_property(G_OBJECT(element), prop->name, &value);
+    GValue new_value = {0,0};
+    GValue old_value = {0,0};
+    ros_value_to_g_value(parameter, g_value_init (&new_value, prop->value_type));
+    g_object_get_property(G_OBJECT(element), prop->name, &old_value);
 
+    switch(*source){
+      case UPDATE_SOURCE_NONE:   // update starting
+        if( 0 != (G_PARAM_WRITABLE & prop->flags))
+        {
+          bool changed = g_param_value_validate(prop, &new_value);
+          if(!changed)
+          {
+            if(parameter.get_parameter_value() != g_value_to_ros_value(&old_value))
+            {
+              RCLCPP_DEBUG(node_if_->logging->get_logger(),
+                "ros updating property %s -> %s",
+                parameter.get_name().c_str(),
+                parameter.value_to_string().c_str()
+              );
+              *source = UPDATE_SOURCE_ROS;
+              g_object_set_property(G_OBJECT(element), prop->name, &new_value);
+            }
+            else
+            {
+              RCLCPP_DEBUG(node_if_->logging->get_logger(),
+                "skipping unchanged property %s",
+                parameter.get_name().c_str()
+              );
+            }
+          }
+          else
+          {
+            RCLCPP_ERROR(node_if_->logging->get_logger(),
+              "update on an un-validated property, %s can't be %s, try %s",
+              parameter.get_name().c_str(),
+              parameter.value_to_string().c_str(),
+              rclcpp::to_string(g_value_to_ros_value(&new_value)).c_str()
+            );
+          }
+        }
+        else
+        {
+          RCLCPP_DEBUG(node_if_->logging->get_logger(),
+            "skipping read-only property %s",
+            parameter.get_name().c_str()
+          );
+        }
+
+        break;
+      case UPDATE_SOURCE_GST:    // internal update from gstreamer is complete
+        *source = UPDATE_SOURCE_NONE; // unlock updates
+        RCLCPP_DEBUG(node_if_->logging->get_logger(),
+          "ros finished update %s",
+          parameter.get_name().c_str()
+        );
+        property_changed_cb(element, prop->name, NULL);  // check for blocked updates
+        break;
+      default:
+        RCLCPP_DEBUG(node_if_->logging->get_logger(),
+          "ros update blocked %s",
+          parameter.get_name().c_str()
+        );
+
+        break;
+    }
   }
 }
 
@@ -343,7 +467,6 @@ void parameters::deep_element_added_cb(
 }
 
 
-
 // callback when the pipeline removes an element
 //  undeclare any previously declared parameters
 void parameters::deep_element_removed_cb(
@@ -354,55 +477,70 @@ void parameters::deep_element_removed_cb(
   auto* this_ptr = static_cast<parameters*>(user_data);
 
   // find all ROS parameters associated with element
-  auto it = std::find_if(this_ptr->param_map_.begin(), this_ptr->param_map_.end(),
-    [element](std::pair<std::string,parameter_mapping> it){
-      return (it.second.element == element);}
-  );
-
-  // undeclare every parameter caught by the filter, remove the association from the map
-  for (; it != this_ptr->param_map_.end(); it++) {
-    this_ptr->node_if_->parameters->undeclare_parameter(it->first);
-    this_ptr->param_map_.erase(it);
+  for (auto it = this_ptr->param_map_.begin(); it != this_ptr->param_map_.end(); it++) {
+    if(it->second.element == element) {
+      // undeclare every parameter caught by the filter, remove the association from the map
+      this_ptr->node_if_->parameters->undeclare_parameter(it->first);
+      this_ptr->param_map_.erase(it);
+    }
   }
 }
 
 
+void parameters::polling_timer_cb(){
+  property_changed_cb(NULL, NULL, NULL);
+}
+
+// triggered when an element's properties are changed on the gst side
+// can also be triggered from polling event with all NULL args
 void parameters::property_changed_cb(
   GstElement * element,
   const gchar * property_name,
   const GValue * property_value
 ){
-
-  // find the ROS parameter name for the property
-
-  std::string ros_param_name;
-
-  // define a match condition lambda for std::find_if
-  auto matching = [property_name, element](
-    std::pair<std::string,parameter_mapping> it
-  ){
-    return (0 == g_strcmp0(it.second.prop->name, property_name)) &&
-            (it.second.element == element);
-  };
-
-  // find the parameter matching the property
-  auto it = std::find_if(param_map_.begin(), param_map_.end(), matching);
-  if (it == param_map_.end())
+  for (auto &it : param_map_)
   {
-    RCLCPP_WARN(
-      node_if_->logging->get_logger(),
-      "Could not find a ros parameter name for '%s.%s'",
-      GST_OBJECT_NAME(element),
-      property_name
-    );
-    return;
+    if(
+      (
+        (NULL == property_name) ||
+        (0 == g_strcmp0(it.second.prop->name, property_name))
+      ) &&
+      (
+        (NULL == element) ||
+        (it.second.element == element)
+      )
+    ){
+      update_source_t *source = &it.second.source;
+      std::string ros_param_name = it.first;
+      switch(*source){
+        case UPDATE_SOURCE_NONE:   // update starting
+          if(NULL == property_value)
+          {
+            GValue value = {0,0};
+            g_object_get_property(G_OBJECT(it.second.element), it.second.prop->name, &value);
+            update_property(ros_param_name, &value, source);  // allow the update method to lock the param
+            g_value_unset(&value);
+          }
+          else
+          {
+            update_property(ros_param_name, property_value, source);
+          }
+          break;
+        case UPDATE_SOURCE_ROS:    // update from ROS is complete
+          *source = UPDATE_SOURCE_NONE; // unlock updates
+          RCLCPP_DEBUG(node_if_->logging->get_logger(), "gst finished update");
+          break;
+        default:
+          RCLCPP_DEBUG(node_if_->logging->get_logger(), "gst update blocked");
+          break;
+      }
+    }
   }
-  else
-  {
-    ros_param_name = it->first;
-  }
+}
 
-
+// XXX refactor - there is no safe way to call this outside of property_changed_cb
+void parameters::update_property(std::string ros_param_name, const GValue * property_value, update_source_t* source)
+{
   // check the parameter has been declared (XXX should be redundant)
   if(! node_if_->parameters->has_parameter(ros_param_name)){
     RCLCPP_WARN(
@@ -415,35 +553,40 @@ void parameters::property_changed_cb(
 
   // cast the GValue to a ros parameter
   // XXX maybe hint g_value_to_ros_value with the ros param type
-  rclcpp::ParameterValue param_val = g_value_to_ros_value(property_value);
+  rclcpp::ParameterValue new_param_val = g_value_to_ros_value(property_value);
 
   // check the value differs between ROS and GST
   rclcpp::ParameterValue old_param_val = 
     node_if_->parameters->get_parameter(ros_param_name).
       get_parameter_value();
 
-  if(old_param_val == param_val){
-      return;
+  if(old_param_val == new_param_val){
+    return;
   }
-  RCLCPP_INFO(
+
+  RCLCPP_DEBUG(
     node_if_->logging->get_logger(),
     "property update '%s': old value '%s' differs from new value '%s'",
     ros_param_name.c_str(),
     rclcpp::to_string(old_param_val).c_str(),
-    rclcpp::to_string(param_val).c_str()
+    rclcpp::to_string(new_param_val).c_str()
   );
-
+  
   // publish the new value
+    RCLCPP_DEBUG(node_if_->logging->get_logger(), "gst starting update");
+  *source = UPDATE_SOURCE_GST; // lock updates
   auto res = node_if_->parameters->set_parameters(
-    {rclcpp::Parameter(ros_param_name, param_val)})[0];
+    {rclcpp::Parameter(ros_param_name, new_param_val)})[0];
 
 
   if(!res.successful){
+    *source = UPDATE_SOURCE_NONE; // lock updates
+
     RCLCPP_ERROR(
       node_if_->logging->get_logger(),
       "property update '%s': to '%s' failed. reason:'%s'",
       ros_param_name.c_str(),
-      rclcpp::to_string(param_val).c_str(),
+      rclcpp::to_string(new_param_val).c_str(),
       res.reason.c_str()
     );
   }
@@ -459,39 +602,66 @@ gboolean parameters::gst_bus_cb(
 ){
   (void)bus;
   auto* this_ptr = static_cast<parameters*>(user_data);
-  const GstStructure* s;
+  const GstStructure* message_struct;
 
   GstObject * object;
   const gchar* property_name;
   const GValue* property_value;
 
-  if(GST_MESSAGE_PROPERTY_NOTIFY == GST_MESSAGE_TYPE(message)) {
-    s = gst_message_get_structure(message);
-    //if (0 == g_strcmp0(gst_structure_get_name(s), "Property")) {
-    //if (0 == g_strcmp0(GST_OBJECT_NAME (message->src), this_ptr->elem_name_.c_str())) {
-
+  message_struct = gst_message_get_structure(message);
+  if(message_struct){
     RCLCPP_DEBUG(
       this_ptr->node_if_->logging->get_logger(),
       "got bus msg, %s, originating from %s",
-      gst_structure_get_name(s),
+      gst_structure_get_name(message_struct),
       GST_OBJECT_NAME (message->src)
     );
-
-    gst_message_parse_property_notify(
-      message,
-      &object,
-      &property_name,
-      &property_value
-    );
-
-    if (GST_IS_ELEMENT(object)) {
-      this_ptr->property_changed_cb(
-        GST_ELEMENT_CAST(object),
-        property_name,
-        property_value
-      );
-    }
   }
+  switch (GST_MESSAGE_TYPE (message)) {
+
+    case GST_MESSAGE_PROPERTY_NOTIFY:
+      {
+        //if (0 == g_strcmp0(gst_structure_get_name(s), "Property")) {
+        //if (0 == g_strcmp0(GST_OBJECT_NAME (message->src), this_ptr->elem_name_.c_str())) {
+
+        gst_message_parse_property_notify(
+          message,
+          &object,
+          &property_name,
+          &property_value
+        );
+
+        if (GST_IS_ELEMENT(object)) {
+          this_ptr->property_changed_cb(
+            GST_ELEMENT_CAST(object),
+            property_name,
+            property_value
+          );
+        }
+      }
+      break;
+
+    case GST_MESSAGE_STREAM_START:
+    case GST_MESSAGE_STREAM_STATUS:
+    case GST_MESSAGE_STATE_CHANGED:
+    case GST_MESSAGE_ASYNC_DONE:
+    case GST_MESSAGE_NEW_CLOCK:
+      if(GST_ELEMENT_CAST(object) == this_ptr->pipeline_){
+        // poll all of the elements when the pipeline changes state
+        this_ptr->property_changed_cb(NULL, NULL, NULL);
+      }
+      else
+      {
+        // handle just the node for limited changes
+        this_ptr->property_changed_cb(GST_ELEMENT_CAST(object), NULL, NULL);
+      }
+      break;
+    default:
+      break;
+  }
+
+
+
   return true;
 }
 

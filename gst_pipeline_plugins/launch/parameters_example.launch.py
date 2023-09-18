@@ -26,7 +26,7 @@ def generate_launch_description():
       executable='gst_pipeline_node',
       #arguments=['--ros-args', '--log-level', 'debug'],
       parameters=[config_filepath],
-      prefix=['xterm -e gdb -ex=r --args'],
+      #prefix=['xterm -e gdb -ex=r --args'],
     ),
   ])
   
