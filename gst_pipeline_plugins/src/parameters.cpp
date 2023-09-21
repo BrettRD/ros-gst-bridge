@@ -1,5 +1,14 @@
 #include <parameters.h>
-#include <algorithm> // std::find_if
+
+// state updates:
+// gst elements expose props through polling-mode getters
+// ros nodes hold a black-board separate from the node internals
+// this element needs to:
+//   update ros as though it were a cache of gst props
+//   update gst when an external update is called from ROS
+//   poll relevant elements when changes are expected
+// ros callbacks can't distinguih between local and remote updates,
+//   so we implement a simple lock per property, to prevent concurrent updates.
 
 // on startup:
 //  iterate through bin
@@ -26,18 +35,6 @@
 //  iterate through the top level bin,
 //  find the path to the element removed,
 //  undeclare parameters
-
-
-// state updates:
-// gst elements expose props through polling-mode getters
-// ros nodes hold a black-board separate from the node internals
-// this element needs to 
-//   update ros as though it were a cache of gst props
-//   update gst when an external update is called from ROS
-//   poll relevant elements when changes are expected
-// ros callbacks can't distinguih between local and remote updates,
-//   so we implement a simple lock per property, to prevent concurrent updates.
-
 
 namespace gst_pipeline_plugins
 {
@@ -288,12 +285,10 @@ parameters::validate_parameters_cb(std::vector<rclcpp::Parameter> parameters)
     {
       GValue new_value = {0,0};
       // check the type and recover a corresponding gvalue
-      // XXX we might need access to g_param_spec_get_default_value
-      //     to resolve the element types of array properties
       if(! ros_value_to_g_value(parameter, g_value_init (&new_value, G_PARAM_SPEC_VALUE_TYPE(prop)))){
         result.successful = false;
         result.reason = "wrong type";
-        // ... " try a my_ros_type_string(prop->value_type)"
+        // XXX  ... " try a my_ros_type_string(prop->value_type)"
         break;
       }
 
@@ -311,12 +306,7 @@ parameters::validate_parameters_cb(std::vector<rclcpp::Parameter> parameters)
       else
       {
         // Read-only on the gstreamer side, expect no change
-        //GValue old_value = {0,0};
-        //g_object_get_property(G_OBJECT(element), prop->name, &old_value);
-        if(
-          UPDATE_SOURCE_GST == *source
-          //parameter.get_parameter_value() == g_value_to_ros_value(&old_value)
-          )
+        if (UPDATE_SOURCE_GST == *source)
         {
           RCLCPP_DEBUG(node_if_->logging->get_logger(),
             "validate internal update to read-only property %s",
@@ -441,7 +431,8 @@ void parameters::deep_element_added_cb(
   if (! GST_IS_BIN(element)) {  // ignore containers
 
     // check if the elem_names_ list is empty
-    if(0 == this_ptr->elem_names_.size()){
+    if(0 == this_ptr->elem_names_.size())
+    {
       GstElement * par = GST_ELEMENT_CAST(sub_bin);
       std::string path = GST_OBJECT_NAME (element);
       // recursively find parent bins until you find self
@@ -452,7 +443,8 @@ void parameters::deep_element_added_cb(
       }
       this_ptr->iterate_props(element, prefix + "." + path);
     }
-    else{
+    else
+    {
       // check if this element is listed.
       auto it = std::find_if(this_ptr->elem_names_.begin(), this_ptr->elem_names_.end(),
         [element](std::string elem_name){
@@ -500,16 +492,15 @@ void parameters::property_changed_cb(
 ){
   for (auto &it : param_map_)
   {
-    if(
-      (
+    if((
         (NULL == property_name) ||
         (0 == g_strcmp0(it.second.prop->name, property_name))
       ) &&
       (
         (NULL == element) ||
         (it.second.element == element)
-      )
-    ){
+      ))
+    {
       update_source_t *source = &it.second.source;
       std::string ros_param_name = it.first;
       switch(*source){
@@ -621,9 +612,6 @@ gboolean parameters::gst_bus_cb(
 
     case GST_MESSAGE_PROPERTY_NOTIFY:
       {
-        //if (0 == g_strcmp0(gst_structure_get_name(s), "Property")) {
-        //if (0 == g_strcmp0(GST_OBJECT_NAME (message->src), this_ptr->elem_name_.c_str())) {
-
         gst_message_parse_property_notify(
           message,
           &object,
