@@ -8,7 +8,7 @@ gst_pipeline_node:
 
     pipeline_base_descr: " \
       webrtcbin name=sendrecv stun-server=stun://stun.l.google.com:19302  \
-      audiotestsrc is-live=true wave=red-noise ! audioconvert ! audioresample \
+      audiotestsrc is-live=true wave=red-noise volume=0.1 ! audioconvert ! audioresample \
       ! queue ! opusenc ! rtpopuspay name=audiopay pt=97  \
       ! application/x-rtp, encoding-name=OPUS ! queue \
       ! sendrecv. \

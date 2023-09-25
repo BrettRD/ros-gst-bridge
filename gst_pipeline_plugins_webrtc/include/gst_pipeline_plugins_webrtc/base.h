@@ -5,6 +5,7 @@
 #include <gst_pipeline/plugin_base.h>
 
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/string.hpp"  // XXX data channel
 
 #include <gst/gst.h>
 #include <gst/sdp/sdp.h>
@@ -180,6 +181,14 @@ public:
 
   // ###################### Callbacks for data channels ######################
   // the remote peer opened an outbound a data channel, and the bin has accepted it.
+
+  void data_channel_sub_cb(const std_msgs::msg::String::SharedPtr msg);
+
+  void
+  connect_data_channel_signals(
+    GstWebRTCDataChannel * channel
+  );
+
   static void
   on_data_channel_cb(
     GstElement * object,
@@ -192,6 +201,13 @@ public:
   data_channel_on_message_data_cb(
     GstWebRTCDataChannel * self,
     GBytes * data,
+    gpointer user_data
+  );
+
+  static void
+  data_channel_on_message_string_cb(
+    GstWebRTCDataChannel * self,
+    gchar * str,
     gpointer user_data
   );
 
@@ -241,6 +257,7 @@ protected:
 
   GstWebRTCDataChannel * data_channel_rx_;
   GstWebRTCDataChannel * data_channel_tx_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr data_channel_sub_;
 
 };
 
