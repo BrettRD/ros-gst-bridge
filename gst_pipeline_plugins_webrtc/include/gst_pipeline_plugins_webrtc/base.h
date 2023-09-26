@@ -19,8 +19,14 @@ namespace gst_pipeline_plugins_webrtc
 
 
 */
+class datachannel_handler;
+
 class base : public gst_pipeline::plugin_base
 {
+
+// allow data_channel derived types to interact with node_if_ and pipeline_
+friend class datachannel_handler;
+
 public:
   // during init, we need to
 
@@ -180,53 +186,12 @@ public:
 
 
   // ###################### Callbacks for data channels ######################
-  // the remote peer opened an outbound a data channel, and the bin has accepted it.
 
-  void data_channel_sub_cb(const std_msgs::msg::String::SharedPtr msg);
-
-  void
-  connect_data_channel_signals(
-    GstWebRTCDataChannel * channel
-  );
-
+  // either local or remote has opened a data channel, 
   static void
   on_data_channel_cb(
     GstElement * object,
     GstWebRTCDataChannel * channel,
-    gpointer user_data
-  );
-
-  // the data channel has received new data
-  static void
-  data_channel_on_message_data_cb(
-    GstWebRTCDataChannel * self,
-    GBytes * data,
-    gpointer user_data
-  );
-
-  static void
-  data_channel_on_message_string_cb(
-    GstWebRTCDataChannel * self,
-    gchar * str,
-    gpointer user_data
-  );
-
-  static void
-  data_channel_on_error_cb(
-    GstWebRTCDataChannel * self,
-    GError * error,
-    gpointer user_data
-  );
-
-  static void
-  data_channel_on_open_cb(
-    GstWebRTCDataChannel * self,
-    gpointer user_data
-  );
-
-  static void
-  data_channel_on_close_cb(
-    GstWebRTCDataChannel * self,
     gpointer user_data
   );
 
@@ -255,9 +220,8 @@ protected:
   // a pointer to the bridge elements in the pipeline
   GstBin * webrtc_;
 
-  GstWebRTCDataChannel * data_channel_rx_;
-  GstWebRTCDataChannel * data_channel_tx_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr data_channel_sub_;
+  std::vector<std::shared_ptr<datachannel_handler> > data_channels_;
+
 
 };
 

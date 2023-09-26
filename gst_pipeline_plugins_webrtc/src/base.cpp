@@ -1,4 +1,5 @@
 #include <base.h>
+#include <datachannel.h>
 
 #include <fstream>  // writing sdp messages as debug output
 
@@ -12,9 +13,7 @@ void base::initialise(
   name_ = name;
   node_if_ = node_if;
   pipeline_ = pipeline;
-  data_channel_tx_ = NULL;
-  data_channel_rx_ = NULL;
-  data_channel_sub_= nullptr;
+
   elem_name_ = node_if->parameters->declare_parameter(
     name_ + ".element_name",
     rclcpp::ParameterValue("mysrc"),
@@ -103,26 +102,12 @@ void base::initialise(
       g_signal_connect(webrtc_, "pad-added", G_CALLBACK(pad_added_cb), this);
 
 
-
       // hook to the async "message" signal emitted by the bus
       GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE (pipeline_));
       g_signal_connect (bus, "message", (GCallback) base::gst_bus_cb, static_cast<gpointer>(this));
       gst_object_unref(bus);
 
       g_signal_connect(webrtc_, "on-data-channel", G_CALLBACK(on_data_channel_cb), this);
-
-      data_channel_sub_ = rclcpp::create_subscription<std_msgs::msg::String> (
-        node_if->parameters,
-        node_if->topics,
-        "~/topic",
-        10,
-        std::bind(
-          &base::data_channel_sub_cb,
-          this,
-          std::placeholders::_1
-        )
-      );
-
 
       init_signalling_server_client();
 
@@ -260,21 +245,27 @@ base::on_negotiation_needed_cb(
   //  and needs to be created after the pipeline has reached a ready state
 
   // data channels requires gstreamer 1.18 or higher
-  if(!this_ptr->data_channel_tx_){
-    // offer a data channel
-    g_signal_emit_by_name(this_ptr->webrtc_, "create-data-channel", this_ptr->name_.c_str(), NULL, &this_ptr->data_channel_tx_);
-    if (this_ptr->data_channel_tx_) {
-      RCLCPP_INFO(
-        this_ptr->node_if_->logging->get_logger(),
-        "Created tx data channel"
-      );
-      this_ptr->connect_data_channel_signals (this_ptr->data_channel_tx_);
-    } else {
-      RCLCPP_ERROR(
-        this_ptr->node_if_->logging->get_logger(),
-        "Could not create tx data channel, is usrsctp available?"
-      );
-    }
+  GstWebRTCDataChannel * dc = NULL; // dc will be stored in on_data_channel_cb
+  g_signal_emit_by_name(this_ptr->webrtc_, "create-data-channel",
+    this_ptr->name_.c_str(),  // label
+    NULL, // options
+    &dc // return value
+  );
+  if (dc){
+    RCLCPP_ERROR(
+      this_ptr->node_if_->logging->get_logger(),
+      "local created data channel"
+    );
+    std::shared_ptr<datachannel_handler> handler = std::make_shared<datachannel_handler>();  // default construct
+    handler->init(this_ptr, dc);
+    this_ptr->data_channels_.push_back(std::move(handler));
+  }
+  else
+  {
+    RCLCPP_ERROR(
+      this_ptr->node_if_->logging->get_logger(),
+      "Could not create tx data channel, is usrsctp available?"
+    );
   }
 
 
@@ -735,49 +726,6 @@ base::ice_candidate_received(
 
 // ############### data channel callbacks ###############
 
-// XXX move this into a data channel handler class
-
-void
-base::data_channel_sub_cb(const std_msgs::msg::String::SharedPtr msg)
-{
-  //GBytes* data = g_bytes_new (msg->data.data(), msg->data.size());
-  //if(data_channel_tx_  && data){
-  //  gst_webrtc_data_channel_send_data (data_channel_tx_, data);
-  //}
-  //else
-  //{
-  //  RCLCPP_ERROR(
-  //    node_if_->logging->get_logger(),
-  //    "Something is broken with the tx data channel"
-  //  );
-  //}
-  //g_bytes_unref(data);
-  g_signal_emit_by_name (data_channel_tx_, "send-string", msg->data.c_str());
-
-}
-
-void
-base::connect_data_channel_signals (
-  GstWebRTCDataChannel * data_channel
-){
-  GValue dc_label = {0,0};
-  g_object_get_property((GObject*)data_channel, "label", &dc_label);
-  RCLCPP_INFO(
-    node_if_->logging->get_logger(),
-    "Connecting signals for data channel '%s'",
-    g_value_get_string(&dc_label)
-  );
-
-  g_signal_connect (data_channel, "on-error", G_CALLBACK (data_channel_on_error_cb), this);
-  g_signal_connect (data_channel, "on-open", G_CALLBACK (data_channel_on_open_cb), this);
-  g_signal_connect (data_channel, "on-close", G_CALLBACK (data_channel_on_close_cb), this);
-  g_signal_connect (data_channel, "on-message-data", G_CALLBACK (data_channel_on_message_data_cb), this);
-  g_signal_connect (data_channel, "on-message-string", G_CALLBACK (data_channel_on_message_string_cb), this);
-
-}
-
-
-
 // remote peer has offered a data channel to send us data
 void
 base::on_data_channel_cb(
@@ -787,115 +735,21 @@ base::on_data_channel_cb(
 ){
   (void) object;
   base* this_ptr = (base*) user_data;
-  this_ptr->data_channel_rx_ = channel; // XXX use a setter method
 
-  GValue dc_label = {0,0};
-  g_object_get_property((GObject*)channel, "label", &dc_label);
+  GValue dc_label_val = {0,0};
+  g_object_get_property((GObject*)channel, "label", &dc_label_val);
+  std::string label(g_value_get_string(&dc_label_val));
   RCLCPP_INFO(
     this_ptr->node_if_->logging->get_logger(),
     "webrtcbin created a data channel with label '%s'",
-    g_value_get_string(&dc_label)
+    label.c_str()
   );
 
-  // events associated with data channels:
-  // XXX call this on the data channel handler instead of this_ptr
-  this_ptr->connect_data_channel_signals(channel);
-}
+  // XXX choose the type of handler based on label and config
+  std::shared_ptr<datachannel_handler> handler = std::make_shared<datachannel_handler>();  // default construct
 
-void
-base::data_channel_on_message_data_cb(
-  GstWebRTCDataChannel * self,
-  GBytes * data,
-  gpointer user_data
-){
-  base* this_ptr = (base*) user_data;
-
-  gsize msg_size = 0;
-  const char* msg_data = (const char*) g_bytes_get_data (data, &msg_size);
-  std::string msg_str = std::string(msg_data, msg_size);
-
-
-  GValue dc_label = {0,0};
-  g_object_get_property((GObject*)self, "label", &dc_label);
-
-  RCLCPP_INFO(
-    this_ptr->node_if_->logging->get_logger(),
-    "Data channel %s received a data message %s",
-    g_value_get_string(&dc_label),
-    msg_str.c_str()
-  );
-}
-
-
-void
-base::data_channel_on_message_string_cb(
-  GstWebRTCDataChannel * self,
-  gchar * str,
-  gpointer user_data
-){
-  base* this_ptr = (base*) user_data;
-
-  GValue dc_label = {0,0};
-  g_object_get_property((GObject*)self, "label", &dc_label);
-
-  RCLCPP_INFO(
-    this_ptr->node_if_->logging->get_logger(),
-    "A data channel %s received a string message %s",
-    g_value_get_string(&dc_label),
-    str
-  );
-}
-
-
-void
-base::data_channel_on_open_cb(
-  GstWebRTCDataChannel * self,
-  gpointer user_data
-){
-  base* this_ptr = (base*) user_data;
-
-  GValue dc_label = {0,0};
-  g_object_get_property((GObject*)self, "label", &dc_label);   // get the current value
-
-  RCLCPP_INFO(
-    this_ptr->node_if_->logging->get_logger(),
-    "A data channel opened with label '%s'",
-    g_value_get_string(&dc_label)
-  );
-
-  g_signal_emit_by_name (self, "send-string", "Hi! from GStreamer");
-
-}
-
-
-void
-base::data_channel_on_error_cb(
-  GstWebRTCDataChannel * self,
-  GError * error,
-  gpointer user_data
-){
-  (void) error;
-  base* this_ptr = (base*) user_data;
-
-  GValue dc_label = {0,0};
-  g_object_get_property((GObject*)self, "label", &dc_label);   // get the current value
-
-  RCLCPP_INFO(
-    this_ptr->node_if_->logging->get_logger(),
-    "Error on data channel '%s'",
-    g_value_get_string(&dc_label)
-  );
-}
-
-
-void
-base::data_channel_on_close_cb(
-  GstWebRTCDataChannel * self,
-  gpointer user_data
-){
-  (void) self;
-  (void) user_data;
-  // base* this_ptr = (base*) user_data;
+  handler->init(this_ptr, channel);
+  this_ptr->data_channels_.push_back(std::move(handler));
 }
 
 

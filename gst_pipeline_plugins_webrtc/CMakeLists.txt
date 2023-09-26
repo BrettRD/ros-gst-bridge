@@ -60,6 +60,7 @@ include_directories(include/${PROJECT_NAME})
 add_library(${PROJECT_NAME} SHARED
   src/base.cpp
   src/websockets.cpp
+  src/datachannel.cpp
 )
 
 # XXX linker error regarding visibility of global variables provided by libsoup
