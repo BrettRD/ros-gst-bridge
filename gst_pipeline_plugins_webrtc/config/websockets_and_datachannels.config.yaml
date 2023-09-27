@@ -1,0 +1,53 @@
+gst_pipeline_node:
+  ros__parameters:
+
+
+    gst_plugin_paths:
+      - 'install/gst_bridge/lib/gst_bridge/'
+    # XXX use the colcon package finder too
+
+    pipeline_base_descr: " \
+      webrtcbin name=sendrecv stun-server=stun://stun.l.google.com:19302  \
+      audiotestsrc is-live=true wave=red-noise volume=0.1 ! audioconvert ! audioresample \
+      ! queue ! opusenc ! rtpopuspay name=audiopay pt=97  \
+      ! application/x-rtp, encoding-name=OPUS ! queue \
+      ! sendrecv. \
+      videotestsrc is-live=true pattern=ball ! videoconvert ! queue \
+      ! vp8enc deadline=1 keyframe-max-dist=2000 \
+      ! rtpvp8pay name=videopay picture-id-mode=15-bit pt=96 ! queue \
+      ! sendrecv. \
+      "
+
+    ros_plugin_names:
+      - "webrtc_handler"
+
+    webrtc_handler:
+      # classloader plugin type
+      type: "gst_pipeline_plugins_webrtc::websockets"
+      # the name of the element to manage
+      element_name: "sendrecv"
+      # write debug output
+      generate_debug_files: True
+      # additional pipeline segments to load
+      video_sink_descr: ' queue ! videoconvert ! autovideosink'
+      audio_sink_descr: ' queue ! audioconvert ! autoaudiosink'
+      # XXX some use cases will need to re-structure the pipeline when the a/v sink pads come up
+      #  This might better left to a dedicated pipeline mangler plugin
+
+      # signalling server implementation specific details
+      signalling_server: 'wss://webrtc.gstreamer.net:8443'
+      node_id: '1125'
+      peer_id: '1545'
+      remote_is_offerer: False
+      local_is_offerer: False
+
+      datachannel_labels:
+        - label
+      
+      # https://webrtc.gstreamer.net/ creates a datachannel with label "label"
+      label:
+        type: "datachannel_handler_string_topic"
+        create: False
+
+
+

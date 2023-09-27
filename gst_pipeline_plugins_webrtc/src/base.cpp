@@ -41,6 +41,13 @@ void base::initialise(
   ).get<std::string>();
 
 
+  datachannel_label_ = node_if->parameters->declare_parameter(
+    name_ + ".datachannel_labels",
+    rclcpp::ParameterValue(datachannel_label_),
+    descr("list of names for each datachannel handler", true)
+  ).get<std::vector<std::string> >();
+
+
   audio_loop_sink_ = node_if->parameters->declare_parameter(
     name_ + ".audio_loop_sink",
     rclcpp::ParameterValue(""),
@@ -67,6 +74,36 @@ void base::initialise(
       true
     )
   ).get<bool>();
+
+
+
+
+  for (auto label : datachannel_label_) {
+    std::string type;
+    bool create;
+
+    type = node_if->parameters->declare_parameter(
+      name_ + "." + label + ".type",
+      rclcpp::ParameterValue(""),
+      descr("the type of plugin to handle the datachannel", true)
+    ).get<std::string>();
+
+    create = node_if->parameters->declare_parameter(
+      name_ + "." + label + ".create",
+      rclcpp::ParameterValue(false),
+      descr("Local should create this data channel", true)
+    ).get<bool>();
+
+    data_channel_type_[label] = type;
+    data_channel_create_[label] = create;
+
+    RCLCPP_INFO(node_if->logging->get_logger(),
+      "%s preparing to load a %s for datachannel %s",
+      name_.c_str(), type.c_str(), label.c_str()
+    );
+  }
+
+
 
 
 
@@ -245,27 +282,36 @@ base::on_negotiation_needed_cb(
   //  and needs to be created after the pipeline has reached a ready state
 
   // data channels requires gstreamer 1.18 or higher
-  GstWebRTCDataChannel * dc = NULL; // dc will be stored in on_data_channel_cb
-  g_signal_emit_by_name(this_ptr->webrtc_, "create-data-channel",
-    this_ptr->name_.c_str(),  // label
-    NULL, // options
-    &dc // return value
-  );
-  if (dc){
-    RCLCPP_ERROR(
-      this_ptr->node_if_->logging->get_logger(),
-      "local created data channel"
-    );
-    std::shared_ptr<datachannel_handler> handler = std::make_shared<datachannel_handler_string_topic>();  // default construct
-    handler->initialise(this_ptr, dc);
-    this_ptr->data_channels_.push_back(std::move(handler));
-  }
-  else
-  {
-    RCLCPP_ERROR(
-      this_ptr->node_if_->logging->get_logger(),
-      "Could not create tx data channel, is usrsctp available?"
-    );
+
+  for (auto label : this_ptr->datachannel_label_) {
+    if(this_ptr->data_channel_create_[label])
+    {
+      GstWebRTCDataChannel * dc = NULL;
+      g_signal_emit_by_name(this_ptr->webrtc_, "create-data-channel",
+        label.c_str(),  // label
+        NULL, // options
+        &dc // return value
+      );
+      if (dc){
+        RCLCPP_ERROR(
+          this_ptr->node_if_->logging->get_logger(),
+          "local created data channel"
+        );
+        std::string type = this_ptr->data_channel_type_[label];
+        // XXX ask pluginlib if type exists
+
+        std::shared_ptr<datachannel_handler> handler = std::make_shared<datachannel_handler_string_topic>();  // default construct
+        handler->initialise(this_ptr, dc);
+        this_ptr->data_channels_.push_back(std::move(handler));
+      }
+      else
+      {
+        RCLCPP_ERROR(
+          this_ptr->node_if_->logging->get_logger(),
+          "Could not create tx data channel, is usrsctp available?"
+        );
+      }
+    }
   }
 
 
@@ -745,11 +791,18 @@ base::on_data_channel_cb(
     label.c_str()
   );
 
-  // XXX choose the type of handler based on label and config
-  std::shared_ptr<datachannel_handler> handler = std::make_shared<datachannel_handler_string_topic>();  // default construct
+  if((this_ptr->data_channel_type_.end() !=
+    this_ptr->data_channel_type_.find(label)) &&
+    (!this_ptr->data_channel_create_[label])
+  )
+  {
+    std::string type = this_ptr->data_channel_type_[label];
+    // XXX ask pluginlib if type exists
+    std::shared_ptr<datachannel_handler> handler = std::make_shared<datachannel_handler_string_topic>();  // default construct
 
-  handler->initialise(this_ptr, channel);
-  this_ptr->data_channels_.push_back(std::move(handler));
+    handler->initialise(this_ptr, channel);
+    this_ptr->data_channels_.push_back(std::move(handler));
+  }
 }
 
 

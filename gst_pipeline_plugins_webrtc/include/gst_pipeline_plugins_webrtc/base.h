@@ -216,12 +216,13 @@ protected:
   std::string audio_loop_sink_;   // the element to feed audio back into
   std::string video_loop_sink_;   // the element to feed video back into
   bool generate_debug_files_;   // generate dotfiles and write sdp messages to file
-
+  std::vector<std::string> datachannel_label_;
+  std::unordered_map<std::string, std::string> data_channel_type_;
+  std::unordered_map<std::string, bool> data_channel_create_;
   // a pointer to the bridge elements in the pipeline
   GstBin * webrtc_;
 
   std::vector<std::shared_ptr<datachannel_handler> > data_channels_;
-
 
 };
 
