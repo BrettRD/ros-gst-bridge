@@ -1,10 +1,17 @@
 #ifndef GST_PIPELINE_PLUGINS_WEBRTC__DATACHANNEL_H_
 #define GST_PIPELINE_PLUGINS_WEBRTC__DATACHANNEL_H_
 
-#include <base.h>
+#include "std_msgs/msg/string.hpp"  // XXX derived class
+
+
+#include <gst/gst.h>
+#include <gst/sdp/sdp.h>
+#define GST_USE_UNSTABLE_API
+#include <gst/webrtc/webrtc.h>
 
 namespace gst_pipeline_plugins_webrtc
 {
+class base; // forward declaration avoids a dependency
 
 class datachannel_handler
 {

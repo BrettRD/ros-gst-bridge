@@ -43,11 +43,16 @@ gst_pipeline_node:
 
       datachannel_labels:
         - label
+        - dummy
       
       # https://webrtc.gstreamer.net/ creates a datachannel with label "label"
       label:
-        type: "datachannel_handler_string_topic"
+        type: "gst_pipeline_plugins_webrtc::datachannel_handler_string_topic"
         create: False
 
+      # create an outbound channel on startup so that it's included in the SDP
+      dummy:
+        type: "gst_pipeline_plugins_webrtc::datachannel_handler_string_topic"
+        create: True
 
 

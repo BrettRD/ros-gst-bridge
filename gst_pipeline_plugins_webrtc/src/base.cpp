@@ -1,5 +1,5 @@
 #include <base.h>
-#include <datachannel.h>
+//#include <datachannel.h>
 
 #include <fstream>  // writing sdp messages as debug output
 
@@ -104,6 +104,9 @@ void base::initialise(
   }
 
 
+  // XXX maybe make this conditional on datachannel_label_ being empty
+  data_channel_loader_ = std::make_unique<pluginlib::ClassLoader<datachannel_handler> >(
+    "gst_pipeline_plugins_webrtc", "gst_pipeline_plugins_webrtc::datachannel_handler");
 
 
 
@@ -286,23 +289,18 @@ base::on_negotiation_needed_cb(
   for (auto label : this_ptr->datachannel_label_) {
     if(this_ptr->data_channel_create_[label])
     {
-      GstWebRTCDataChannel * dc = NULL;
+      GstWebRTCDataChannel * channel = NULL;
       g_signal_emit_by_name(this_ptr->webrtc_, "create-data-channel",
         label.c_str(),  // label
         NULL, // options
-        &dc // return value
+        &channel // return value
       );
-      if (dc){
+      if (channel){
         RCLCPP_ERROR(
           this_ptr->node_if_->logging->get_logger(),
           "local created data channel"
         );
-        std::string type = this_ptr->data_channel_type_[label];
-        // XXX ask pluginlib if type exists
-
-        std::shared_ptr<datachannel_handler> handler = std::make_shared<datachannel_handler_string_topic>();  // default construct
-        handler->initialise(this_ptr, dc);
-        this_ptr->data_channels_.push_back(std::move(handler));
+        this_ptr->create_data_channel_handler(label, channel, true);
       }
       else
       {
@@ -790,18 +788,50 @@ base::on_data_channel_cb(
     "webrtcbin created a data channel with label '%s'",
     label.c_str()
   );
+  this_ptr->create_data_channel_handler(label, channel, false);
 
-  if((this_ptr->data_channel_type_.end() !=
-    this_ptr->data_channel_type_.find(label)) &&
-    (!this_ptr->data_channel_create_[label])
-  )
+}
+
+void base::create_data_channel_handler(
+  std::string label,
+  GstWebRTCDataChannel * channel,
+  const bool create_at_startup)
+{
+  if(data_channel_type_.end() !=
+    data_channel_type_.find(label))
   {
-    std::string type = this_ptr->data_channel_type_[label];
-    // XXX ask pluginlib if type exists
-    std::shared_ptr<datachannel_handler> handler = std::make_shared<datachannel_handler_string_topic>();  // default construct
-
-    handler->initialise(this_ptr, channel);
-    this_ptr->data_channels_.push_back(std::move(handler));
+    if(create_at_startup == data_channel_create_[label])
+    {
+      std::string type = data_channel_type_[label];
+      if(data_channel_loader_->isClassAvailable(type))
+      {
+        RCLCPP_INFO(
+          node_if_->logging->get_logger(),
+          "creating data channel handler for label '%s'",
+          label.c_str()
+        );
+        std::shared_ptr<datachannel_handler> handler =
+          data_channel_loader_->createSharedInstance(type);
+        handler->initialise(this, channel);
+        data_channels_.push_back(std::move(handler));
+      }
+      else
+      {
+        RCLCPP_ERROR(
+          node_if_->logging->get_logger(),
+          "data channel handler type '%s' is unknown",
+          type.c_str()
+        );
+      }
+    }
+    else
+    {
+      RCLCPP_INFO(
+        node_if_->logging->get_logger(),
+        "data channel label '%s' not matched",
+        label.c_str()
+      );
+    }
   }
 }
 

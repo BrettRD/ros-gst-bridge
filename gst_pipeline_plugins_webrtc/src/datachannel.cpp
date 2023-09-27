@@ -21,6 +21,7 @@ https://github.com/ika-rwth-aachen/mqtt_client/blob/main/mqtt_client/src/MqttCli
 
 */
 
+#include <base.h>
 #include <datachannel.h>
 
 namespace gst_pipeline_plugins_webrtc
@@ -222,6 +223,8 @@ datachannel_handler_string_topic::on_open_cb(GstWebRTCDataChannel * channel)
 
 }
 
+#include <pluginlib/class_list_macros.hpp>
+PLUGINLIB_EXPORT_CLASS(gst_pipeline_plugins_webrtc::datachannel_handler_string_topic, gst_pipeline_plugins_webrtc::datachannel_handler)
 
 }  // namespace gst_pipeline_plugins_webrtc
 

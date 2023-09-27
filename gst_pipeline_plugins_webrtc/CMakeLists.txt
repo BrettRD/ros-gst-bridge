@@ -136,6 +136,7 @@ install(TARGETS ${PROJECT_NAME}
 #
 
 pluginlib_export_plugin_description_file(gst_pipeline plugins.xml)
+pluginlib_export_plugin_description_file(gst_pipeline_plugins_webrtc datachannel_plugins.xml)
 
 ament_export_include_directories(include)
 

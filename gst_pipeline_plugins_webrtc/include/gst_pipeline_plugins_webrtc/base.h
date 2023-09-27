@@ -5,7 +5,9 @@
 #include <gst_pipeline/plugin_base.h>
 
 #include "rclcpp/rclcpp.hpp"
-#include "std_msgs/msg/string.hpp"  // XXX data channel
+
+#include <pluginlib/class_loader.hpp> // load handlers for data channels
+#include <datachannel.h>  // classloader
 
 #include <gst/gst.h>
 #include <gst/sdp/sdp.h>
@@ -187,6 +189,13 @@ public:
 
   // ###################### Callbacks for data channels ######################
 
+  // fetch a handler from pluginlib
+void create_data_channel_handler(
+  std::string label,
+  GstWebRTCDataChannel * channel,
+  const bool create_at_startup);
+
+
   // either local or remote has opened a data channel, 
   static void
   on_data_channel_cb(
@@ -222,6 +231,8 @@ protected:
   // a pointer to the bridge elements in the pipeline
   GstBin * webrtc_;
 
+
+  std::unique_ptr<pluginlib::ClassLoader<datachannel_handler>> data_channel_loader_;
   std::vector<std::shared_ptr<datachannel_handler> > data_channels_;
 
 };
