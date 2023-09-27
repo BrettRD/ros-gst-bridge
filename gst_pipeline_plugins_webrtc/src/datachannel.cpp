@@ -27,27 +27,15 @@ namespace gst_pipeline_plugins_webrtc
 {
 
 void
-datachannel_handler::data_channel_sub_cb(const std_msgs::msg::String::SharedPtr msg)
+datachannel_handler::initialise (base* base, GstWebRTCDataChannel * data_channel)
 {
-  g_signal_emit_by_name (channel_, "send-string", msg->data.c_str());
-}
-
-void
-datachannel_handler::init (
-  base* base,
-  GstWebRTCDataChannel * data_channel
-){
   base_ = base;
   channel_ = data_channel;
-
-  GValue dc_label_val = {0,0};
-  g_object_get_property((GObject*)channel_, "label", &dc_label_val);
-  std::string label(g_value_get_string(&dc_label_val));
 
   RCLCPP_INFO(
     base->node_if_->logging->get_logger(),
     "Connecting signals for data channel '%s'",
-    label.c_str()
+    get_label(channel_).c_str()
   );
 
   g_signal_connect (channel_, "on-error", G_CALLBACK (data_channel_on_error_cb), this);
@@ -58,117 +46,181 @@ datachannel_handler::init (
 }
 
 
-void
-datachannel_handler::data_channel_on_message_data_cb(
-  GstWebRTCDataChannel * channel,
-  GBytes * data,
-  gpointer user_data
-){
-  datachannel_handler* this_ptr = (datachannel_handler*) user_data;
+// ############### overridable example callbacks for datachannel events ###############
 
+
+void
+datachannel_handler::on_message_data_cb(GstWebRTCDataChannel * channel, GBytes * data)
+{
   gsize msg_size = 0;
   const char* msg_data = (const char*) g_bytes_get_data (data, &msg_size);
   std::string msg_str = std::string(msg_data, msg_size);
 
-
-  GValue dc_label = {0,0};
-  g_object_get_property((GObject*)channel, "label", &dc_label);
-
   RCLCPP_INFO(
-    this_ptr->base_->node_if_->logging->get_logger(),
+    base_->node_if_->logging->get_logger(),
     "Data channel %s received a data message %s",
-    g_value_get_string(&dc_label),
+    get_label(channel).c_str(),
     msg_str.c_str()
   );
 }
 
 
 void
-datachannel_handler::data_channel_on_message_string_cb(
-  GstWebRTCDataChannel * channel,
-  gchar * str,
-  gpointer user_data
-){
-  datachannel_handler* this_ptr = (datachannel_handler*) user_data;
-
-  GValue dc_label = {0,0};
-  g_object_get_property((GObject*)channel, "label", &dc_label);
-
+datachannel_handler::on_message_string_cb(GstWebRTCDataChannel * channel, gchar * str)
+{
   RCLCPP_INFO(
-    this_ptr->base_->node_if_->logging->get_logger(),
+    base_->node_if_->logging->get_logger(),
     "A data channel %s received a string message %s",
-    g_value_get_string(&dc_label),
+    get_label(channel).c_str(),
     str
   );
 }
 
 
 void
-datachannel_handler::data_channel_on_open_cb(
-  GstWebRTCDataChannel * channel,
-  gpointer user_data
-){
-  datachannel_handler* this_ptr = (datachannel_handler*) user_data;
+datachannel_handler::on_open_cb(GstWebRTCDataChannel * channel)
+{
+  RCLCPP_INFO(
+    base_->node_if_->logging->get_logger(),
+    "A data channel opened with label '%s'",
+    get_label(channel).c_str()
+  );
+  g_signal_emit_by_name (channel, "send-string", "Hi! from ros-gst-bridge");
+}
 
-  GValue dc_label_val = {0,0};
-  g_object_get_property((GObject*)channel, "label", &dc_label_val);
-  std::string label(g_value_get_string(&dc_label_val));
+
+void
+datachannel_handler::on_error_cb(GstWebRTCDataChannel * channel, GError * error)
+{
+  (void) error;
 
   RCLCPP_INFO(
-    this_ptr->base_->node_if_->logging->get_logger(),
-    "A data channel opened with label '%s'",
-    label.c_str()
+    base_->node_if_->logging->get_logger(),
+    "Error on data channel '%s'",
+    get_label(channel).c_str()
   );
+}
 
 
-  this_ptr->data_channel_sub_ = rclcpp::create_subscription<std_msgs::msg::String> (
-    this_ptr->base_->node_if_->parameters,
-    this_ptr->base_->node_if_->topics,
-    "~/"+this_ptr->base_->name_+"/"+label,
+void
+datachannel_handler::on_close_cb(GstWebRTCDataChannel * channel)
+{
+  (void) channel;
+}
+
+
+
+// ############### C style static callbacks for datachannel logic ###############
+
+
+// the data channel has received new data
+void
+datachannel_handler::data_channel_on_message_data_cb(
+  GstWebRTCDataChannel * dc, GBytes * data, gpointer user_data)
+{
+  ((datachannel_handler*) user_data)->on_message_data_cb(dc, data);
+}
+
+void
+datachannel_handler::data_channel_on_message_string_cb(
+  GstWebRTCDataChannel * dc, gchar * str, gpointer user_data)
+{
+  ((datachannel_handler*) user_data)->on_message_string_cb(dc, str);
+}
+
+void
+datachannel_handler::data_channel_on_error_cb(
+  GstWebRTCDataChannel * dc, GError * error, gpointer user_data)
+{
+  ((datachannel_handler*) user_data)->on_error_cb(dc, error);
+}
+
+void
+datachannel_handler::data_channel_on_open_cb(GstWebRTCDataChannel * dc, gpointer user_data)
+{
+  ((datachannel_handler*) user_data)->on_open_cb(dc);
+}
+
+void
+datachannel_handler::data_channel_on_close_cb(
+  GstWebRTCDataChannel * dc, gpointer user_data)
+{
+  ((datachannel_handler*) user_data)->on_close_cb(dc);
+}
+
+// ############### convenience functions ###############
+std::string datachannel_handler::get_label(GstWebRTCDataChannel * dc)
+{
+  GValue val = {0,0};
+  g_object_get_property((GObject*)dc, "label", &val);
+  return std::string (g_value_get_string(&val));
+}
+
+std::shared_ptr<gst_bridge::node_interface_collection>
+datachannel_handler::get_base_node_if(base* base)
+{
+  return base->node_if_;
+}
+GstPipeline* datachannel_handler::get_base_pipeline(base* base)
+{
+  return base->pipeline_;
+}
+std::string datachannel_handler::get_base_name(base* base)
+{
+  return base->name_;
+}
+
+
+
+
+
+
+
+
+// ############### derived class ###############
+
+void
+datachannel_handler_string_topic::sub_cb(
+  const std_msgs::msg::String::SharedPtr msg)
+{
+  g_signal_emit_by_name (channel_, "send-string", msg->data.c_str());
+}
+
+
+void
+datachannel_handler_string_topic::on_message_string_cb(
+  GstWebRTCDataChannel * channel, gchar * str)
+{
+  (void)channel;  // unused
+  std_msgs::msg::String msg;
+  msg.data = str;
+  pub_->publish(msg);
+}
+
+
+void
+datachannel_handler_string_topic::on_open_cb(GstWebRTCDataChannel * channel)
+{
+  sub_ = rclcpp::create_subscription<std_msgs::msg::String> (
+    get_base_node_if(base_)->parameters,
+    get_base_node_if(base_)->topics,
+    "~/"+get_base_name(base_)+"/"+get_label(channel)+"_tx",
     10,
     std::bind(
-      &datachannel_handler::data_channel_sub_cb,
-      this_ptr,
+      &datachannel_handler_string_topic::sub_cb,
+      this,
       std::placeholders::_1
     )
   );
 
-  g_signal_emit_by_name (channel, "send-string", "Hi! from GStreamer");
-
-}
-
-
-void
-datachannel_handler::data_channel_on_error_cb(
-  GstWebRTCDataChannel * channel,
-  GError * error,
-  gpointer user_data
-){
-  (void) error;
-  datachannel_handler* this_ptr = (datachannel_handler*) user_data;
-
-  GValue dc_label = {0,0};
-  g_object_get_property((GObject*)channel, "label", &dc_label);
-
-  RCLCPP_INFO(
-    this_ptr->base_->node_if_->logging->get_logger(),
-    "Error on data channel '%s'",
-    g_value_get_string(&dc_label)
+  pub_ = rclcpp::create_publisher<std_msgs::msg::String>(
+    get_base_node_if(base_)->parameters,
+    get_base_node_if(base_)->topics,
+    "~/"+get_base_name(base_)+"/"+get_label(channel)+"_rx",
+    10
   );
+
 }
-
-
-void
-datachannel_handler::data_channel_on_close_cb(
-  GstWebRTCDataChannel * channel,
-  gpointer user_data
-){
-  (void) channel;
-  (void) user_data;
-  // datachannel_handler* this_ptr = (datachannel_handler*) user_data;
-}
-
-
 
 
 }  // namespace gst_pipeline_plugins_webrtc

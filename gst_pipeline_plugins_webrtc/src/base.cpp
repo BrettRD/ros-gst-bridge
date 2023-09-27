@@ -256,8 +256,8 @@ base::on_negotiation_needed_cb(
       this_ptr->node_if_->logging->get_logger(),
       "local created data channel"
     );
-    std::shared_ptr<datachannel_handler> handler = std::make_shared<datachannel_handler>();  // default construct
-    handler->init(this_ptr, dc);
+    std::shared_ptr<datachannel_handler> handler = std::make_shared<datachannel_handler_string_topic>();  // default construct
+    handler->initialise(this_ptr, dc);
     this_ptr->data_channels_.push_back(std::move(handler));
   }
   else
@@ -746,9 +746,9 @@ base::on_data_channel_cb(
   );
 
   // XXX choose the type of handler based on label and config
-  std::shared_ptr<datachannel_handler> handler = std::make_shared<datachannel_handler>();  // default construct
+  std::shared_ptr<datachannel_handler> handler = std::make_shared<datachannel_handler_string_topic>();  // default construct
 
-  handler->init(this_ptr, channel);
+  handler->initialise(this_ptr, channel);
   this_ptr->data_channels_.push_back(std::move(handler));
 }
 
