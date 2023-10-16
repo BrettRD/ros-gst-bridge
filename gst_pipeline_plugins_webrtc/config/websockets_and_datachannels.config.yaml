@@ -40,3 +40,19 @@ gst_pipeline_node:
       peer_id: '1545'
       remote_is_offerer: False
       local_is_offerer: False
+
+      datachannel_labels:
+        - label
+        - dummy
+      
+      # https://webrtc.gstreamer.net/ creates a datachannel with label "label"
+      label:
+        type: "gst_pipeline_plugins_webrtc::datachannel_handler_string_topic"
+        create: False
+
+      # create an outbound channel on startup so that it's included in the SDP
+      dummy:
+        type: "gst_pipeline_plugins_webrtc::datachannel_handler_string_topic"
+        create: True
+
+

@@ -25,7 +25,8 @@ public:
   //  load the host's node interfaces into the element
   void initialise(
     std::string name,  // the config name of the plugin
-    std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
+    std::shared_ptr<gst_bridge::node_interface_collection> node_if,
+    GstPipeline * pipeline);
 
 private:
   // the name of the target element in the pipeline

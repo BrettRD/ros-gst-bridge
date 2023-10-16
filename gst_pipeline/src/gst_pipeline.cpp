@@ -95,7 +95,9 @@ gst_pipeline::gst_pipeline(const rclcpp::NodeOptions & options) : Node("gst_pipe
       get_logger(), "instantiating a pipeline using description '%s'",
       gst_pipeline_base_descr_.c_str());
 
-    pipeline_ = gst_parse_launch(gst_pipeline_base_descr_.c_str(), &error);
+    pipeline_ = GST_PIPELINE_CAST(
+      gst_parse_launch(gst_pipeline_base_descr_.c_str(), &error)
+    );
     if (!pipeline_) {
       RCLCPP_FATAL(get_logger(), error->message);
       //return false;
@@ -111,9 +113,12 @@ gst_pipeline::gst_pipeline(const rclcpp::NodeOptions & options) : Node("gst_pipe
   );
 
   // Find the bus associated with the pipeline
-  GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE (pipeline_));
+  GstBus* bus = gst_pipeline_get_bus(pipeline_);
   // attach the default bus watcher that converts messages to signals
   gst_bus_add_signal_watch(bus);
+  // XXX consider using
+  //     gst_bus_enable_sync_message_emission(bus);
+  //     can we use both?
   gst_object_unref(bus);
 
   // XXX Connect to the pipeline clock
@@ -132,14 +137,14 @@ gst_pipeline::gst_pipeline(const rclcpp::NodeOptions & options) : Node("gst_pipe
   // #### start the pipeline ####
 
   GstStateChangeReturn state_return;
-  state_return = gst_element_set_state(pipeline_, GST_STATE_READY);
+  state_return = gst_element_set_state(GST_ELEMENT_CAST(pipeline_), GST_STATE_READY);
 
   if (GST_STATE_CHANGE_FAILURE != state_return) {
-    state_return = gst_element_set_state(pipeline_, GST_STATE_PAUSED);
+    state_return = gst_element_set_state(GST_ELEMENT_CAST(pipeline_), GST_STATE_PAUSED);
     // XXX Sanity-check that the rosimagesink doesn't just play here
     if (GST_STATE_CHANGE_FAILURE != state_return) {
       // XXX add a play_automatically param defaulting to true
-      state_return = gst_element_set_state(pipeline_, GST_STATE_PLAYING);
+      state_return = gst_element_set_state(GST_ELEMENT_CAST(pipeline_), GST_STATE_PLAYING);
 
       if (GST_STATE_CHANGE_FAILURE != state_return) {
         RCLCPP_INFO(get_logger(), "Pipeline running");

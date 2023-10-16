@@ -6,6 +6,9 @@
 
 #include "rclcpp/rclcpp.hpp"
 
+#include <pluginlib/class_loader.hpp> // load handlers for data channels
+#include <datachannel.h>  // classloader
+
 #include <gst/gst.h>
 #include <gst/sdp/sdp.h>
 #define GST_USE_UNSTABLE_API
@@ -18,8 +21,14 @@ namespace gst_pipeline_plugins_webrtc
 
 
 */
+class datachannel_handler;
+
 class base : public gst_pipeline::plugin_base
 {
+
+// allow data_channel derived types to interact with node_if_ and pipeline_
+friend class datachannel_handler;
+
 public:
   // during init, we need to
 
@@ -36,10 +45,19 @@ public:
   //  connect callbacks to the webrtcbin
   protected:
 
+  // XXX lacking the imagination to do this elegantly
+  struct pad_swap_args_t{
+    base* this_ptr;
+    GstPad* new_src;
+    GstPad* sink_pad;
+    GstPad* old_src;
+  };
+
+
   void initialise(
     std::string name,  // the config name of the plugin
     std::shared_ptr<gst_bridge::node_interface_collection> node_if,
-    GstElement * pipeline
+    GstPipeline * pipeline
   );
 
 
@@ -55,12 +73,12 @@ public:
   virtual void create_offer();
 
   // called when the webrtcbin is instructed to send a sdp offer
-  // default calls  send_sdp(descr)
-  virtual void send_sdp_offer(GstWebRTCSessionDescription * desc);
+  // default calls  send_sdp(offer)
+  virtual void send_sdp_offer(GstWebRTCSessionDescription * offer);
 
   // called when the webrtcbin wants to send a SDP answer
-  // default calls  send_sdp(descr)
-  virtual void send_sdp_answer(GstWebRTCSessionDescription * desc);
+  // default calls  send_sdp(answer)
+  virtual void send_sdp_answer(GstWebRTCSessionDescription * answer);
 
   // send a sdp description to the remote server
   virtual void send_sdp(GstWebRTCSessionDescription * desc) = 0;
@@ -160,9 +178,25 @@ public:
     gpointer user_data
   );
 
+  // This callback is used to dynamically alter the pipeline after pad_added_cb
+  static GstPadProbeReturn
+  gst_pad_swap_cb(
+    GstPad * pad,
+    GstPadProbeInfo * info,
+    gpointer user_data
+  );
+
 
   // ###################### Callbacks for data channels ######################
-  // the remote peer opened an outbound a data channel, and the bin has accepted it.
+
+  // fetch a handler from pluginlib
+void create_data_channel_handler(
+  std::string label,
+  GstWebRTCDataChannel * channel,
+  const bool create_at_startup);
+
+
+  // either local or remote has opened a data channel, 
   static void
   on_data_channel_cb(
     GstElement * object,
@@ -170,33 +204,15 @@ public:
     gpointer user_data
   );
 
-  // the data channel has received new data
-  static void
-  data_channel_on_message_data_cb(
-    GstWebRTCDataChannel * self,
-    GBytes * data,
+
+  // ###################### Callbacks for housekeeping ######################
+
+  static gboolean
+  gst_bus_cb(
+    GstBus* bus,
+    GstMessage* message,
     gpointer user_data
   );
-
-  static void
-  data_channel_on_error_cb(
-    GstWebRTCDataChannel * self,
-    GError * error,
-    gpointer user_data
-  );
-
-  static void
-  data_channel_on_open_cb(
-    GstWebRTCDataChannel * self,
-    gpointer user_data
-  );
-
-  static void
-  data_channel_on_close_cb(
-    GstWebRTCDataChannel * self,
-    gpointer user_data
-  );
-
 
 
 
@@ -204,13 +220,20 @@ protected:
 
   // the name of the target element in the pipeline
   std::string elem_name_;
-  std::string audio_sink_descr_;
-  std::string video_sink_descr_;
+  std::string audio_sink_descr_;  // the audio sink to create on pickup
+  std::string video_sink_descr_;  // the video sink to create on pickup
+  std::string audio_loop_sink_;   // the element to feed audio back into
+  std::string video_loop_sink_;   // the element to feed video back into
+  bool generate_debug_files_;   // generate dotfiles and write sdp messages to file
+  std::vector<std::string> datachannel_label_;
+  std::unordered_map<std::string, std::string> data_channel_type_;
+  std::unordered_map<std::string, bool> data_channel_create_;
   // a pointer to the bridge elements in the pipeline
-  GstElement * webrtc_;
+  GstBin * webrtc_;
 
-  GstWebRTCDataChannel * data_channel_rx_;
-  GstWebRTCDataChannel * data_channel_tx_;
+
+  std::unique_ptr<pluginlib::ClassLoader<datachannel_handler>> data_channel_loader_;
+  std::vector<std::shared_ptr<datachannel_handler> > data_channels_;
 
 };
 

@@ -8,31 +8,34 @@ gst_pipeline_node:
 
     pipeline_base_descr: " \
       webrtcbin name=sendrecv stun-server=stun://stun.l.google.com:19302  \
-      audiotestsrc is-live=true wave=red-noise volume=0.1 ! audioconvert ! audioresample \
+      audiotestsrc is-live=true wave=red-noise ! audioconvert ! audioresample \
       ! queue ! opusenc ! rtpopuspay name=audiopay pt=97  \
       ! application/x-rtp, encoding-name=OPUS ! queue \
       ! sendrecv. \
-      videotestsrc is-live=true pattern=ball ! videoconvert ! queue \
+      videotestsrc is-live=true pattern=ball ! videoconvert name=loop_dest ! queue \
       ! vp8enc deadline=1 keyframe-max-dist=2000 \
       ! rtpvp8pay name=videopay picture-id-mode=15-bit pt=96 ! queue \
       ! sendrecv. \
       "
 
+    # a readable name for the plugin we want to describe here
     ros_plugin_names:
       - "webrtc_handler"
 
+    # the config for a plugin named earlier
     webrtc_handler:
       # classloader plugin type
       type: "gst_pipeline_plugins_webrtc::websockets"
-      # the name of the element to manage
+      # the name of the webrtc element to manage
       element_name: "sendrecv"
       # write debug output
       generate_debug_files: True
+
       # additional pipeline segments to load
-      video_sink_descr: ' queue ! videoconvert ! autovideosink'
+      video_sink_descr: ' queue ! videoconvert ! agingtv ! queue '  # dangling
       audio_sink_descr: ' queue ! audioconvert ! autoaudiosink'
-      # XXX some use cases will need to re-structure the pipeline when the a/v sink pads come up
-      #  This might better left to a dedicated pipeline mangler plugin
+      # XXX  This next bit might be better left to a dedicated pipeline mangler plugin
+      video_loop_sink: 'loop_dest'  # the name of the element to re-connect the video sink pipeline
 
       # signalling server implementation specific details
       signalling_server: 'wss://webrtc.gstreamer.net:8443'

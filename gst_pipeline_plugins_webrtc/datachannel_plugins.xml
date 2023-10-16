@@ -1,0 +1,12 @@
+<library path="gst_pipeline_plugins_webrtc">
+
+  <class type="gst_pipeline_plugins_webrtc::datachannel_handler_string_topic" base_class_type="gst_pipeline_plugins_webrtc::datachannel_handler">
+    <description>
+      bridges a ros string topic through a webrtc data channel
+    </description>
+  </class>
+
+
+
+</library>
+

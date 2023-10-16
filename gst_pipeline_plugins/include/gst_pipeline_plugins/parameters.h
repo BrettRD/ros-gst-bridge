@@ -57,7 +57,8 @@ public:
   //  declare parameters for each prop on the element
   void initialise(
     std::string name,  // the config name of the plugin
-    std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline);
+    std::shared_ptr<gst_bridge::node_interface_collection> node_if,
+    GstPipeline * pipeline);
 
   void iterate_elements(GstBin * item, std::string prefix);
   void iterate_props(GstElement * element, std::string prefix);

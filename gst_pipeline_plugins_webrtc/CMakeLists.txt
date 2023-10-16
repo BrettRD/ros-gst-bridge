@@ -60,6 +60,7 @@ include_directories(include/${PROJECT_NAME})
 add_library(${PROJECT_NAME} SHARED
   src/base.cpp
   src/websockets.cpp
+  src/datachannel.cpp
 )
 
 # XXX linker error regarding visibility of global variables provided by libsoup
@@ -135,6 +136,7 @@ install(TARGETS ${PROJECT_NAME}
 #
 
 pluginlib_export_plugin_description_file(gst_pipeline plugins.xml)
+pluginlib_export_plugin_description_file(gst_pipeline_plugins_webrtc datachannel_plugins.xml)
 
 ament_export_include_directories(include)
 

@@ -382,7 +382,12 @@ websockets::send_ice_candidate(
   JsonObject *ice, *msg;
 
   // sanity check the state of the server
-  if (app_state < PEER_CALL_NEGOTIATING) {
+  // XXX there's a logic bug somewhere,
+  //     if remote asks us to make a SDP offer,
+  //     we don't seem to register session start
+
+  
+  if (app_state < SERVER_REGISTERED) {
     reset_connection (this, "Can't send ICE, not in call", APP_STATE_ERROR);
     return;
   }
@@ -450,8 +455,7 @@ websockets::on_server_message(
       this_ptr->node_if_->logging->get_logger(),
       "Registered with server\n"
     );
-    // XXX logic error here, use the dialout flags
-    //if (this_ptr->peer_id.c_str()) {
+
     if (this_ptr->remote_is_offerer || this_ptr->local_is_offerer){
       // Ask signalling server to connect us with a specific peer
       if (!this_ptr->setup_call ()) {

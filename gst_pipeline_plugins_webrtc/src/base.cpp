@@ -1,10 +1,14 @@
 #include <base.h>
+//#include <datachannel.h>
+
+#include <fstream>  // writing sdp messages as debug output
 
 namespace gst_pipeline_plugins_webrtc
 {
 void base::initialise(
   std::string name,  // the config name of the plugin
-  std::shared_ptr<gst_bridge::node_interface_collection> node_if, GstElement * pipeline)
+  std::shared_ptr<gst_bridge::node_interface_collection> node_if,
+  GstPipeline * pipeline)
 {
   name_ = name;
   node_if_ = node_if;
@@ -37,6 +41,74 @@ void base::initialise(
   ).get<std::string>();
 
 
+  datachannel_label_ = node_if->parameters->declare_parameter(
+    name_ + ".datachannel_labels",
+    rclcpp::ParameterValue(datachannel_label_),
+    descr("list of names for each datachannel handler", true)
+  ).get<std::vector<std::string> >();
+
+
+  audio_loop_sink_ = node_if->parameters->declare_parameter(
+    name_ + ".audio_loop_sink",
+    rclcpp::ParameterValue(""),
+    descr(
+      "used if the audio_sink_descr feeds back to the peer, this selects the element where it is fed back",
+      true
+    )
+  ).get<std::string>();
+
+  video_loop_sink_ = node_if->parameters->declare_parameter(
+    name_ + ".video_loop_sink",
+    rclcpp::ParameterValue(""),
+    descr(
+      "used if the video_sink_descr feeds back to the peer, this selects the element where it is fed back",
+      true
+    )
+  ).get<std::string>();
+
+  generate_debug_files_ = node_if->parameters->declare_parameter(
+    name_ + ".generate_debug_files",
+    rclcpp::ParameterValue(false),
+    descr(
+      "generate dotfiles when the pipeline changes, and write sdp messages to file",
+      true
+    )
+  ).get<bool>();
+
+
+
+
+  for (auto label : datachannel_label_) {
+    std::string type;
+    bool create;
+
+    type = node_if->parameters->declare_parameter(
+      name_ + "." + label + ".type",
+      rclcpp::ParameterValue(""),
+      descr("the type of plugin to handle the datachannel", true)
+    ).get<std::string>();
+
+    create = node_if->parameters->declare_parameter(
+      name_ + "." + label + ".create",
+      rclcpp::ParameterValue(false),
+      descr("Local should create this data channel", true)
+    ).get<bool>();
+
+    data_channel_type_[label] = type;
+    data_channel_create_[label] = create;
+
+    RCLCPP_INFO(node_if->logging->get_logger(),
+      "%s preparing to load a %s for datachannel %s",
+      name_.c_str(), type.c_str(), label.c_str()
+    );
+  }
+
+
+  // XXX maybe make this conditional on datachannel_label_ being empty
+  data_channel_loader_ = std::make_unique<pluginlib::ClassLoader<datachannel_handler> >(
+    "gst_pipeline_plugins_webrtc", "gst_pipeline_plugins_webrtc::datachannel_handler");
+
+
 
   if (GST_IS_BIN(pipeline_)) {
     GstElement * bin = gst_bin_get_by_name(GST_BIN_CAST(pipeline_), elem_name_.c_str());
@@ -46,7 +118,9 @@ void base::initialise(
         name_.c_str(), elem_name_.c_str());
 
       // XXX test if bin_ is a webrtcbin
-      webrtc_ = bin;
+      //if(GST_IS_WEBRTCBIN(bin)){
+        webrtc_ = GST_BIN_CAST(bin);
+      //}
 
 
       // webrtc peer discovery server comms:
@@ -67,16 +141,14 @@ void base::initialise(
       // webrtc will add new pads for audio or video, these need decoding, it's easy to just plug a decodebin into here
       g_signal_connect(webrtc_, "pad-added", G_CALLBACK(pad_added_cb), this);
 
-      /* data channels requires gstreamer 1.18 or higher
+
+      // hook to the async "message" signal emitted by the bus
+      GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE (pipeline_));
+      g_signal_connect (bus, "message", (GCallback) base::gst_bus_cb, static_cast<gpointer>(this));
+      gst_object_unref(bus);
+
       g_signal_connect(webrtc_, "on-data-channel", G_CALLBACK(on_data_channel_cb), this);
 
-      // data channels can be used to create tunnels for ROS serialised transports
-
-      // the remote peer is offering a low latency data channel 
-      // we can offer a low latency data channel back
-      g_signal_emit_by_name(webrtc_, "create-data-channel", "channel", NULL, &data_channel_tx);
-
-      */
       init_signalling_server_client();
 
     }
@@ -124,27 +196,51 @@ void base::begin_negotiate(){
 // called when the webrtcbin wants to send a SDP answer
 // default calls  send_sdp(descr)
 void base::send_sdp_answer(
-  GstWebRTCSessionDescription * desc
+  GstWebRTCSessionDescription * answer
 ){
   RCLCPP_INFO(
     node_if_->logging->get_logger(),
     "Sending sdp answer"
   );
 
-  send_sdp(desc);
+  if(generate_debug_files_){
+    std::ofstream sdp_file;
+    sdp_file.open ("sdp_sent_answer.txt", std::ofstream::app);
+    sdp_file << "type: \n";
+    sdp_file << gst_webrtc_sdp_type_to_string(answer->type);
+    sdp_file << "\n";
+    sdp_file << "message: \n";
+    sdp_file << gst_sdp_message_as_text(answer->sdp);
+    sdp_file << "\n";
+    sdp_file.close();
+  }
+
+  send_sdp(answer);
 }
 
 // called when the webrtcbin is instructed to send a sdp offer
 // default calls  send_sdp(descr)
 void base::send_sdp_offer(
-  GstWebRTCSessionDescription * desc
+  GstWebRTCSessionDescription * offer
 ){
   RCLCPP_INFO(
     node_if_->logging->get_logger(),
     "Sending sdp offer"
   );
 
-  send_sdp(desc);
+  if(generate_debug_files_){
+    std::ofstream sdp_file;
+    sdp_file.open ("sdp_sent_offer.txt", std::ofstream::app);
+    sdp_file << "type: \n";
+    sdp_file << gst_webrtc_sdp_type_to_string(offer->type);
+    sdp_file << "\n";
+    sdp_file << "message: \n";
+    sdp_file << gst_sdp_message_as_text(offer->sdp);
+    sdp_file << "\n";
+    sdp_file.close();
+  }
+
+  send_sdp(offer);
 }
 
 // send a sdp description to the remote server
@@ -181,6 +277,41 @@ base::on_negotiation_needed_cb(
     this_ptr->node_if_->logging->get_logger(),
     "Starting negotiate"
   );
+
+
+  // XXX conditionally open the outbound data channel
+
+  // the data channel needs to be part of the SDP sent to the browser
+  //  and needs to be created after the pipeline has reached a ready state
+
+  // data channels requires gstreamer 1.18 or higher
+
+  for (auto label : this_ptr->datachannel_label_) {
+    if(this_ptr->data_channel_create_[label])
+    {
+      GstWebRTCDataChannel * channel = NULL;
+      g_signal_emit_by_name(this_ptr->webrtc_, "create-data-channel",
+        label.c_str(),  // label
+        NULL, // options
+        &channel // return value
+      );
+      if (channel){
+        RCLCPP_ERROR(
+          this_ptr->node_if_->logging->get_logger(),
+          "local created data channel"
+        );
+        this_ptr->create_data_channel_handler(label, channel, true);
+      }
+      else
+      {
+        RCLCPP_ERROR(
+          this_ptr->node_if_->logging->get_logger(),
+          "Could not create tx data channel, is usrsctp available?"
+        );
+      }
+    }
+  }
+
 
   this_ptr->begin_negotiate();
 }
@@ -244,37 +375,41 @@ base::on_notify_ice_gathering_state_cb(
 
 
 void
-base::on_incoming_decodebin_stream (
+base::on_incoming_decodebin_stream(
   GstElement * decodebin,
   GstPad * pad,
   gpointer user_data
 ){
+  (void) decodebin; // unused
   base* this_ptr = (base*) user_data;
 
   GstCaps *caps;
-  const gchar *name;
+  const gchar *caps_name;
   GstElement* sink_bin = NULL;
   std::string sink_bin_descr;
   bool synced = true;
   caps = gst_pad_get_current_caps (pad);
-  name = gst_structure_get_name (gst_caps_get_structure (caps, 0));
+  caps_name = gst_structure_get_name (gst_caps_get_structure (caps, 0));
+  std::string loop_sink_name;
 
-
-  if (g_str_has_prefix (name, "video"))
+  if (g_str_has_prefix (caps_name, "video"))
   {
     sink_bin_descr = this_ptr->video_sink_descr_;
+    loop_sink_name = this_ptr->video_loop_sink_;
+
   }
-  else if (g_str_has_prefix (name, "audio"))
+  else if (g_str_has_prefix (caps_name, "audio"))
   {
     sink_bin_descr = this_ptr->audio_sink_descr_;
+    loop_sink_name = this_ptr->audio_loop_sink_;
   }
   else
   {
     RCLCPP_ERROR(
       this_ptr->node_if_->logging->get_logger(),
-      "pad_added_cb: Unknown pad %s, ignoring, name = '%s'",
+      "on_incoming_decodebin_stream: Unknown pad %s, ignoring, caps_name = '%s'",
       GST_PAD_NAME (pad),
-      name
+      caps_name
     );
     return;
   }
@@ -285,7 +420,7 @@ base::on_incoming_decodebin_stream (
     sink_bin_descr.c_str()
   );
   sink_bin = gst_parse_bin_from_description(sink_bin_descr.c_str(), true, NULL);
-  gst_bin_add(GST_BIN(this_ptr->pipeline_), sink_bin);
+  gst_bin_add(GST_BIN_CAST(this_ptr->pipeline_), sink_bin);
   synced &= gst_element_sync_state_with_parent(sink_bin);
 
   //gst_element_link(decodebin, sink_bin);
@@ -293,16 +428,86 @@ base::on_incoming_decodebin_stream (
   gst_pad_link (pad, sinkpad);
   gst_object_unref (sinkpad);
 
-  //synced &= gst_bin_sync_children_states(sink_bin);
+  // Optionally reconfigure the pipeline to form a loop
+  // test if the newly created sink bin has a dangling pad
+  GstPad *src_pad = gst_element_get_static_pad (sink_bin, "src");
+  if(src_pad){
+    // locate the destination element
+    GstElement* loop_bin = gst_bin_get_by_name_recurse_up(
+      this_ptr->webrtc_, loop_sink_name.c_str());
+    // set a callback to connect the loop, and destruct the upstream elements
+
+    if(loop_bin){
+      // XXX C style memory management is ugly here
+      pad_swap_args_t* pad_swap_args = (pad_swap_args_t*) malloc(sizeof(pad_swap_args_t));
+      pad_swap_args->this_ptr = this_ptr;
+      pad_swap_args->new_src = src_pad;
+      pad_swap_args->sink_pad = gst_element_get_static_pad(loop_bin, "sink");
+      pad_swap_args->old_src = gst_pad_get_peer(pad_swap_args->sink_pad);
+
+
+      gst_pad_add_probe(
+        src_pad,  // catch the pad immediately
+        GST_PAD_PROBE_TYPE_IDLE,
+        (GstPadProbeCallback)base::gst_pad_swap_cb,
+        static_cast<gpointer>(pad_swap_args),
+        NULL
+      );
+    }
+    else
+    {
+      RCLCPP_ERROR(
+        this_ptr->node_if_->logging->get_logger(),
+        "on_incoming_decodebin_stream: sink pipeline has dangling pads, but loop element '%s' was not found",
+        loop_sink_name.c_str()
+      );
+    }
+
+  }
+
+  // synced &= gst_bin_sync_children_states(sink_bin);
   if(!synced) {
     RCLCPP_ERROR(
       this_ptr->node_if_->logging->get_logger(),
-      "pad_added_cb: could not synchronise '%s' with the webrtcbin",
+      "on_incoming_decodebin_stream: could not synchronise '%s' with the webrtcbin",
       sink_bin_descr.c_str()
     );
   }
 }
 
+GstPadProbeReturn
+base::gst_pad_swap_cb(
+  GstPad * pad,
+  GstPadProbeInfo * info,
+  gpointer user_data
+){
+  (void) pad; //unused
+  (void) info; //unused
+
+  GstPadProbeReturn ret;
+  base* this_ptr = (static_cast<pad_swap_args_t*>(user_data))->this_ptr;
+  GstPad* new_src = (static_cast<pad_swap_args_t*>(user_data))->new_src;
+  GstPad* sink_pad = (static_cast<pad_swap_args_t*>(user_data))->sink_pad;
+  GstPad* old_src = (static_cast<pad_swap_args_t*>(user_data))->old_src;
+  free(user_data);
+
+
+  // XXX we probably need to use a blocking probe on sink_pad before we make the switch
+
+  // swap the streams over
+  bool success = true;
+  success &= gst_pad_unlink(old_src, sink_pad);
+  success &= gst_pad_link (new_src, sink_pad);
+
+  // XXX The shutdown and removal should happen async (glib idle task)
+  // shutdown and remove the old bin
+  GstElement* old_bin = gst_pad_get_parent_element(old_src);
+  gst_element_set_state(old_bin, GST_STATE_NULL);
+  gst_bin_remove(GST_BIN_CAST(this_ptr->pipeline_), old_bin);
+
+  ret = GST_PAD_PROBE_REMOVE;
+  return ret;
+}
 
 void
 base::pad_added_cb(
@@ -310,6 +515,7 @@ base::pad_added_cb(
   GstPad *pad,
   gpointer user_data
 ){
+  (void) webrtc;
   base* this_ptr = (base*) user_data;
 
   GstElement *decodebin;
@@ -415,13 +621,23 @@ base::sdp_answer_received (GstWebRTCSessionDescription * answer)
     "Recieved sdp answer"
   );
 
+  if(generate_debug_files_){
+    std::ofstream sdp_file;
+    sdp_file.open ("sdp_received_answer.txt", std::ofstream::app);
+    sdp_file << "type: \n";
+    sdp_file << gst_webrtc_sdp_type_to_string(answer->type);
+    sdp_file << "\n";
+    sdp_file << "message: \n";
+    sdp_file << gst_sdp_message_as_text(answer->sdp);
+    sdp_file << "\n";
+    sdp_file.close();
+  }
+
   GstPromise *promise = gst_promise_new ();
   g_signal_emit_by_name (webrtc_, "set-remote-description", answer,
     promise);
   gst_promise_interrupt (promise);
   gst_promise_unref (promise);
-  // XXX mark the call as complete
-
 
 }
 
@@ -465,6 +681,18 @@ base::sdp_offer_received(
     node_if_->logging->get_logger(),
     "Recieved sdp offer"
   );
+
+  if(generate_debug_files_){
+    std::ofstream sdp_file;
+    sdp_file.open ("sdp_received_offer.txt", std::ofstream::app);
+    sdp_file << "type: \n";
+    sdp_file << gst_webrtc_sdp_type_to_string(offer->type);
+    sdp_file << "\n";
+    sdp_file << "message: \n";
+    sdp_file << gst_sdp_message_as_text(offer->sdp);
+    sdp_file << "\n";
+    sdp_file.close();
+  }
 
   GstPromise * promise = gst_promise_new_with_change_func(set_remote_description_prom, this, NULL);
 
@@ -518,7 +746,6 @@ base::create_answer_prom(
 
   // XXX send answer to remote peer,
   this_ptr->send_sdp_answer(answer);
-
 }
 
 // ############### async background: ice candidates ###############
@@ -543,7 +770,6 @@ base::ice_candidate_received(
 
 // ############### data channel callbacks ###############
 
-
 // remote peer has offered a data channel to send us data
 void
 base::on_data_channel_cb(
@@ -553,59 +779,137 @@ base::on_data_channel_cb(
 ){
   (void) object;
   base* this_ptr = (base*) user_data;
-  this_ptr->data_channel_rx_ = channel; // XXX use a setter method
 
-  // events associated with data channels:
-  g_signal_connect(channel, "on-error", G_CALLBACK(data_channel_on_error_cb), this_ptr);
-  g_signal_connect(channel, "on-open", G_CALLBACK(data_channel_on_open_cb), this_ptr);
-  g_signal_connect(channel, "on-close", G_CALLBACK(data_channel_on_close_cb), this_ptr);
-  g_signal_connect(channel, "on-message-data ", G_CALLBACK(data_channel_on_message_data_cb), this_ptr);
+  GValue dc_label_val = {0,0};
+  g_object_get_property((GObject*)channel, "label", &dc_label_val);
+  std::string label(g_value_get_string(&dc_label_val));
+  RCLCPP_INFO(
+    this_ptr->node_if_->logging->get_logger(),
+    "webrtcbin created a data channel with label '%s'",
+    label.c_str()
+  );
+  this_ptr->create_data_channel_handler(label, channel, false);
+
 }
 
-void
-base::data_channel_on_message_data_cb(
-  GstWebRTCDataChannel * self,
-  GBytes * data,
-  gpointer user_data
-){
-  (void) self;
-  (void) data;
-  (void) user_data;
-  // base* this_ptr = (base*) user_data;
+void base::create_data_channel_handler(
+  std::string label,
+  GstWebRTCDataChannel * channel,
+  const bool create_at_startup)
+{
+  if(data_channel_type_.end() !=
+    data_channel_type_.find(label))
+  {
+    if(create_at_startup == data_channel_create_[label])
+    {
+      std::string type = data_channel_type_[label];
+      if(data_channel_loader_->isClassAvailable(type))
+      {
+        RCLCPP_INFO(
+          node_if_->logging->get_logger(),
+          "creating data channel handler for label '%s'",
+          label.c_str()
+        );
+        std::shared_ptr<datachannel_handler> handler =
+          data_channel_loader_->createSharedInstance(type);
+        handler->initialise(this, channel);
+        data_channels_.push_back(std::move(handler));
+      }
+      else
+      {
+        RCLCPP_ERROR(
+          node_if_->logging->get_logger(),
+          "data channel handler type '%s' is unknown",
+          type.c_str()
+        );
+      }
+    }
+    else
+    {
+      RCLCPP_INFO(
+        node_if_->logging->get_logger(),
+        "data channel label '%s' not matched",
+        label.c_str()
+      );
+    }
+  }
 }
 
-void
-base::data_channel_on_open_cb(
-  GstWebRTCDataChannel * self,
-  gpointer user_data
-){
-  (void) self;
-  (void) user_data;
-  // base* this_ptr = (base*) user_data;
-}
 
-void
-base::data_channel_on_error_cb(
-  GstWebRTCDataChannel * self,
-  GError * error,
-  gpointer user_data
-){
-  (void) self;
-  (void) error;
-  (void) user_data;
-  // base* this_ptr = (base*) user_data;
-}
+gboolean base::gst_bus_cb(GstBus* bus, GstMessage* message, gpointer user_data)
+{
+  (void)bus;
+  auto* this_ptr = static_cast<base*>(user_data);
 
-void
-base::data_channel_on_close_cb(
-  GstWebRTCDataChannel * self,
-  gpointer user_data
-){
-  (void) self;
-  (void) user_data;
-  // base* this_ptr = (base*) user_data;
-}
 
+  // XXX check that the message comes from our webrtc element
+  //const GstStructure* s;
+  //s = gst_message_get_structure(message);
+  //if (0 == g_strcmp0(gst_structure_get_name(s), "GstWebrtcbin")) {  // XXX it's not called that
+  //if (0 == g_strcmp0(GST_OBJECT_NAME (message->src), this_ptr->elem_name_.c_str())) {
+
+
+  switch (GST_MESSAGE_TYPE (message)) {
+    case GST_MESSAGE_ASYNC_DONE:
+    {
+      RCLCPP_INFO(
+        this_ptr->node_if_->logging->get_logger(),
+        "Async done"
+      );
+      GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS (GST_BIN (this_ptr->pipeline_),
+          GST_DEBUG_GRAPH_SHOW_ALL, "webrtc-sendrecv.async-done");
+      break;
+    }
+    case GST_MESSAGE_ERROR:
+    {
+      GError *error = NULL;
+      gchar *debug = NULL;
+
+      GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS (GST_BIN (this_ptr->pipeline_),
+          GST_DEBUG_GRAPH_SHOW_ALL, "webrtc-sendrecv.error");
+
+      gst_message_parse_error (message, &error, &debug);
+      //cleanup_and_quit_loop ("ERROR: Error on bus", APP_STATE_ERROR);
+      //g_warning ("Error on bus: %s (debug: %s)", error->message, debug);
+      RCLCPP_ERROR(
+        this_ptr->node_if_->logging->get_logger(),
+        "Error on bus: %s (debug: %s)",
+        error->message,
+        debug
+      );
+      g_error_free (error);
+      g_free (debug);
+      break;
+    }
+    case GST_MESSAGE_WARNING:
+    {
+      GError *error = NULL;
+      gchar *debug = NULL;
+
+      gst_message_parse_warning (message, &error, &debug);
+      RCLCPP_WARN(
+        this_ptr->node_if_->logging->get_logger(),
+        "Warning on bus: %s (debug: %s)",
+        error->message,
+        debug
+      );
+      g_error_free (error);
+      g_free (debug);
+      break;
+    }
+    case GST_MESSAGE_LATENCY:
+      gst_bin_recalculate_latency (GST_BIN (this_ptr->pipeline_));
+      RCLCPP_INFO(
+        this_ptr->node_if_->logging->get_logger(),
+        "Latency message"
+      );
+      break;
+    default:
+      break;
+  }
+
+  return G_SOURCE_CONTINUE;
+}
 
 
 }  // namespace gst_pipeline_plugins_webrtc
