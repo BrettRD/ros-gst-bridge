@@ -263,7 +263,7 @@ parameters::validate_parameters_cb(std::vector<rclcpp::Parameter> parameters)
   for (const rclcpp::Parameter& parameter : parameters) {
     // find the property matching the parameter
     GParamSpec* prop = NULL;
-    GstElement* element = NULL;
+    //GstElement* element = NULL;
     update_source_t* source;
 
 
@@ -275,7 +275,7 @@ parameters::validate_parameters_cb(std::vector<rclcpp::Parameter> parameters)
     try {
       parameter_mapping &map = param_map_.at(parameter.get_name());
       prop = map.prop;
-      element = map.element;
+      //element = map.element;
       source = &map.source;
     }
     catch (const std::out_of_range& oor) {
@@ -635,7 +635,7 @@ gboolean parameters::gst_bus_cb(
     case GST_MESSAGE_STATE_CHANGED:
     case GST_MESSAGE_ASYNC_DONE:
     case GST_MESSAGE_NEW_CLOCK:
-      if(GST_ELEMENT_CAST(object) == this_ptr->pipeline_){
+      if(GST_ELEMENT_CAST(object) == GST_ELEMENT_CAST(this_ptr->pipeline_)){
         // poll all of the elements when the pipeline changes state
         this_ptr->property_changed_cb(NULL, NULL, NULL);
       }
