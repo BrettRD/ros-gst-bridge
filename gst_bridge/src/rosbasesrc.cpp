@@ -64,6 +64,7 @@ enum
   PROP_ROS_NAME,
   PROP_ROS_NAMESPACE,
   PROP_ROS_START_TIME,
+  PROP_ROS_TIME_OFFSET,
 };
 
 /* class initialization */
@@ -104,6 +105,12 @@ static void rosbasesrc_class_init (RosBaseSrcClass * klass)
       0, (guint64)(-1), GST_CLOCK_TIME_NONE,
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
+
+  // g_object_class_install_property (object_class, PROP_ROS_TIME_OFFSET,
+  //     g_param_spec_uint64 ("ros-time-offset", "ros-start-time", "A time offset to be added to each message stamp (nanoseconds)",
+  //     0, (guint64)(-1), GST_CLOCK_TIME_NONE,
+  //     (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  // );
 
   element_class->change_state = GST_DEBUG_FUNCPTR (rosbasesrc_change_state); //use state change events to open and close subscribers
 
