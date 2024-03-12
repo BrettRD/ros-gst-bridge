@@ -64,6 +64,7 @@ enum
   PROP_ROS_NAME,
   PROP_ROS_NAMESPACE,
   PROP_ROS_START_TIME,
+  PROP_ROS_TIME_OFFSET,
 };
 
 
@@ -107,6 +108,12 @@ static void rosbasesink_class_init (RosBaseSinkClass * klass)
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
+  g_object_class_install_property (object_class, PROP_ROS_TIME_OFFSET,
+      g_param_spec_int64 ("ros-time-offset", "ros-time-offset", "ROS time offset (nanoseconds)",
+      G_MININT64, G_MAXINT64, GST_CLOCK_TIME_NONE,
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
+
   element_class->change_state = GST_DEBUG_FUNCPTR (rosbasesink_change_state); //use state change events to open and close publishers
   basesink_class->render = GST_DEBUG_FUNCPTR (rosbasesink_render); // gives us a buffer to forward
 
@@ -117,6 +124,7 @@ static void rosbasesink_init (RosBaseSink * sink)
   sink->node_name = g_strdup("gst_base_sink_node");
   sink->node_namespace = g_strdup("");
   sink->stream_start_prop = GST_CLOCK_TIME_NONE;
+  sink->offset_time_ns = 0;
 }
 
 void rosbasesink_set_property (GObject * object, guint property_id,
@@ -162,6 +170,17 @@ void rosbasesink_set_property (GObject * object, guint property_id,
       }
       break;
 
+    case PROP_ROS_TIME_OFFSET:
+      if(sink->node)
+      {
+        RCLCPP_ERROR(sink->logger, "can't change time_offset once opened");
+      }
+      else
+      {
+        sink->offset_time_ns = g_value_get_int64(value);
+      }
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -187,6 +206,10 @@ void rosbasesink_get_property (GObject * object, guint property_id,
       g_value_set_uint64(value, sink->stream_start.nanoseconds());
       // XXX this allows inspection via props,
       //      but may cause confusion because it does not show the actual prop
+      break;
+    
+    case PROP_ROS_TIME_OFFSET:
+      g_value_set_int64(value, sink->offset_time_ns);
       break;
 
     default:

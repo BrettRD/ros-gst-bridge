@@ -43,6 +43,7 @@ struct _RosBaseSink
   GstBaseSink parent;
   gchar* node_name;
   gchar* node_namespace;
+  gint64 offset_time_ns;
 
   rclcpp::Context::SharedPtr ros_context;
   rclcpp::Executor::SharedPtr ros_executor;
