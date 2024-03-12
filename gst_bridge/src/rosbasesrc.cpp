@@ -64,6 +64,7 @@ enum
   PROP_ROS_NAME,
   PROP_ROS_NAMESPACE,
   PROP_ROS_START_TIME,
+  PROP_ROS_TIME_OFFSET,
 };
 
 /* class initialization */

@@ -37,6 +37,7 @@
 #include <gst_bridge/rosimagesink.h>
 
 
+
 GST_DEBUG_CATEGORY_STATIC (rosimagesink_debug_category);
 #define GST_CAT_DEFAULT rosimagesink_debug_category
 
@@ -309,6 +310,37 @@ static GstFlowReturn rosimagesink_render (RosBaseSink * ros_base_sink, GstBuffer
 
   Rosimagesink *sink = GST_ROSIMAGESINK (ros_base_sink);
   GST_DEBUG_OBJECT (sink, "render");
+
+  int32_t sec = 0;
+  uint32_t nsec = 0;
+
+  // Make duration an absolute value due to duration object definition
+  if (abs(ros_base_sink->offset_time_ns) > G_MAXUINT32)
+  {
+    //need to to convert value to a integer value of seconds while leaving the rest in nanosecs to maintain precision
+    //as nsec of Duration is an uint32 object.
+    RCLCPP_DEBUG(ros_base_sink->logger, "time offset is greater than 32 bits");
+    sec = static_cast<int32_t>(abs(ros_base_sink->offset_time_ns) / G_GINT64_CONSTANT(1000000000));
+    nsec = static_cast<uint32_t>(abs(ros_base_sink->offset_time_ns) - (sec * G_GINT64_CONSTANT(1000000000)));
+  }
+  else
+  {
+    sec = 0;
+    nsec = static_cast<uint32_t>(abs(ros_base_sink->offset_time_ns));
+  }
+
+  rclcpp::Duration offset_time(sec, nsec);
+
+  if (ros_base_sink->offset_time_ns < 0)
+  {
+    RCLCPP_DEBUG(ros_base_sink->logger, "time offset is negative %f seconds or %ld nanosecs", offset_time.seconds(), offset_time.nanoseconds());
+    msg_time = msg_time - offset_time;
+  }
+  else
+  {
+    RCLCPP_DEBUG(ros_base_sink->logger, "time offset is positive %f seconds or %ld nanosecs", offset_time.seconds(), offset_time.nanoseconds());
+    msg_time = msg_time + offset_time;
+  }
 
   msg.header.stamp = msg_time;
   msg.header.frame_id = sink->frame_id;
