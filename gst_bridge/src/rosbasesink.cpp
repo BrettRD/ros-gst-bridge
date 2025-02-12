@@ -286,7 +286,9 @@ static gboolean rosbasesink_open (RosBaseSink * sink)
   GST_DEBUG_OBJECT (sink, "open");
 
   try {
-    rclcpp::init(0, NULL, rclcpp::InitOptions(), rclcpp::SignalHandlerOptions::None);
+    if (!rclcpp::ok()) {
+      rclcpp::init(0, NULL, rclcpp::InitOptions(), rclcpp::SignalHandlerOptions::None);
+    }
     sink->node = std::make_shared<rclcpp::Node>(std::string(sink->node_name), std::string(sink->node_namespace));
     sink->ros_executor = std::make_shared<rclcpp::experimental::executors::EventsExecutor>();
     sink->ros_executor->add_node(sink->node);
