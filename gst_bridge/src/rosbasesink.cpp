@@ -34,6 +34,10 @@
 #include <gst_bridge/rosbasesink.h>
 
 #define LTTNG_UST_TRACEPOINT_DEFINE
+#define NTP_TO_UNIX_EPOCH_OFFSET_NS 2208988800000000000
+#define REF_EPOCH_ROS "timestamp/x-unix"
+#define REF_EPOCH_NTP "timestamp/x-ntp"
+
 #include "gst_bridge_tpp.h"
 
 GST_DEBUG_CATEGORY_STATIC (rosbasesink_debug_category);
@@ -50,6 +54,8 @@ static void rosbasesink_init (RosBaseSink * rosbasesink);
 
 static GstFlowReturn rosbasesink_render (GstBaseSink * sink, GstBuffer * buffer);
 
+static GstClockTime ntp_to_unix_epoch (GstClockTime ntp_time);
+static GstClockTime convert_meta_time (GstReferenceTimestampMeta *ref_meta);
 
 static gboolean rosbasesink_open (RosBaseSink * sink);
 static gboolean rosbasesink_close (RosBaseSink * sink);
@@ -341,20 +347,69 @@ static void spin_wrapper(RosBaseSink * sink)
   sink->ros_executor->spin();
 }
 
+static GstClockTime ntp_to_unix_epoch(GstClockTime ntp_time)
+{
+  return ntp_time - NTP_TO_UNIX_EPOCH_OFFSET_NS;
+}
 
-static GstFlowReturn rosbasesink_render (GstBaseSink * base_sink, GstBuffer * buf)
+static GstClockTime convert_meta_time(GstReferenceTimestampMeta *ref_meta)
+{
+  // RTCP packet protocol states that all timestamps are returrned in NTP format
+  const char *meta_ref_name = gst_structure_get_name(gst_caps_get_structure(ref_meta->reference, 0));
+  GstClockTime time;
+
+  if (g_strcmp0(meta_ref_name, REF_EPOCH_NTP) == 0)
+  {
+    time = ntp_to_unix_epoch(ref_meta->timestamp);
+  }
+  else if (g_strcmp0(meta_ref_name, REF_EPOCH_ROS) == 0)
+  {
+    time = ref_meta->timestamp;
+  }
+  else
+  {
+    time = GST_CLOCK_TIME_NONE;
+  }
+
+  return time;
+}
+
+static GstFlowReturn rosbasesink_render(GstBaseSink * base_sink, GstBuffer * buf)
 {
   rclcpp::Time msg_time;
   GstClockTimeDiff base_time;
+  GstClockTime time = GST_CLOCK_TIME_NONE;
 
   RosBaseSink *sink = GST_ROS_BASE_SINK (base_sink);
   RosBaseSinkClass *sink_class = GST_ROS_BASE_SINK_GET_CLASS (sink);
 
   GST_DEBUG_OBJECT (sink, "render");
 
-  // XXX look at the base sink clock synchronising features
-  base_time = gst_element_get_base_time(GST_ELEMENT(sink));
-  msg_time = rclcpp::Time(GST_BUFFER_PTS(buf) + base_time + sink->ros_clock_offset, sink->clock->get_clock_type());
+  GstReferenceTimestampMeta *ref_meta = gst_buffer_get_reference_timestamp_meta (buf, NULL);
+  if (ref_meta == NULL)
+  {
+    RCLCPP_ERROR(sink->logger, "failed to get reference timestamp meta, using ros clock as fallback");
+  }
+  else
+  {
+    // Convert the NTP time souce to ros clock epoch source
+    time = convert_meta_time (ref_meta);
+    RCLCPP_DEBUG(sink->logger, "obtained metatimestamp from rosimagesink buffer render: %ld", ref_meta->timestamp);
+    RCLCPP_DEBUG(sink->logger, "modified timestamp: %ld", time);
+  }
+
+  // Generate ros msg timestamp from meta reference if available otherwise use gst buffer timestamp
+  if (GST_CLOCK_TIME_IS_VALID (time))
+  {
+    msg_time = rclcpp::Time(time, sink->clock->get_clock_type());
+  }
+  else
+  {
+    base_time = gst_element_get_base_time (GST_ELEMENT (sink));
+    msg_time = rclcpp::Time(GST_BUFFER_PTS(buf) + base_time + sink->ros_clock_offset, sink->clock->get_clock_type());
+  }
+
+  RCLCPP_DEBUG(sink->logger, "msg_time: %ld", msg_time.nanoseconds());
 
   lttng_ust_tracepoint(gst_bridge, gst_sink_render, static_cast<const void *>(sink_class), msg_time.nanoseconds());
 
