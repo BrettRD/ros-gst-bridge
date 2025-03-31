@@ -402,14 +402,24 @@ static GstFlowReturn rosbasesink_render(GstBaseSink * base_sink, GstBuffer * buf
   // If the timestamp_meta is not set in gst pipeline, use the ros clock
   if (!meta_msg_time) 
   {
+    RCLCPP_DEBUG(sink->logger, "generating msg_time from ROS clock");
     base_time = gst_element_get_base_time (GST_ELEMENT (sink));
     msg_time = rclcpp::Time(GST_BUFFER_PTS(buf) + base_time + sink->ros_clock_offset, sink->clock->get_clock_type());
-    RCLCPP_INFO(sink->logger, "generating msg_time from ROS clock, msg_time: %ld", msg_time.nanoseconds());
+    if (sink->clock_src == BUFFER_TIMESTAMP_META)
+    {
+      RCLCPP_INFO(sink->logger, "changed clock source to: ROS_CLOCK");
+      sink->clock_src = ROS_CLOCK;
+    }
   } 
   else
   {
+    RCLCPP_DEBUG(sink->logger, "generating msg_time from timestamp meta");
     msg_time = *meta_msg_time;
-    RCLCPP_INFO(sink->logger, "generating msg_time from timestamp meta, msg_time: %ld", msg_time.nanoseconds());
+    if (sink->clock_src == ROS_CLOCK)
+    {
+      RCLCPP_INFO(sink->logger, "changed clock source to: BUFFER_TIMESTAMP_META");
+      sink->clock_src = BUFFER_TIMESTAMP_META;
+    }
   }
 
   lttng_ust_tracepoint(gst_bridge, gst_sink_render, static_cast<const void *>(sink_class), msg_time.nanoseconds());

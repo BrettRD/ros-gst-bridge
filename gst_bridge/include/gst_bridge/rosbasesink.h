@@ -38,6 +38,13 @@ G_BEGIN_DECLS
 typedef struct _RosBaseSink RosBaseSink;
 typedef struct _RosBaseSinkClass RosBaseSinkClass;
 
+//clock source
+enum clk_src
+{
+  ROS_CLOCK,
+  BUFFER_TIMESTAMP_META,
+};
+
 struct _RosBaseSink
 {
   GstBaseSink parent;
@@ -55,6 +62,7 @@ struct _RosBaseSink
   rclcpp::Time stream_start;
   rcl_time_point_value_t stream_start_prop; //uint64_t, equiv to GST_TYPE_CLOCK_TIME
   GstClockTimeDiff ros_clock_offset;
+  enum clk_src clock_src;
 };
 
 struct _RosBaseSinkClass
