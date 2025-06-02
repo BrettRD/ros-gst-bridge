@@ -17,79 +17,58 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-/**
- * SECTION:element-gstrostextsrc
- *
- * The rostextsrc element subscribes to a ROS2 topic and feeds text into a pipeline.
- *
- * <refsect2>
- * <title>Example launch line</title>
- * |[
- * gst-launch-1.0 -v rostextsrc topic="/string" ! txt. videotestsrc ! textoverlay name=txt ! autovideosink
- * ]|
- * Subscribe to /string topic and overlay on test video.
- * </refsect2>
- */
+#include <gst_bridge/rosrawsrc.h>
 
-#include <gst_bridge/rostextsrc.h>
+GST_DEBUG_CATEGORY_STATIC(rosrawsrc_debug_category);
+#define GST_CAT_DEFAULT rosrawsrc_debug_category
 
-GST_DEBUG_CATEGORY_STATIC(rostextsrc_debug_category);
-#define GST_CAT_DEFAULT rostextsrc_debug_category
-
-/* prototypes */
-
-static void rostextsrc_set_property(
+static void rosrawsrc_set_property(
   GObject * object, guint prop_id, const GValue * value, GParamSpec * pspec);
-static void rostextsrc_get_property(
+static void rosrawsrc_get_property(
   GObject * object, guint prop_id, GValue * value, GParamSpec * pspec);
 
-static void rostextsrc_init(Rostextsrc * src);
-
-static gboolean rostextsrc_open(RosBaseSrc * ros_base_src);
-static gboolean rostextsrc_close(RosBaseSrc * ros_base_src);
-
-static GstFlowReturn rostextsrc_create(
+static void rosrawsrc_init(Rosrawsrc * src);
+static gboolean rosrawsrc_open(RosBaseSrc * ros_base_src);
+static gboolean rosrawsrc_close(RosBaseSrc * ros_base_src);
+static GstFlowReturn rosrawsrc_create(
   GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer ** buf);
-static gboolean rostextsrc_query(GstBaseSrc * base_src, GstQuery * query);
 
-static void rostextsrc_sub_cb(Rostextsrc * src, std_msgs::msg::String::ConstSharedPtr msg);
-static std_msgs::msg::String::ConstSharedPtr rostextsrc_wait_for_msg(Rostextsrc * src);
+static gboolean rosrawsrc_query(GstBaseSrc * base_src, GstQuery * query);
+static void rosrawsrc_sub_cb(Rosrawsrc * src, Rosrawsrc::MsgType::ConstSharedPtr msg);
+static Rosrawsrc::MsgType::ConstSharedPtr rosrawsrc_wait_for_msg(Rosrawsrc * src);
 
 enum {
   PROP_0,
   PROP_SILENT,
   PROP_ROS_TOPIC,
+  PROP_CAPS,
 };
 
-/* pad templates */
-
-static GstStaticPadTemplate rostextsrc_src_template =
-  GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS(ROS_TEXT_MSG_CAPS));
-
-/* class initialization */
+static GstStaticPadTemplate rosrawsrc_src_template = GST_STATIC_PAD_TEMPLATE(
+  "src", GST_PAD_SRC, GST_PAD_ALWAYS,
+  GST_STATIC_CAPS("application/x-onvif-metadata, format=(string)xml, type=(string)metadata"));
 
 G_DEFINE_TYPE_WITH_CODE(
-  Rostextsrc, rostextsrc, GST_TYPE_ROS_BASE_SRC,
-  GST_DEBUG_CATEGORY_INIT(
-    rostextsrc_debug_category, "rostextsrc", 0, "debug category for rostextsrc element"))
+  Rosrawsrc, rosrawsrc, GST_TYPE_ROS_BASE_SRC,
+  GST_DEBUG_CATEGORY_INIT(rosrawsrc_debug_category, "rosrawsrc", 0, "debug category for rosrawsrc"))
 
-static void rostextsrc_class_init(RostextsrcClass * klass)
+static void rosrawsrc_class_init(RosrawsrcClass * klass)
 {
   GObjectClass * object_class = G_OBJECT_CLASS(klass);
   GstElementClass * element_class = GST_ELEMENT_CLASS(klass);
   GstBaseSrcClass * basesrc_class = GST_BASE_SRC_CLASS(klass);
   RosBaseSrcClass * ros_base_src_class = GST_ROS_BASE_SRC_CLASS(klass);
 
-  object_class->set_property = rostextsrc_set_property;
-  object_class->get_property = rostextsrc_get_property;
+  object_class->set_property = rosrawsrc_set_property;
+  object_class->get_property = rosrawsrc_get_property;
 
   gst_element_class_add_pad_template(
-    element_class, gst_static_pad_template_get(&rostextsrc_src_template));
+    element_class, gst_static_pad_template_get(&rosrawsrc_src_template));
 
   gst_element_class_set_static_metadata(
-    element_class, "rostextsrc", "Source/Text",
-    "a gstreamer source that transports ROS strings over gstreamer",
-    "Clyde McQueen <clyde@mcqueen.net>");
+    element_class, "rosrawsrc", "Source/Binary",
+    "A GStreamer source that transports raw byte data over gstreamer",
+    "Guilherme Rodrigues <guilherme.rodrigues@ait.ac.at>");
 
   g_object_class_install_property(
     object_class, PROP_SILENT,
@@ -98,43 +77,54 @@ static void rostextsrc_class_init(RostextsrcClass * klass)
   g_object_class_install_property(
     object_class, PROP_ROS_TOPIC,
     g_param_spec_string(
-      "topic", "Topic", "ROS topic to subscribe to", "string",
+      "ros-topic", "Topic", "ROS topic to subscribe to", "raw",
       (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-  ros_base_src_class->open =
-    GST_DEBUG_FUNCPTR(rostextsrc_open);  //let the base sink know how we register publishers
-  ros_base_src_class->close =
-    GST_DEBUG_FUNCPTR(rostextsrc_close);  //let the base sink know how we destroy publishers
+  g_object_class_install_property(
+    object_class, PROP_CAPS,
+    g_param_spec_string(
+      "caps", "Caps", "Output caps (e.g., application/x-onvif-metadata)",
+      "application/x-onvif-metadata",  // default
+      (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-  basesrc_class->create = GST_DEBUG_FUNCPTR(rostextsrc_create);
-  basesrc_class->query = GST_DEBUG_FUNCPTR(rostextsrc_query);  //set the scheduling modes
+  ros_base_src_class->open = GST_DEBUG_FUNCPTR(rosrawsrc_open);
+  ros_base_src_class->close = GST_DEBUG_FUNCPTR(rosrawsrc_close);
+  basesrc_class->create = GST_DEBUG_FUNCPTR(rosrawsrc_create);
+
+  basesrc_class->query = GST_DEBUG_FUNCPTR(rosrawsrc_query);  //set the scheduling modes
 }
 
-static void rostextsrc_init(Rostextsrc * src)
+static void rosrawsrc_init(Rosrawsrc * src)
 {
-  RosBaseSrc * ros_base_src GST_ROS_BASE_SRC(src);
-  ros_base_src->node_name = g_strdup("gst_text_src_node");
+  GST_DEBUG_OBJECT(src, "init");
+
+  RosBaseSrc * ros_base_src = GST_ROS_BASE_SRC(src);
+  ros_base_src->node_name = g_strdup("gst_raw_src_node");
+
   src->silent = FALSE;
-  src->sub_topic = g_strdup("string");
+  src->sub_topic = g_strdup("raw");
+  src->caps_string = g_strdup("application/x-onvif-metadata");  // Default caps
 
+  src->started = false;
   src->msg_queue_max = 1;
-  // XXX why does queue segfault without expicit construction?
-  src->msg_queue = std::queue<std_msgs::msg::String::ConstSharedPtr>();
+  src->msg_queue = std::queue<Rosrawsrc::MsgType::ConstSharedPtr>();
 
-  /* configure basesrc to be a live source */
+  // Configure base src behavior
   gst_base_src_set_live(GST_BASE_SRC(src), TRUE);
-  /* make basesrc output a segment in time */
   gst_base_src_set_format(GST_BASE_SRC(src), GST_FORMAT_TIME);
-  /* make basesrc set timestamps on outgoing buffers based on the running_time
-   * when they were captured */
   gst_base_src_set_do_timestamp(GST_BASE_SRC(src), TRUE);
+
+  src->srcpad = gst_element_get_static_pad(GST_ELEMENT(src), "src");
+
+  GST_DEBUG_OBJECT(
+    src, "rosrawsrc initialized with topic '%s' and caps '%s'", src->sub_topic, src->caps_string);
 }
 
-static void rostextsrc_set_property(
+static void rosrawsrc_set_property(
   GObject * object, guint prop_id, const GValue * value, GParamSpec * pspec)
 {
   RosBaseSrc * ros_base_src = GST_ROS_BASE_SRC(object);
-  Rostextsrc * src = GST_ROSTEXTSRC(object);
+  Rosrawsrc * src = GST_ROSRAWSRC(object);
 
   switch (prop_id) {
     case PROP_SILENT:
@@ -151,16 +141,21 @@ static void rostextsrc_set_property(
       }
       break;
 
+    case PROP_CAPS:
+      g_free(src->caps_string);
+      src->caps_string = g_value_dup_string(value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
       break;
   }
 }
 
-static void rostextsrc_get_property(
+static void rosrawsrc_get_property(
   GObject * object, guint prop_id, GValue * value, GParamSpec * pspec)
 {
-  Rostextsrc * src = GST_ROSTEXTSRC(object);
+  Rosrawsrc * src = GST_ROSRAWSRC(object);
 
   switch (prop_id) {
     case PROP_SILENT:
@@ -171,6 +166,10 @@ static void rostextsrc_get_property(
       g_value_set_string(value, src->sub_topic);
       break;
 
+    case PROP_CAPS:
+      g_value_set_string(value, src->caps_string);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
       break;
@@ -178,9 +177,9 @@ static void rostextsrc_get_property(
 }
 
 /* open the subscription with given specs */
-static gboolean rostextsrc_open(RosBaseSrc * ros_base_src)
+static gboolean rosrawsrc_open(RosBaseSrc * ros_base_src)
 {
-  Rostextsrc * src = GST_ROSTEXTSRC(ros_base_src);
+  Rosrawsrc * src = GST_ROSRAWSRC(ros_base_src);
 
   using std::placeholders::_1;
 
@@ -188,25 +187,23 @@ static gboolean rostextsrc_open(RosBaseSrc * ros_base_src)
 
   // ROS can't cope with some forms of std::bind being passed as subscriber callbacks,
   // lambdas seem to be the preferred case for these instances
-  auto cb = [src](std_msgs::msg::String::ConstSharedPtr msg) { rostextsrc_sub_cb(src, msg); };
+  auto cb = [src](Rosrawsrc::MsgType::ConstSharedPtr msg) { rosrawsrc_sub_cb(src, msg); };
   rclcpp::QoS qos = rclcpp::SensorDataQoS();  //XXX add a parameter for overrides
 
-  src->sub = rclcpp::create_subscription<std_msgs::msg::String>(
+  GST_DEBUG_OBJECT(src, "subscribing to topic '%s'", src->sub_topic);
+
+  src->sub = rclcpp::create_subscription<Rosrawsrc::MsgType>(
     ros_base_src->node_if->parameters, ros_base_src->node_if->topics, src->sub_topic, qos, cb);
 
   return TRUE;
 }
 
-/* close the device */
-static gboolean rostextsrc_close(RosBaseSrc * ros_base_src)
+static gboolean rosrawsrc_close(RosBaseSrc * ros_base_src)
 {
-  Rostextsrc * src = GST_ROSTEXTSRC(ros_base_src);
+  Rosrawsrc * src = GST_ROSRAWSRC(ros_base_src);
 
   GST_DEBUG_OBJECT(src, "close");
-
-  //XXX dereference is as close as foxy gets to unsubscribe
   src->sub.reset();
-  //empty the queue
   std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
   while (!src->msg_queue.empty()) {
     src->msg_queue.pop();
@@ -215,11 +212,9 @@ static gboolean rostextsrc_close(RosBaseSrc * ros_base_src)
   return TRUE;
 }
 
-static gboolean rostextsrc_query(GstBaseSrc * base_src, GstQuery * query)
+static gboolean rosrawsrc_query(GstBaseSrc * base_src, GstQuery * query)
 {
   gboolean ret;
-
-  //Rostextsrc *src = GST_ROSTEXTSRC (base_src);
 
   switch (GST_QUERY_TYPE(query)) {
     case GST_QUERY_SCHEDULING: {
@@ -232,7 +227,7 @@ static gboolean rostextsrc_query(GstBaseSrc * base_src, GstQuery * query)
       break;
     }
     default:
-      ret = GST_BASE_SRC_CLASS(rostextsrc_parent_class)->query(base_src, query);
+      ret = GST_BASE_SRC_CLASS(rosrawsrc_parent_class)->query(base_src, query);
       break;
   }
   return ret;
@@ -243,26 +238,47 @@ static gboolean rostextsrc_query(GstBaseSrc * base_src, GstQuery * query)
  * Also update frame_id and encoding
  * Error if the number of channels or encoding changes at runtime
  */
-static GstFlowReturn rostextsrc_create(
+static GstFlowReturn rosrawsrc_create(
   GstBaseSrc * base_src, guint64 offset, guint size, GstBuffer ** buf)
 {
   RosBaseSrc * ros_base_src = GST_ROS_BASE_SRC(base_src);
-  Rostextsrc * src = GST_ROSTEXTSRC(base_src);
+  Rosrawsrc * src = GST_ROSRAWSRC(base_src);
 
   GstMapInfo info;
   size_t length;
   GstFlowReturn ret = GST_FLOW_OK;
   GstBuffer * res_buf;
 
-  GST_DEBUG_OBJECT(src, "create");
+  if (!src->started) {
+    if (!GST_IS_PAD(src->srcpad)) {
+      GST_ERROR_OBJECT(src, "srcpad is invalid, cannot create stream ID");
+      return GST_FLOW_ERROR;
+    }
 
-  if (!ros_base_src->node_if) {
-    GST_DEBUG_OBJECT(src, "ros text creating buffer before node init");
-  } else if (false /* src->msg_init */) {
-    GST_DEBUG_OBJECT(src, "ros text creating buffer before receiving first message");
+    gchar * stream_id = gst_pad_create_stream_id(src->srcpad, GST_ELEMENT(src), "rosraw");
+    if (!stream_id) {
+      GST_ERROR_OBJECT(src, "Failed to create stream ID");
+      return GST_FLOW_ERROR;
+    }
+
+    GstEvent * event = gst_event_new_stream_start(stream_id);
+    g_free(stream_id);
+
+    if (!gst_pad_push_event(GST_BASE_SRC_PAD(src), event)) {
+      GST_ERROR_OBJECT(src, "Failed to push stream-start event");
+      return GST_FLOW_ERROR;
+    }
+
+    src->started = true;
   }
 
-  auto msg = rostextsrc_wait_for_msg(src);
+  if (!ros_base_src->node_if) {
+    GST_DEBUG_OBJECT(src, "ros raw src creating buffer before node init");
+  } else if (false /* src->msg_init */) {
+    GST_DEBUG_OBJECT(src, "ros raw src creating buffer before receiving first message");
+  }
+
+  auto msg = rosrawsrc_wait_for_msg(src);
   {  //scope the mutex lock
     std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
     src->msg_queue.pop();  // XXX we can stop dropping the first message during preroll now
@@ -275,9 +291,10 @@ static GstFlowReturn rostextsrc_create(
     /* downstream did not provide us with a buffer to fill, allocate one
      * ourselves
      * XXX pass the vector memory on directly */
-    ret = GST_BASE_SRC_CLASS(rostextsrc_parent_class)->alloc(base_src, offset, length, &res_buf);
-    if (G_UNLIKELY(ret != GST_FLOW_OK))
+    ret = GST_BASE_SRC_CLASS(rosrawsrc_parent_class)->alloc(base_src, offset, length, &res_buf);
+    if (G_UNLIKELY(ret != GST_FLOW_OK)) {
       GST_DEBUG_OBJECT(src, "Failed to allocate buffer of %lu bytes", length);
+    }
     *buf = res_buf;
     size = length;
   } else {
@@ -294,31 +311,20 @@ static GstFlowReturn rostextsrc_create(
   memcpy(info.data, msg->data.data(), length);
   gst_buffer_unmap(*buf, &info);
 
-  // String message does not have a header, use node->now() TODO call now() in the cb and save in the queue
-  // GST_BUFFER_PTS (*buf) = rclcpp::Time(msg->header.stamp).nanoseconds() - ros_base_src->ros_clock_offset - base_time;
-  GstClockTime msg_time =
-    rclcpp::Time(ros_base_src->node_if->clock->get_clock()->now()).nanoseconds();
+  GstClockTime msg_time = rclcpp::Time(msg->header.stamp).nanoseconds();
   set_timestamps(buf, ros_base_src, GST_ELEMENT(src), msg_time);
 
   // TODO explore configurable message types
-  //GST_BUFFER_DURATION (*buf) = GST_CLOCK_TIME_NONE;
+  // GST_BUFFER_DURATION(*buf) = GST_CLOCK_TIME_NONE;
   //GST_BUFFER_DURATION (*buf) = 0;
   GST_BUFFER_DURATION(*buf) = 1000000000L;
-
-  GST_DEBUG_OBJECT(
-    src, "Sending text '%s', %" GST_TIME_FORMAT " + %" GST_TIME_FORMAT, msg->data.c_str(),
-    GST_TIME_ARGS(GST_BUFFER_PTS(*buf)), GST_TIME_ARGS(GST_BUFFER_DURATION(*buf)));
 
   return ret;
 }
 
-static void rostextsrc_sub_cb(Rostextsrc * src, std_msgs::msg::String::ConstSharedPtr msg)
+static void rosrawsrc_sub_cb(Rosrawsrc * src, Rosrawsrc::MsgType::ConstSharedPtr msg)
 {
   RosBaseSrc * ros_base_src = GST_ROS_BASE_SRC(src);
-  GST_DEBUG_OBJECT(src, "ros cb called");
-  RCLCPP_DEBUG(
-    ros_base_src->node_if->logging->get_logger(), "ros cb called with %s", msg->data.c_str());
-
   std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
   src->msg_queue.push(msg);
   while (src->msg_queue.size() > src->msg_queue_max) {
@@ -328,7 +334,7 @@ static void rostextsrc_sub_cb(Rostextsrc * src, std_msgs::msg::String::ConstShar
   src->msg_queue_cv.notify_one();
 }
 
-static std_msgs::msg::String::ConstSharedPtr rostextsrc_wait_for_msg(Rostextsrc * src)
+static Rosrawsrc::MsgType::ConstSharedPtr rosrawsrc_wait_for_msg(Rosrawsrc * src)
 {
   //RosBaseSrc *ros_base_src = GST_ROS_BASE_SRC (src);
 

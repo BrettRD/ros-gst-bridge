@@ -41,11 +41,29 @@ G_BEGIN_DECLS
 typedef struct _RosBaseSink RosBaseSink;
 typedef struct _RosBaseSinkClass RosBaseSinkClass;
 
+typedef enum {
+  TIMESTAMP_MODE_ROS_OFFSET = 0,
+  TIMESTAMP_MODE_REFERENCE = 1,
+  TIMESTAMP_MODE_PTS = 2
+} RosTimestampMode;
+
+#define GST_TYPE_ROS_TIMESTAMP_MODE (gst_ros_timestamp_mode_get_type())
+
+typedef enum {
+  CONVERSION_MODE_NONE = 0,
+  CONVERSION_MODE_NTP_2_UNIX = 1,
+} TimestampConversionMode;
+
+#define GST_TYPE_TIMESTAMP_CONVERSION_MODE (gst_timestamp_conversion_mode_get_type())
+
+
 struct _RosBaseSink
 {
   GstBaseSink parent;
   gchar * node_name;
   gchar * node_namespace;
+  RosTimestampMode timestamp_mode;
+  TimestampConversionMode timestamp_conversion_mode;
 
   // private variables to construct the node interfaces
   RosBaseImp local_node;

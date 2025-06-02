@@ -461,7 +461,6 @@ static GstFlowReturn rosaudiosrc_create(
   GstBaseSrc * gst_base_src, guint64 offset, guint size, GstBuffer ** buf)
 {
   GstMapInfo info;
-  GstClockTimeDiff base_time;
   size_t length;
   GstFlowReturn ret = GST_FLOW_OK;
   GstBuffer * res_buf;
@@ -508,9 +507,8 @@ static GstFlowReturn rosaudiosrc_create(
   memcpy(info.data, msg->data.data(), length);
   gst_buffer_unmap(*buf, &info);
 
-  base_time = gst_element_get_base_time(GST_ELEMENT(src));
-  GST_BUFFER_PTS(*buf) = rclcpp::Time(msg->header.stamp).nanoseconds() -
-                         ros_base_src->ros_clock_offset - base_time;  // XXX +basetime?
+  GstClockTime msg_time = rclcpp::Time(msg->header.stamp).nanoseconds();
+  set_timestamps(buf, ros_base_src, GST_ELEMENT(src), msg_time);
 
   return GST_FLOW_OK;
 }

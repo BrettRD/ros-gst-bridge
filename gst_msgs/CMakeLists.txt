@@ -27,6 +27,7 @@ set(msg_files
   "msg/ClockObservation.msg"
   "msg/MultifilesinkEvent.msg"
   "msg/MetaMark.msg"
+  "msg/StreamStampedData.msg"
   "srv/Seek.srv"
 )
 

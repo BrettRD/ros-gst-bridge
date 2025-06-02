@@ -134,8 +134,7 @@ static void rosimagesrc_class_init(RosimagesrcClass * klass)
     GST_DEBUG_FUNCPTR(rosimagesrc_open);  //let the base sink know how we register publishers
   ros_base_src_class->close =
     GST_DEBUG_FUNCPTR(rosimagesrc_close);  //let the base sink know how we destroy publishers
-  ros_base_src_class->notify_thread =
-    GST_DEBUG_FUNCPTR(rosimagesrc_notify_thread);
+  ros_base_src_class->notify_thread = GST_DEBUG_FUNCPTR(rosimagesrc_notify_thread);
 
   basesrc_class->create = GST_DEBUG_FUNCPTR(rosimagesrc_create);
   basesrc_class->get_caps = GST_DEBUG_FUNCPTR(rosimagesrc_getcaps);  //return caps within the filter
@@ -145,7 +144,6 @@ static void rosimagesrc_class_init(RosimagesrcClass * klass)
   //basesrc_class->negotiate = GST_DEBUG_FUNCPTR (rosimagesrc_negotiate);  //start figuring out caps and allocators
   //basesrc_class->event = GST_DEBUG_FUNCPTR (rosimagesrc_event);  //flush events can cause discontinuities (flags exist in buffers)
   //basesrc_class->get_times = GST_DEBUG_FUNCPTR (rosimagesrc_get_times); //asks us for start and stop times (?)
-
 }
 
 static void rosimagesrc_init(Rosimagesrc * src)
@@ -337,11 +335,11 @@ static gboolean rosimagesrc_close(RosBaseSrc * ros_base_src)
   return TRUE;
 }
 
-static gboolean rosimagesrc_notify_thread (RosBaseSrc * ros_base_src)
+static gboolean rosimagesrc_notify_thread(RosBaseSrc * ros_base_src)
 {
-  Rosimagesrc *src = GST_ROSIMAGESRC (ros_base_src);
+  Rosimagesrc * src = GST_ROSIMAGESRC(ros_base_src);
 
-  GST_DEBUG_OBJECT (src, "notify_thread");
+  GST_DEBUG_OBJECT(src, "notify_thread");
 
   // notify any waiting threads
   src->msg_queue_cv.notify_all();
@@ -476,7 +474,6 @@ static GstFlowReturn rosimagesrc_create(
   Rosimagesrc * src = GST_ROSIMAGESRC(base_src);
 
   GstMapInfo info;
-  GstClockTimeDiff base_time;
   size_t length;
   GstFlowReturn ret = GST_FLOW_OK;
   GstBuffer * res_buf;
@@ -490,14 +487,13 @@ static GstFlowReturn rosimagesrc_create(
   }
 
   auto msg = rosimagesrc_wait_for_msg(src);
-  if (!msg)
-  {
-    GST_DEBUG_OBJECT (src, "no message to create buffer from");
+  if (!msg) {
+    GST_DEBUG_OBJECT(src, "no message to create buffer from");
     return GST_FLOW_ERROR;
   } else {
-    { //scope the mutex lock
+    {  //scope the mutex lock
       std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
-      src->msg_queue.clear();   // XXX we can stop dropping the first message during preroll now
+      src->msg_queue.clear();  // XXX we can stop dropping the first message during preroll now
     }
   }
 
@@ -525,9 +521,8 @@ static GstFlowReturn rosimagesrc_create(
   memcpy(info.data, msg->data.data(), length);
   gst_buffer_unmap(*buf, &info);
 
-  base_time = gst_element_get_base_time(GST_ELEMENT(src));
-  GST_BUFFER_PTS(*buf) =
-    rclcpp::Time(msg->header.stamp).nanoseconds() - ros_base_src->ros_clock_offset - base_time;
+  GstClockTime msg_time = rclcpp::Time(msg->header.stamp).nanoseconds();
+  set_timestamps(buf, ros_base_src, GST_ELEMENT(src), msg_time);
 
   return ret;
 }
@@ -581,8 +576,7 @@ static sensor_msgs::msg::Image::ConstSharedPtr rosimagesrc_wait_for_msg(Rosimage
 
   std::unique_lock<std::mutex> lck(src->msg_queue_mtx);
   src->msg_queue_cv.wait(lck);
-  if (src->msg_queue.empty())
-  {
+  if (src->msg_queue.empty()) {
     // the wait was interrupted
     return sensor_msgs::msg::Image::ConstSharedPtr();
   }

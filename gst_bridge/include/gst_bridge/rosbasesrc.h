@@ -46,6 +46,7 @@ struct _RosBaseSrc
   GstBaseSrc parent;
   gchar * node_name;
   gchar * node_namespace;
+  gboolean attach_reference_timestamp;
 
   // private variables to construct the node interfaces
   RosBaseImp local_node;
@@ -81,10 +82,12 @@ struct _RosBaseSrcClass
   gboolean (*close)(RosBaseSrc * src);
 
   gboolean (*notify_thread)(RosBaseSrc * src);
-
 };
 
 GType rosbasesrc_get_type(void);
+
+void set_timestamps(
+  GstBuffer ** buffer, RosBaseSrc * src, GstElement * element, GstClockTime msg_time);
 
 G_END_DECLS
 

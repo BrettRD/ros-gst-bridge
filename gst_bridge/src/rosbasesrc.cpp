@@ -48,7 +48,7 @@ static void rosbasesrc_init(RosBaseSrc * src);
 static gboolean rosbasesrc_open(RosBaseSrc * src);
 static gboolean rosbasesrc_close(RosBaseSrc * src);
 
-static gboolean rosbasesrc_notify_thread (RosBaseSrc * src);
+static gboolean rosbasesrc_notify_thread(RosBaseSrc * src);
 
 /*
   XXX provide a mechanism for ROS to provide a clock
@@ -59,6 +59,7 @@ enum {
   PROP_ROS_NAME,
   PROP_ROS_NAMESPACE,
   PROP_ROS_START_TIME,
+  PROP_ATTACH_REFERENCE_TIMESTAMP
 };
 
 /* class initialization */
@@ -98,6 +99,13 @@ static void rosbasesrc_class_init(RosBaseSrcClass * klass)
     g_param_spec_uint64(
       "ros-start-time", "ros-start-time", "ROS time (nanoseconds) of the first message", 0,
       (guint64)(-1), GST_CLOCK_TIME_NONE,
+      (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+  g_object_class_install_property(
+    object_class, PROP_ATTACH_REFERENCE_TIMESTAMP,
+    g_param_spec_boolean(
+      "attach-reference-timestamp", "Attach Reference Timestamp",
+      "Attach GstReferenceTimestampMeta to buffers for use with rtpsrc", FALSE,
       (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
   element_class->change_state = GST_DEBUG_FUNCPTR(
@@ -145,6 +153,16 @@ void rosbasesrc_set_property(
         RCLCPP_ERROR(src->node_if->logging->get_logger(), "can't change start_time once opened");
       } else {
         src->stream_start_prop = g_value_get_uint64(value);
+      }
+      break;
+
+    case PROP_ATTACH_REFERENCE_TIMESTAMP:
+      if (src->node_if) {
+        RCLCPP_ERROR(
+          src->node_if->logging->get_logger(),
+          "can't change attach-reference-timestamp once opened");
+      } else {
+        src->attach_reference_timestamp = g_value_get_boolean(value);
       }
       break;
 
@@ -256,15 +274,14 @@ static gboolean rosbasesrc_open(RosBaseSrc * src)
   return result;
 }
 
-static gboolean rosbasesrc_notify_thread (RosBaseSrc * src)
+static gboolean rosbasesrc_notify_thread(RosBaseSrc * src)
 {
-  RosBaseSrcClass *src_class = GST_ROS_BASE_SRC_GET_CLASS (src);
+  RosBaseSrcClass * src_class = GST_ROS_BASE_SRC_GET_CLASS(src);
   using std::placeholders::_1;
 
-  GST_DEBUG_OBJECT (src, "notify_thread");
+  GST_DEBUG_OBJECT(src, "notify_thread");
 
-  if(src_class->notify_thread)
-    src_class->notify_thread(src);
+  if (src_class->notify_thread) src_class->notify_thread(src);
 
   return TRUE;
 }
@@ -287,4 +304,30 @@ static gboolean rosbasesrc_close(RosBaseSrc * src)
   // if the node doesn't exist, hang onto the node_if
 
   return result;
+}
+
+void set_timestamps(
+  GstBuffer ** buffer, RosBaseSrc * src, GstElement * element, GstClockTime msg_time)
+{
+  GstClockTime base_time = gst_element_get_base_time(element);
+  GstClockTime stream_pts = msg_time - src->ros_clock_offset - base_time;
+  GST_BUFFER_PTS(*buffer) = stream_pts;
+
+  if (src->attach_reference_timestamp) {
+    GstCaps * caps = gst_caps_new_empty_simple("timestamp/x-unix");
+
+    if (!caps || !GST_IS_CAPS(caps)) {
+      GST_WARNING_OBJECT(src, "Could not attach reference timestamp meta: no valid caps");
+      return;
+    }
+
+    GstReferenceTimestampMeta * ref_ts_meta =
+      gst_buffer_add_reference_timestamp_meta(*buffer, caps, msg_time, GST_CLOCK_TIME_NONE);
+
+    if (!ref_ts_meta) {
+      GST_WARNING_OBJECT(src, "Failed to add reference timestamp metadata");
+    }
+
+    gst_caps_unref(caps);  // prevent memory leak
+  }
 }
