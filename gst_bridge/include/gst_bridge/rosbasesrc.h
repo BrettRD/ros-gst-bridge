@@ -46,6 +46,7 @@ struct _RosBaseSrc
   GstBaseSrc parent;
   gchar * node_name;
   gchar * node_namespace;
+  gchar * time_caps;
   gboolean attach_reference_timestamp;
 
   // private variables to construct the node interfaces

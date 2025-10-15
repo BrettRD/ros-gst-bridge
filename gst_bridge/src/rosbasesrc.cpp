@@ -59,7 +59,8 @@ enum {
   PROP_ROS_NAME,
   PROP_ROS_NAMESPACE,
   PROP_ROS_START_TIME,
-  PROP_ATTACH_REFERENCE_TIMESTAMP
+  PROP_ATTACH_REFERENCE_TIMESTAMP,
+  PROP_TIME_CAPS
 };
 
 /* class initialization */
@@ -102,6 +103,13 @@ static void rosbasesrc_class_init(RosBaseSrcClass * klass)
       (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
   g_object_class_install_property(
+    object_class, PROP_TIME_CAPS,
+    g_param_spec_string(
+      "time-caps", "Time Caps", "Output time caps (e.g., timestamp/x-unix)",
+      "timestamp/x-rostime",  // default
+      (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+  g_object_class_install_property(
     object_class, PROP_ATTACH_REFERENCE_TIMESTAMP,
     g_param_spec_boolean(
       "attach-reference-timestamp", "Attach Reference Timestamp",
@@ -119,6 +127,8 @@ static void rosbasesrc_init(RosBaseSrc * src)
   src->node_name = g_strdup("ros_base_src_node");
   src->node_namespace = g_strdup("");
   src->stream_start_prop = GST_CLOCK_TIME_NONE;
+  src->time_caps = g_strdup("timestamp/x-rostime");
+  src->attach_reference_timestamp = false;
 }
 
 void rosbasesrc_set_property(
@@ -126,7 +136,7 @@ void rosbasesrc_set_property(
 {
   RosBaseSrc * src = GST_ROS_BASE_SRC(object);
 
-  GST_DEBUG_OBJECT(src, "set_property");
+  GST_DEBUG_OBJECT(src, "set_property called, id=%d, name=%s", property_id, pspec->name);
 
   switch (property_id) {
     case PROP_ROS_NAME:
@@ -154,6 +164,11 @@ void rosbasesrc_set_property(
       } else {
         src->stream_start_prop = g_value_get_uint64(value);
       }
+      break;
+
+    case PROP_TIME_CAPS:
+      g_free(src->time_caps);
+      src->time_caps = g_value_dup_string(value);
       break;
 
     case PROP_ATTACH_REFERENCE_TIMESTAMP:
@@ -191,6 +206,10 @@ void rosbasesrc_get_property(
       g_value_set_uint64(value, src->stream_start.nanoseconds());
       // XXX this allows inspection via props,
       //      but may cause confusion because it does not show the actual prop
+      break;
+
+    case PROP_TIME_CAPS:
+      g_value_set_string(value, src->time_caps);
       break;
 
     default:
@@ -314,7 +333,7 @@ void set_timestamps(
   GST_BUFFER_PTS(*buffer) = stream_pts;
 
   if (src->attach_reference_timestamp) {
-    GstCaps * caps = gst_caps_new_empty_simple("timestamp/x-unix");
+    GstCaps * caps = gst_caps_new_empty_simple(src->time_caps);
 
     if (!caps || !GST_IS_CAPS(caps)) {
       GST_WARNING_OBJECT(src, "Could not attach reference timestamp meta: no valid caps");

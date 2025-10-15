@@ -84,7 +84,7 @@ static void rosrawsrc_class_init(RosrawsrcClass * klass)
     object_class, PROP_CAPS,
     g_param_spec_string(
       "caps", "Caps", "Output caps (e.g., application/x-onvif-metadata)",
-      "application/x-onvif-metadata",  // default
+      "ANY",  // default
       (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
   ros_base_src_class->open = GST_DEBUG_FUNCPTR(rosrawsrc_open);
@@ -103,7 +103,7 @@ static void rosrawsrc_init(Rosrawsrc * src)
 
   src->silent = FALSE;
   src->sub_topic = g_strdup("raw");
-  src->caps_string = g_strdup("application/x-onvif-metadata");  // Default caps
+  src->caps_string = g_strdup("ANY");
 
   src->started = false;
   src->msg_queue_max = 1;
