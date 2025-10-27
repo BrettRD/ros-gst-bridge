@@ -553,7 +553,7 @@ static GstFlowReturn rosimagesrc_create (GstBaseSrc * base_src, guint64 offset, 
   gst_buffer_unmap (*buf, &info);
 
   base_time = gst_element_get_base_time(GST_ELEMENT(src));
-  GST_BUFFER_PTS (*buf) = rclcpp::Time(msg->header.stamp).nanoseconds() - ros_base_src->ros_clock_offset - base_time;
+  // GST_BUFFER_PTS (*buf) = rclcpp::Time(msg->header.stamp).nanoseconds() - ros_base_src->ros_clock_offset - base_time;
 
   return ret;
 }
