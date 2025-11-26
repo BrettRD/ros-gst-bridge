@@ -26,6 +26,7 @@
 
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/duration.hpp>
 #include <sensor_msgs/msg/image.hpp>
 
 

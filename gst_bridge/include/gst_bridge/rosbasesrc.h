@@ -24,6 +24,7 @@
 
 //include ROS and ROS message formats
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/experimental/executors/events_executor/events_executor.hpp>
 
 G_BEGIN_DECLS
 
@@ -44,7 +45,6 @@ struct _RosBaseSrc
   gchar* node_name;
   gchar* node_namespace;
 
-  rclcpp::Context::SharedPtr ros_context;
   rclcpp::Executor::SharedPtr ros_executor;
   rclcpp::Node::SharedPtr node;
   rclcpp::Logger logger;
@@ -72,11 +72,13 @@ struct _RosBaseSrcClass
 
 
   /*
-   * destroy the ros subscription(s) and unregister your callbacks and timers and prepare for ros_context->shutdown()
+   * destroy the ros subscription(s) and unregister your callbacks and timers and prepare for shutdown of the rclcpp context
    * called at gstbasesrc->change_state()  GST_STATE_CHANGE_READY_TO_NULL
    * timers and reconf callbacks are currently broken, needs a new thread with an executor, patches welcome
    */
   gboolean (*close) (RosBaseSrc * src);
+
+  gboolean (*notify_thread) (RosBaseSrc * src);
 
 };
 

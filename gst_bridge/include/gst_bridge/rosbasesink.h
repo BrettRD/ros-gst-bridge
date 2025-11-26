@@ -38,13 +38,20 @@ G_BEGIN_DECLS
 typedef struct _RosBaseSink RosBaseSink;
 typedef struct _RosBaseSinkClass RosBaseSinkClass;
 
+//clock source
+enum clk_src
+{
+  ROS_CLOCK,
+  BUFFER_TIMESTAMP_META,
+};
+
 struct _RosBaseSink
 {
   GstBaseSink parent;
   gchar* node_name;
   gchar* node_namespace;
+  gint64 offset_time_ns;
 
-  rclcpp::Context::SharedPtr ros_context;
   rclcpp::Executor::SharedPtr ros_executor;
   rclcpp::Node::SharedPtr node;
   rclcpp::Logger logger;
@@ -55,6 +62,7 @@ struct _RosBaseSink
   rclcpp::Time stream_start;
   rcl_time_point_value_t stream_start_prop; //uint64_t, equiv to GST_TYPE_CLOCK_TIME
   GstClockTimeDiff ros_clock_offset;
+  enum clk_src clock_src;
 };
 
 struct _RosBaseSinkClass
@@ -72,7 +80,7 @@ struct _RosBaseSinkClass
 
 
   /*
-   * destroy the ros publisher(s) and unregister your callbacks and timers and prepare for ros_context->shutdown()
+   * destroy the ros publisher(s) and unregister your callbacks and timers and prepare for the shutdown of the rclcpp context
    * called at gstbasesink->change_state()  GST_STATE_CHANGE_READY_TO_NULL
    * timers and reconf callbacks are currently broken, needs a new thread with an executor, patches welcome
    */

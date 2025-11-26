@@ -556,7 +556,7 @@ static void rosaudiosrc_sub_cb(Rosaudiosrc * src, audio_msgs::msg::Audio::ConstS
         GST_AUDIO_INFO_RATE(&(src->audio_info)), msg->sample_rate);
     if(gst_bridge::getRosEncoding(GST_AUDIO_INFO_FORMAT(&(src->audio_info))) != msg->encoding.c_str() )
       RCLCPP_ERROR(ros_base_src->logger, "audio format changed during playback, encoding %s != %s",
-        gst_bridge::getRosEncoding(GST_AUDIO_INFO_FORMAT(&(src->audio_info))), msg->encoding.c_str()); // XXX account for the override
+        gst_bridge::getRosEncoding(GST_AUDIO_INFO_FORMAT(&(src->audio_info))).c_str(), msg->encoding.c_str()); // XXX account for the override
     if(GST_AUDIO_INFO_ENDIANNESS(&(src->audio_info)) != (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN))
       RCLCPP_ERROR(ros_base_src->logger, "audio format changed during playback, endianness %d != %d",
         GST_AUDIO_INFO_ENDIANNESS(&(src->audio_info)), (msg->is_bigendian ? G_BIG_ENDIAN : G_LITTLE_ENDIAN));

@@ -51,7 +51,7 @@ static void rosbasesrc_init (RosBaseSrc * src);
 static gboolean rosbasesrc_open (RosBaseSrc * src);
 static gboolean rosbasesrc_close (RosBaseSrc * src);
 static void spin_wrapper(RosBaseSrc * src);
-
+static gboolean rosbasesrc_notify_thread (RosBaseSrc * src);
 
 /*
   XXX provide a mechanism for ROS to provide a clock
@@ -64,6 +64,7 @@ enum
   PROP_ROS_NAME,
   PROP_ROS_NAMESPACE,
   PROP_ROS_START_TIME,
+  PROP_ROS_TIME_OFFSET,
 };
 
 /* class initialization */
@@ -231,8 +232,10 @@ static GstStateChangeReturn rosbasesrc_change_state (GstElement * element, GstSt
       break;
     }
     case GST_STATE_CHANGE_READY_TO_PAUSED:
-    //XXX stop the subscription
+      //XXX stop the subscription
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
+      rosbasesrc_notify_thread(src);
+      break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
     default:
       break;
@@ -267,16 +270,19 @@ static gboolean rosbasesrc_open (RosBaseSrc * src)
 
   GST_DEBUG_OBJECT (src, "open");
 
-  src->ros_context = std::make_shared<rclcpp::Context>();
-  src->ros_context->init(0, NULL);    // XXX should expose the init arg list
-  auto opts = rclcpp::NodeOptions();
-  opts.context(src->ros_context); //set a context to generate the node in
-  src->node = std::make_shared<rclcpp::Node>(std::string(src->node_name), std::string(src->node_namespace), opts);
-
-  auto ex_args = rclcpp::ExecutorOptions();
-  ex_args.context = src->ros_context;
-  src->ros_executor = std::make_shared<rclcpp::executors::SingleThreadedExecutor>(ex_args);
-  src->ros_executor->add_node(src->node);
+  try {
+    if (!rclcpp::ok()) {
+      rclcpp::init(0, NULL, rclcpp::InitOptions(), rclcpp::SignalHandlerOptions::None);
+    }
+    src->node = std::make_shared<rclcpp::Node>(std::string(src->node_name), std::string(src->node_namespace));
+    src->ros_executor = std::make_shared<rclcpp::experimental::executors::EventsExecutor>();
+    src->ros_executor->add_node(src->node);
+  }
+  catch (const std::exception &e)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "failed to create node: %s", e.what());
+    return FALSE;
+  }
 
   // allow sub-class to create subscribers on src->node
   if(src_class->open)
@@ -290,6 +296,19 @@ static gboolean rosbasesrc_open (RosBaseSrc * src)
   return result;
 }
 
+static gboolean rosbasesrc_notify_thread (RosBaseSrc * src)
+{
+  RosBaseSrcClass *src_class = GST_ROS_BASE_SRC_GET_CLASS (src);
+  using std::placeholders::_1;
+
+  GST_DEBUG_OBJECT (src, "notify_thread");
+
+  if(src_class->notify_thread)
+    src_class->notify_thread(src);
+
+  return TRUE;
+}
+
 /* close the device */
 static gboolean rosbasesrc_close (RosBaseSrc * src)
 {
@@ -298,8 +317,6 @@ static gboolean rosbasesrc_close (RosBaseSrc * src)
   GST_DEBUG_OBJECT (src, "close");
   gboolean result = TRUE;
 
-  src->clock.reset();
-
   //allow sub-class to clean up before destroying ros context
   if(src_class->close)
     result = src_class->close(src);
@@ -307,13 +324,11 @@ static gboolean rosbasesrc_close (RosBaseSrc * src)
   //stop the executor
   src->ros_executor->cancel();
   src->spin_thread.join();
-  src->ros_context->shutdown("gst closing rosbasesrc");
-
-  //release anything held by shared pointer
-  src->ros_context.reset();
-  src->ros_executor.reset();
-  src->node.reset();
   src->clock.reset();
+  src->node.reset();
+  src->ros_executor.reset();
+
+  rclcpp::shutdown();
   return result;
 }
 

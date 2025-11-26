@@ -22,6 +22,11 @@ if($ENV{CLION_IDE})
   set(audio_msgs_DIR "${PROJECT_SOURCE_DIR}/../../../install/audio_msgs/share/audio_msgs/cmake")
 endif()
 
+find_package(PkgConfig REQUIRED)
+
+# if(NOT TRACETOOLS_TRACEPOINTS_EXCLUDED)
+pkg_search_module(lttng-ust REQUIRED IMPORTED_TARGET lttng-ust)
+# endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -31,34 +36,27 @@ find_package(rclcpp REQUIRED)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 # find gstreamer
-set(gstreamer_components app pbutils audio fft net)
-find_package(GStreamer 1.8.3 REQUIRED COMPONENTS ${gstreamer_components})
+pkg_search_module(gstreamer REQUIRED IMPORTED_TARGET gstreamer-1.0)
+pkg_search_module(gstreamer-base REQUIRED IMPORTED_TARGET gstreamer-base-1.0)
+pkg_search_module(gstreamer-app REQUIRED IMPORTED_TARGET gstreamer-app-1.0)
+pkg_search_module(gstreamer-audio REQUIRED IMPORTED_TARGET gstreamer-audio-1.0)
+pkg_search_module(gstreamer-video REQUIRED IMPORTED_TARGET gstreamer-video-1.0)
+
 
 # find glib
 set(glib_components gio gio-unix gobject gthread gmodule)
-find_package(GLIB 2.28 REQUIRED COMPONENTS ${glib_components})
+find_package(GLIB REQUIRED COMPONENTS ${glib_components})
 
 ## Include messages
 find_package(std_msgs REQUIRED)
 find_package(audio_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
-# find_package(rosidl_default_generators REQUIRED)
-
-## Generate added messages and services with any dependencies listed here
-# rosidl_generate_interfaces(${PROJECT_NAME}
-#   ${msg_files}
-#   DEPENDENCIES builtin_interfaces std_msgs
-# )
-
 
 
 ###########
 ## Build ##
 ###########
-
-
-
 
 # This is a gstreamer plugin, not a ros node
 # the install location needs to be found by gst-inspect
@@ -74,11 +72,8 @@ add_library(rosgstbridge SHARED
   src/rosaudiosrc.cpp
   src/rosimagesrc.cpp
   src/rostextsrc.cpp
-  )
-
-
-#rosidl_target_interfaces(rosgstbridge
-#  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+  src/gst_bridge_tpp.cpp
+)
 
 # ament has a habit of pruning unused linked functions required by gstreamer
 # symptom of this is 'undefined symbol: gst_audio_sink_get_type' on gst-inspect
@@ -87,12 +82,10 @@ target_include_directories(rosgstbridge PRIVATE
   ${sensor_msgs_INCLUDE_DIRS}
   ${audio_msgs_INCLUDE_DIRS}
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
   $<INSTALL_INTERFACE:include>
   ${GLIB_INCLUDE_DIRS}
   ${GOBJECT_INCLUDE_DIR}
-  ${GSTREAMER_INCLUDE_DIRS}
-  ${GSTREAMER_BASE_INCLUDE_DIRS}
-  ${GST_INCLUDE_DIRS}
 )
 
 target_link_libraries(rosgstbridge PUBLIC
@@ -102,12 +95,12 @@ target_link_libraries(rosgstbridge PUBLIC
   ${GLIB_LIBRARIES}
   ${GLIB_GIO_LIBRARIES}
   ${GLIB_GOBJECT_LIBRARIES}
-  ${GSTREAMER_LIBRARIES}
-  ${GSTREAMER_AUDIO_LIBRARIES}
-  ${GSTREAMER_APP_LIBRARIES}
-  ${GSTREAMER_VIDEO_LIBRARIES}
-  ${GSTREAMER_BASE_LIBRARIES}
-  ${GST_LIBRARIES}
+  PkgConfig::gstreamer
+  PkgConfig::gstreamer-app
+  PkgConfig::gstreamer-audio
+  PkgConfig::gstreamer-base
+  PkgConfig::gstreamer-video
+  PkgConfig::lttng-ust
 )
 
 
@@ -123,9 +116,6 @@ target_include_directories(gst_bridge PUBLIC
   $<INSTALL_INTERFACE:include>
   ${GLIB_INCLUDE_DIRS}
   ${GOBJECT_INCLUDE_DIR}
-  ${GSTREAMER_INCLUDE_DIRS}
-  ${GSTREAMER_BASE_INCLUDE_DIRS}
-  ${GST_INCLUDE_DIRS}
 )
 target_link_libraries(gst_bridge PUBLIC
   ${rclcpp_LIBRARIES}
@@ -133,17 +123,15 @@ target_link_libraries(gst_bridge PUBLIC
   ${audio_msgs_LIBRARIES}
   ${GLIB_LIBRARIES}
   ${GLIB_GIO_LIBRARIES}
-  ${GSTREAMER_LIBRARIES}
-  ${GSTREAMER_AUDIO_LIBRARIES}
-  ${GSTREAMER_APP_LIBRARIES}
-  ${GSTREAMER_VIDEO_LIBRARIES}
-  ${GSTREAMER_BASE_LIBRARIES}
-  ${GST_LIBRARIES}
+  PkgConfig::gstreamer
+  PkgConfig::gstreamer-app
+  PkgConfig::gstreamer-audio
+  PkgConfig::gstreamer-base
+  PkgConfig::gstreamer-video
 )
 
 
 ament_export_include_directories(include)
-#ament_export_libraries(gst_bridge src/gst_bridge.cpp)
 ament_export_libraries(gst_bridge)
 
 install(DIRECTORY include/

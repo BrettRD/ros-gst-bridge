@@ -33,6 +33,12 @@
 
 #include <gst_bridge/rosbasesink.h>
 
+#define LTTNG_UST_TRACEPOINT_DEFINE
+#define NTP_TO_UNIX_EPOCH_OFFSET_DAYS (guint64) (70 * 365 + 17) // 70 years and 17 leap days
+#define REF_EPOCH_ROS "timestamp/x-unix"
+#define REF_EPOCH_NTP "timestamp/x-ntp"
+
+#include "gst_bridge_tpp.h"
 
 GST_DEBUG_CATEGORY_STATIC (rosbasesink_debug_category);
 #define GST_CAT_DEFAULT rosbasesink_debug_category
@@ -48,6 +54,8 @@ static void rosbasesink_init (RosBaseSink * rosbasesink);
 
 static GstFlowReturn rosbasesink_render (GstBaseSink * sink, GstBuffer * buffer);
 
+static GstClockTime ntp_to_unix_epoch (GstClockTime ntp_time);
+static std::optional<rclcpp::Time> get_msg_time_from_meta_timestamp(GstReferenceTimestampMeta *ref_meta, rcl_clock_type_t clock_type);
 
 static gboolean rosbasesink_open (RosBaseSink * sink);
 static gboolean rosbasesink_close (RosBaseSink * sink);
@@ -64,6 +72,7 @@ enum
   PROP_ROS_NAME,
   PROP_ROS_NAMESPACE,
   PROP_ROS_START_TIME,
+  PROP_ROS_TIME_OFFSET,
 };
 
 
@@ -107,6 +116,12 @@ static void rosbasesink_class_init (RosBaseSinkClass * klass)
       (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
   );
 
+  g_object_class_install_property (object_class, PROP_ROS_TIME_OFFSET,
+      g_param_spec_int64 ("ros-time-offset", "ros-time-offset", "ROS time offset (nanoseconds)",
+      G_MININT64, G_MAXINT64, GST_CLOCK_TIME_NONE,
+      (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS))
+  );
+
   element_class->change_state = GST_DEBUG_FUNCPTR (rosbasesink_change_state); //use state change events to open and close publishers
   basesink_class->render = GST_DEBUG_FUNCPTR (rosbasesink_render); // gives us a buffer to forward
 
@@ -117,6 +132,7 @@ static void rosbasesink_init (RosBaseSink * sink)
   sink->node_name = g_strdup("gst_base_sink_node");
   sink->node_namespace = g_strdup("");
   sink->stream_start_prop = GST_CLOCK_TIME_NONE;
+  sink->offset_time_ns = 0;
 }
 
 void rosbasesink_set_property (GObject * object, guint property_id,
@@ -162,6 +178,17 @@ void rosbasesink_set_property (GObject * object, guint property_id,
       }
       break;
 
+    case PROP_ROS_TIME_OFFSET:
+      if(sink->node)
+      {
+        RCLCPP_ERROR(sink->logger, "can't change time_offset once opened");
+      }
+      else
+      {
+        sink->offset_time_ns = g_value_get_int64(value);
+      }
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -187,6 +214,10 @@ void rosbasesink_get_property (GObject * object, guint property_id,
       g_value_set_uint64(value, sink->stream_start.nanoseconds());
       // XXX this allows inspection via props,
       //      but may cause confusion because it does not show the actual prop
+      break;
+    
+    case PROP_ROS_TIME_OFFSET:
+      g_value_set_int64(value, sink->offset_time_ns);
       break;
 
     default:
@@ -260,16 +291,20 @@ static gboolean rosbasesink_open (RosBaseSink * sink)
   gboolean result = TRUE;
   GST_DEBUG_OBJECT (sink, "open");
 
-  sink->ros_context = std::make_shared<rclcpp::Context>();
-  sink->ros_context->init(0, NULL);    // XXX should expose the init arg list
-  auto opts = rclcpp::NodeOptions();
-  opts.context(sink->ros_context); //set a context to generate the node in
-  sink->node = std::make_shared<rclcpp::Node>(std::string(sink->node_name), std::string(sink->node_namespace), opts);
-
-  auto ex_args = rclcpp::ExecutorOptions();
-  ex_args.context = sink->ros_context;
-  sink->ros_executor = std::make_shared<rclcpp::executors::SingleThreadedExecutor>(ex_args);
-  sink->ros_executor->add_node(sink->node);
+  try {
+    if (!rclcpp::ok()) {
+      rclcpp::init(0, NULL, rclcpp::InitOptions(), rclcpp::SignalHandlerOptions::None);
+    }
+    sink->node = std::make_shared<rclcpp::Node>(std::string(sink->node_name), std::string(sink->node_namespace));
+    sink->ros_executor = std::make_shared<rclcpp::experimental::executors::EventsExecutor>();
+    sink->ros_executor->add_node(sink->node);
+    lttng_ust_tracepoint(gst_bridge, gst_sink_open, static_cast<const void *>(sink->node->get_node_base_interface()->get_rcl_node_handle()), static_cast<const void *>(sink));
+  }
+  catch (const std::exception &e)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "failed to create node: %s", e.what());
+    return FALSE;
+  }
 
   // allow sub-class to create publishers on sink->node
   if(sink_class->open)
@@ -292,19 +327,18 @@ static gboolean rosbasesink_close (RosBaseSink * sink)
 
   GST_DEBUG_OBJECT (sink, "close");
 
-  sink->clock.reset();
-
   //allow sub-class to clean up before destroying ros context
   if(sink_class->close)
     result = sink_class->close(sink);
 
-  // XXX do something with result
-  //XXX executor
   sink->ros_executor->cancel();
   sink->spin_thread.join();
 
+  sink->clock.reset();
   sink->node.reset();
-  sink->ros_context->shutdown("gst closing rosbasesink");
+  sink->ros_executor.reset();
+
+  rclcpp::shutdown();
   return result;
 }
 
@@ -313,10 +347,39 @@ static void spin_wrapper(RosBaseSink * sink)
   sink->ros_executor->spin();
 }
 
+static GstClockTime ntp_to_unix_epoch(GstClockTime ntp_time)
+{
+  return ntp_time - (NTP_TO_UNIX_EPOCH_OFFSET_DAYS * 24 * 60 * 60 * 1000000000 * GST_NSECOND);
+}
 
-static GstFlowReturn rosbasesink_render (GstBaseSink * base_sink, GstBuffer * buf)
+static std::optional<rclcpp::Time> get_msg_time_from_meta_timestamp(GstReferenceTimestampMeta *ref_meta, rcl_clock_type_t clock_type)
+{
+  if (!GST_CLOCK_TIME_IS_VALID (ref_meta->timestamp))
+  {
+    return std::nullopt;
+  }
+
+  // RTCP packet protocol states that all timestamps are returrned in NTP format
+  const char *meta_ref_name = gst_structure_get_name(gst_caps_get_structure(ref_meta->reference, 0));
+
+  if (strcmp (meta_ref_name, REF_EPOCH_NTP) == 0)
+  {
+    return rclcpp::Time (ntp_to_unix_epoch (ref_meta->timestamp), clock_type);
+  }
+  else if (strcmp (meta_ref_name, REF_EPOCH_ROS) == 0)
+  {
+    return rclcpp::Time (ref_meta->timestamp, clock_type);
+  }
+  else
+  {
+    return std::nullopt;
+  }
+}
+
+static GstFlowReturn rosbasesink_render(GstBaseSink * base_sink, GstBuffer * buf)
 {
   rclcpp::Time msg_time;
+  std::optional<rclcpp::Time> meta_msg_time;
   GstClockTimeDiff base_time;
 
   RosBaseSink *sink = GST_ROS_BASE_SINK (base_sink);
@@ -324,9 +387,42 @@ static GstFlowReturn rosbasesink_render (GstBaseSink * base_sink, GstBuffer * bu
 
   GST_DEBUG_OBJECT (sink, "render");
 
-  // XXX look at the base sink clock synchronising features
-  base_time = gst_element_get_base_time(GST_ELEMENT(sink));
-  msg_time = rclcpp::Time(GST_BUFFER_PTS(buf) + base_time + sink->ros_clock_offset, sink->clock->get_clock_type());
+  GstReferenceTimestampMeta *ref_meta = gst_buffer_get_reference_timestamp_meta (buf, NULL);
+  if (ref_meta == NULL)
+  {
+    RCLCPP_DEBUG(sink->logger, "could not get reference-timestamp-meta, using ros clock as fallback");
+  }
+  else
+  {
+    // Convert the NTP time souce to ros clock epoch source
+    meta_msg_time = get_msg_time_from_meta_timestamp (ref_meta, sink->clock->get_clock_type());
+    RCLCPP_DEBUG(sink->logger, "got reference-timestamp-meta from rosimagesink buffer: %ld", ref_meta->timestamp);
+  }
+
+  // If the timestamp_meta is not set in gst pipeline, use the ros clock
+  if (!meta_msg_time) 
+  {
+    RCLCPP_DEBUG(sink->logger, "generating msg_time from ROS clock");
+    base_time = gst_element_get_base_time (GST_ELEMENT (sink));
+    msg_time = rclcpp::Time(GST_BUFFER_PTS(buf) + base_time + sink->ros_clock_offset, sink->clock->get_clock_type());
+    if (sink->clock_src == BUFFER_TIMESTAMP_META)
+    {
+      RCLCPP_INFO(sink->logger, "changed clock source to: ROS_CLOCK");
+      sink->clock_src = ROS_CLOCK;
+    }
+  } 
+  else
+  {
+    RCLCPP_DEBUG(sink->logger, "generating msg_time from timestamp meta");
+    msg_time = *meta_msg_time;
+    if (sink->clock_src == ROS_CLOCK)
+    {
+      RCLCPP_INFO(sink->logger, "changed clock source to: BUFFER_TIMESTAMP_META");
+      sink->clock_src = BUFFER_TIMESTAMP_META;
+    }
+  }
+
+  lttng_ust_tracepoint(gst_bridge, gst_sink_render, static_cast<const void *>(sink_class), msg_time.nanoseconds());
 
   if(NULL != sink_class->render)
     return sink_class->render(sink, buf, msg_time);
