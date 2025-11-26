@@ -553,7 +553,11 @@ static GstFlowReturn rosimagesrc_create (GstBaseSrc * base_src, guint64 offset, 
   gst_buffer_unmap (*buf, &info);
 
   base_time = gst_element_get_base_time(GST_ELEMENT(src));
-  GST_BUFFER_PTS (*buf) = rclcpp::Time(msg->header.stamp).nanoseconds() - ros_base_src->ros_clock_offset - base_time;
+  // don't timestamp frames based on when their recorded ros time, as this breaks both the framerate element
+  // and the lookout pipeline. When it is disabled the pipeline will timestamp them based on when it captures
+  // them, so to any webrtc clients it will be as if these were being livestreamed. Nodes like object tracker
+  // and detector onnx will use the actual ros message image which will contain the correct timestamps
+  // GST_BUFFER_PTS (*buf) = rclcpp::Time(msg->header.stamp).nanoseconds() - ros_base_src->ros_clock_offset - base_time;
 
   return ret;
 }

@@ -271,7 +271,9 @@ static gboolean rosbasesrc_open (RosBaseSrc * src)
   GST_DEBUG_OBJECT (src, "open");
 
   try {
-    rclcpp::init(0, NULL, rclcpp::InitOptions(), rclcpp::SignalHandlerOptions::None);
+    if (!rclcpp::ok()) {
+      rclcpp::init(0, NULL, rclcpp::InitOptions(), rclcpp::SignalHandlerOptions::None);
+    }
     src->node = std::make_shared<rclcpp::Node>(std::string(src->node_name), std::string(src->node_namespace));
     src->ros_executor = std::make_shared<rclcpp::experimental::executors::EventsExecutor>();
     src->ros_executor->add_node(src->node);
