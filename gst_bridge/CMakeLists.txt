@@ -159,6 +159,6 @@ ament_export_dependencies(
 )
 
 ament_package(
-  CONFIG_EXTRAS
+  CONFIG_EXTRAS cmake/gst_bridge-extras.cmake
 )
 
