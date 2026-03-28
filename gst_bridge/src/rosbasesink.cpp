@@ -32,6 +32,9 @@
 
 #include <gst_bridge/rosbasesink.h>
 
+#include <cstdint>
+#include <optional>
+
 GST_DEBUG_CATEGORY_STATIC(rosbasesink_debug_category);
 #define GST_CAT_DEFAULT rosbasesink_debug_category
 
@@ -55,12 +58,61 @@ static gboolean rosbasesink_close(RosBaseSink * sink);
   XXX provide a mechanism for ROS to provide a clock
 */
 
-enum {
-  PROP_0,
-  PROP_ROS_NAME,
-  PROP_ROS_NAMESPACE,
-  PROP_ROS_START_TIME,
-};
+enum { PROP_0, PROP_ROS_NAME, PROP_ROS_NAMESPACE, PROP_ROS_START_TIME, PROP_TIMESTAMP_MODE, PROP_TIMESTAMP_CONVERSION_MODE };
+
+std::optional<rclcpp::Time> get_reference_timestamp(GstBuffer * buf)
+{
+  GstReferenceTimestampMeta * ref_meta = gst_buffer_get_reference_timestamp_meta(buf, nullptr);
+
+  if (ref_meta) {
+    rclcpp::Time time_stamp{};
+
+    constexpr uint64_t NTP_UNIX_OFFSET_SECS = 2'208'988'800ULL;
+    constexpr uint64_t NTP_UNIX_OFFSET_NS = NTP_UNIX_OFFSET_SECS * 1'000'000'000ULL;
+
+    uint64_t corrected_ns = ref_meta->timestamp - NTP_UNIX_OFFSET_NS;
+
+    GstClockTime ntp_time = corrected_ns;
+
+    time_stamp = rclcpp::Time(static_cast<int64_t>(ntp_time));
+
+    return time_stamp;
+  }
+
+  return std::nullopt;
+}
+
+static GType gst_ros_timestamp_mode_get_type(void)
+{
+  static GType type = 0;
+  if (!type) {
+    static const GEnumValue values[] = {
+      {TIMESTAMP_MODE_ROS_OFFSET, "Ros Offset Adjusted", "ros-offset"},
+      {TIMESTAMP_MODE_REFERENCE, "Reference Timestamp (NTP)", "reference"},
+      {TIMESTAMP_MODE_PTS, "Presentation Timestamp", "pts"},
+      {0, NULL, NULL}};
+    type = g_enum_register_static("GstRosTimestampMode", values);
+  }
+  return type;
+}
+
+static GType gst_timestamp_conversion_mode_get_type(void)
+{
+  static GType type = 0;
+  if (!type) {
+    static const GEnumValue values[] = {
+      {CONVERSION_MODE_NONE, "No timestamp conversion", "none"},
+      {CONVERSION_MODE_NTP_2_UNIX, "NTP to UNIX", "ntp2unix"},
+      {0, NULL, NULL}};
+    type = g_enum_register_static("GstTimestampConversionMode", values);
+  }
+  return type;
+}
+
+rcl_clock_type_t get_clock_type_from(RosBaseSink * sink)
+{
+  return sink->node_if->clock->get_clock()->get_clock_type();
+}
 
 /* class initialization */
 
@@ -100,6 +152,22 @@ static void rosbasesink_class_init(RosBaseSinkClass * klass)
     g_param_spec_uint64(
       "ros-start-time", "ros-start-time", "ROS time (nanoseconds) of the first message", 0,
       (guint64)(-1), GST_CLOCK_TIME_NONE,
+      (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+  g_object_class_install_property(
+    object_class, PROP_TIMESTAMP_MODE,
+    g_param_spec_enum(
+      "timestamp-mode", "Timestamp Mode", "How to generate ROS timestamps from incoming buffers",
+      GST_TYPE_ROS_TIMESTAMP_MODE,
+      TIMESTAMP_MODE_ROS_OFFSET,  // default
+      (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+  
+  g_object_class_install_property(
+    object_class, PROP_TIMESTAMP_CONVERSION_MODE,
+    g_param_spec_enum(
+      "timestamp-conversion-mode", "Timestamp Conversion Mode", "Convert incoming timestamps",
+      GST_TYPE_TIMESTAMP_CONVERSION_MODE,
+      CONVERSION_MODE_NONE,  // default
       (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
   element_class->change_state = GST_DEBUG_FUNCPTR(
@@ -149,6 +217,14 @@ void rosbasesink_set_property(
       }
       break;
 
+    case PROP_TIMESTAMP_MODE:
+      sink->timestamp_mode = (RosTimestampMode)g_value_get_enum(value);
+      break;
+
+    case PROP_TIMESTAMP_CONVERSION_MODE:
+      sink->timestamp_conversion_mode = (TimestampConversionMode)g_value_get_enum(value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
       break;
@@ -174,6 +250,14 @@ void rosbasesink_get_property(
       g_value_set_uint64(value, sink->stream_start.nanoseconds());
       // XXX this allows inspection via props,
       //      but may cause confusion because it does not show the actual prop
+      break;
+
+    case PROP_TIMESTAMP_MODE:
+      g_value_set_enum(value, sink->timestamp_mode);
+      break;
+    
+    case PROP_TIMESTAMP_CONVERSION_MODE:
+      g_value_set_enum(value, sink->timestamp_conversion_mode);
       break;
 
     default:
@@ -278,21 +362,56 @@ static gboolean rosbasesink_close(RosBaseSink * sink)
   return result;
 }
 
+int64_t ntp_to_unix(const int64_t &ntp_nsec)
+{
+  static constexpr int64_t NTP_UNIX_OFFSET_SEC = 2208988800LL;
+  return ntp_nsec - (NTP_UNIX_OFFSET_SEC * 1000000000LL);;
+}
+
 static GstFlowReturn rosbasesink_render(GstBaseSink * base_sink, GstBuffer * buf)
 {
   rclcpp::Time msg_time;
-  GstClockTimeDiff base_time;
 
   RosBaseSink * sink = GST_ROS_BASE_SINK(base_sink);
   RosBaseSinkClass * sink_class = GST_ROS_BASE_SINK_GET_CLASS(sink);
 
   GST_DEBUG_OBJECT(sink, "render");
 
-  // XXX look at the base sink clock synchronising features
-  base_time = gst_element_get_base_time(GST_ELEMENT(sink));
-  msg_time = rclcpp::Time(
-    GST_BUFFER_PTS(buf) + base_time + sink->ros_clock_offset,
-    sink->node_if->clock->get_clock()->get_clock_type());
+  switch (sink->timestamp_mode) {
+    case TIMESTAMP_MODE_REFERENCE: {
+      auto reference_time = get_reference_timestamp(buf);
+
+      if (reference_time.has_value()) {
+        msg_time = *reference_time;
+      } else {
+        if (sink->node_if)
+          RCLCPP_WARN(sink->node_if->logging->get_logger(), "no reference timestamp found");
+      }
+      break;
+    }
+    case TIMESTAMP_MODE_PTS: {
+      msg_time = rclcpp::Time(GST_BUFFER_PTS(buf), get_clock_type_from(sink));
+      break;
+    }
+    case TIMESTAMP_MODE_ROS_OFFSET: {
+      // XXX look at the base sink clock synchronising features
+      GstClockTimeDiff base_time = gst_element_get_base_time(GST_ELEMENT(sink));
+
+      msg_time = rclcpp::Time(
+        GST_BUFFER_PTS(buf) + base_time + sink->ros_clock_offset, get_clock_type_from(sink));
+    }
+  }
+
+  switch (sink->timestamp_conversion_mode) {
+    case CONVERSION_MODE_NONE:
+      // do nothing
+      break;
+    case CONVERSION_MODE_NTP_2_UNIX: {
+      // convert NTP to UNIX time
+      msg_time = rclcpp::Time(ntp_to_unix(msg_time.nanoseconds()), msg_time.get_clock_type());
+      break;
+    }
+  }
 
   if (NULL != sink_class->render) return sink_class->render(sink, buf, msg_time);
 

@@ -50,6 +50,7 @@ find_package(std_msgs REQUIRED)
 find_package(audio_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
+find_package(gst_msgs REQUIRED)
 
 
 ###########
@@ -68,6 +69,7 @@ target_include_directories(gst_bridge PUBLIC
   ${rclcpp_INCLUDE_DIRS}
   ${sensor_msgs_INCLUDE_DIRS}
   ${audio_msgs_INCLUDE_DIRS}
+  ${gst_msgs_INCLUDE_DIRS}
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
   ${GLIB_INCLUDE_DIRS}
@@ -77,6 +79,7 @@ target_link_libraries(gst_bridge PUBLIC
   ${rclcpp_LIBRARIES}
   ${sensor_msgs_LIBRARIES}
   ${audio_msgs_LIBRARIES}
+  ${gst_msgs_LIBRARIES}
   ${GLIB_LIBRARIES}
   ${GLIB_GIO_LIBRARIES}
   PkgConfig::gstreamer
@@ -99,6 +102,8 @@ add_library(rosgstbridge SHARED
   src/rosaudiosrc.cpp
   src/rosimagesrc.cpp
   src/rostextsrc.cpp
+  src/rosrawsrc.cpp
+  src/rosrawsink.cpp
 )
 
 
