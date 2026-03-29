@@ -24,10 +24,10 @@
 #include <gst_bridge/rosaudiosink.h>
 #include <gst_bridge/rosaudiosrc.h>
 #include <gst_bridge/rosimagesink.h>
+#include <gst_bridge/roscompimagesink.h>
 #include <gst_bridge/rosimagesrc.h>
 #include <gst_bridge/rostextsink.h>
 #include <gst_bridge/rostextsrc.h>
-
 static gboolean plugin_init(GstPlugin * plugin)
 {
   /* FIXME Remember to set the rank if it's an element that is meant
@@ -44,6 +44,8 @@ static gboolean plugin_init(GstPlugin * plugin)
   gst_element_register(plugin, "rosimagesrc", GST_RANK_NONE, GST_TYPE_ROSIMAGESRC);
 
   gst_element_register(plugin, "rostextsrc", GST_RANK_NONE, GST_TYPE_ROSTEXTSRC);
+
+  gst_element_register(plugin, "roscompimagesink", GST_RANK_NONE, GST_TYPE_ROSCOMPIMAGESINK);
 
   return true;
 }
